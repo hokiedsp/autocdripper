@@ -361,19 +361,20 @@ SDbrBase* CDbCDDB::Retrieve(const int recnum)
 	rec->Performer = cddb_disc_get_artist(disc);	// performer (80-char long max)
 	rec->Title = cddb_disc_get_title(disc);
 	
+	rec->Rems.emplace_back("SRCDB FreeDB");	// source database
 	rec->Rems.emplace_back("DISCID ");	// comments on the disc 
-	rec->Rems[0].append(GetDiscId()); 
+	rec->Rems[1].append(GetDiscId()); 
 
 	rec->Rems.emplace_back("LENGTH ");
-	rec->Rems[1].append(to_string(cddb_disc_get_length(disc)));
+	rec->Rems[2].append(to_string(cddb_disc_get_length(disc)));
 	
 	rec->Rems.emplace_back("GENRE ");
 	str = cddb_disc_get_genre(disc);
-	if (str) rec->Rems[2].append(cddb_disc_get_genre(disc));
-	else rec->Rems[2].append(cddb_disc_get_category_str(disc));
+	if (str) rec->Rems[3].append(cddb_disc_get_genre(disc));
+	else rec->Rems[3].append(cddb_disc_get_category_str(disc));
 
 	rec->Rems.emplace_back("DATE ");
-	rec->Rems[3].append(to_string(cddb_disc_get_year(disc)));
+	rec->Rems[4].append(to_string(cddb_disc_get_year(disc)));
 
 	str = cddb_disc_get_ext_data(disc);
 	if (str) rec->Rems.emplace_back(str);

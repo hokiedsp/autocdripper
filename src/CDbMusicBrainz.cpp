@@ -163,6 +163,61 @@ void CDbMusicBrainz::Populate(const int recnum, const int timeout)
 	}
 }
 
+/** Form an artist credit string 
+ *
+ *  @param[in] ArtistCredit query data
+ *  @param[in] true to use SortName (if available) for the first asrtist's name
+ *             (default is false) 
+ *  @return    Artist name in plain string
+ */
+std::string CDbMusicBrainz::GetArtistString_(const MusicBrainz5::CArtistCredit &credit, const bool sortfirst)
+{
+	string str;
+	CNameCredit *name;
+	CArtist *artist;
+	int n;
+
+	// get the name list
+	CNameCreditList * list = credit.NameCreditList();
+	if (!(list && (n=list->NumItems()))) return str; // no credit
+	
+	// get the first artist
+	name = list->Item(0);
+	if (!name) return str;
+	
+	artist=name->Artist();
+	if (artist)
+	{
+		// grab the first artist's name
+		if (sortfirst) str = artist->SortName();
+		if (!sortfirst || str.empty()) str = artist->Name();
+		if (str.empty()) str = name->Name();
+	}
+	
+	// append join phrase if available
+	str.append(name->JoinPhrase());
+	
+	for (int i=1;i<n;i++)
+	{
+		name = list->Item(i);
+		if (!name) return str; // no name, abort
+		artist=name->Artist();
+		
+		string next;
+		if (artist)
+		{
+			// grab the first artist's name
+			next = artist->Name();
+			if (next.empty()) str = name->Name();
+		}
+
+		str.append(next);
+		str.append(name->JoinPhrase());
+	}
+
+	return str;
+}
+
 /** Retrieve the disc info from specified database record
  *
  *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
@@ -172,68 +227,120 @@ void CDbMusicBrainz::Populate(const int recnum, const int timeout)
  */
 SDbrBase* CDbMusicBrainz::Retrieve(const int recnum)
 {
+	int nrems;
 	//const char *str;	// temp
 	//ostringstream stream; // for formatting
 
 	// instantiate new DBR object
 	SDbrMusicBrainz * rec = new SDbrMusicBrainz;
 
-/*
 	// set disc
-	if (recnum<0 || recnum>=(int)discs.size()) // all discs
+	if (recnum<0 || recnum>=(int)Releases.size()) // all discs
 		throw(runtime_error("Invalid CD record ID."));
 
-	// populate the disc info (use REM for non-essential data)
-	// grab the disc info
-	cddb_disc_t *disc = discs[recnum];
+	// Grab the specified release info
+	const CRelease &r = Releases[recnum];
 
-	rec->Performer = cddb_disc_get_artist(disc);	// performer (80-char long max)
-	rec->Title = cddb_disc_get_title(disc);
-	
+	if (r.ArtistCredit ())
+		rec->Performer = GetArtistString_(*r.ArtistCredit());
+	rec->Title = r.Title();
+
+	rec->Rems.emplace_back("DBSRC MusicBrainz");	
 	rec->Rems.emplace_back("DISCID ");	// comments on the disc 
-	stream << std::setfill ('0') << std::setw(8) << std::hex << cddb_disc_get_discid(disc);
-	rec->Rems[0].append(stream.str()); 
+	rec->Rems[1].append(discid); 
 
-	rec->Rems.emplace_back("LENGTH ");
-	rec->Rems[1].append(to_string(cddb_disc_get_length(disc)));
+	rec->Rems.emplace_back("MBID ");
+	rec->Rems[2].append(r.ID()); 
+	nrems = 3;
+
+	if (!r.Date().empty())
+	{
+		rec->Rems.emplace_back("DATE ");
+		rec->Rems[3].append(r.Date());
+		nrems++;
+	}
+
+	if (!r.Country().empty())
+	{
+		rec->Rems.emplace_back("COUNTRY ");
+		rec->Rems[nrems].append(r.Country());
+		nrems++;
+	}
 	
-	rec->Rems.emplace_back("GENRE ");
-	str = cddb_disc_get_genre(disc);
-	if (str) rec->Rems[2].append(cddb_disc_get_genre(disc));
-	else rec->Rems[2].append(cddb_disc_get_category_str(disc));
-
-	rec->Rems.emplace_back("DATE ");
-	rec->Rems[3].append(to_string(cddb_disc_get_year(disc)));
-
-	str = cddb_disc_get_ext_data(disc);
-	if (str) rec->Rems.emplace_back(str);
+	if (!r.Barcode().empty())
+	{
+		rec->Rems.emplace_back("BARCODE ");
+		rec->Rems[nrems].append(r.Barcode());
+		nrems++;
+	}
+	
+	if (!r.ASIN().empty())
+	{
+		rec->Rems.emplace_back("ASIN ");
+		rec->Rems[nrems].append(r.ASIN());
+		nrems++;
+	}
+	
+	if (r.LabelInfoList() && r.LabelInfoList()->NumItems()>0)
+	{
+		CLabel *info = r.LabelInfoList ()->Item(0)->Label();
+		if (!info->Name().empty())
+		{
+			rec->Rems.emplace_back("LABEL ");
+			rec->Rems[nrems].append(info->Name());
+			nrems++;
+		}
+	}
+	
+	// get cd media info
+	CMediumList media = r.MediaMatchingDiscID(discid); // guarantees to return non-NULL
+	CMedium *medium = media.Item(0);
+		
+	// get disc# and total # of cds if multiple-cd set
+	if (r.MediumList()->NumItems()>1)
+	{
+		rec->Rems.emplace_back("DISC ");
+		rec->Rems[nrems].append(to_string(medium->Position()));
+		nrems++;
+		
+		rec->Rems.emplace_back("DISCS ");
+		rec->Rems[nrems].append(to_string(r.MediumList()->NumItems()));
+		nrems++;
+	}
 
 	// initialize tracks
-	int num_tracks = cddb_disc_get_track_count(disc);
+	if (!medium->TrackList()) return rec;
+	int num_tracks = medium->TrackList()->NumItems();
 	rec->AddTracks(num_tracks); // adds Tracks 1 to num_tracks
-	
-	// for each track
-	cddb_track_t * track = cddb_disc_get_track_first (disc);
-	for (int i = 1; i <= num_tracks ; i++)
+
+	string str;
+	for (int i=0;i<num_tracks;i++)
 	{
-		if (track==NULL)
-			throw(runtime_error(cddb_error_str(cddb_errno(conn))));
-	
+		CTrack *track = medium->TrackList()->Item(i);
+		if (!track) continue;
+		CRecording *recording = track->Recording();
+
 		// get the track object
-		SCueTrack &rectrack = rec->Tracks[i-1];
+		SCueTrack &rectrack = rec->Tracks[i];
 
-		// add Index 1 with the start time
-		rectrack.AddIndex(1,cddb_track_get_frame_offset(track));
-		
-		rectrack.Title = cddb_track_get_title(track);
-		rectrack.Performer = cddb_track_get_artist(track);
+		if (recording)	str = recording->Title();
+		else str.clear();
+		if (str.empty()) str = track->Title();
+		rectrack.Title = str;
 
-		str = cddb_track_get_ext_data(track);
-		if (str) rectrack.Rems.emplace_back(str);
+		if (recording && recording->ArtistCredit())
+			str = GetArtistString_(*recording->ArtistCredit());
+		else
+			str.clear();
+		if (str.empty() && track->ArtistCredit())
+			str = GetArtistString_(*track->ArtistCredit());
+		rectrack.Performer = str;
 
-		if (i!= num_tracks) track = cddb_disc_get_track_next (disc);
+		CISRCList *isrcs = recording->ISRCList();
+		if (isrcs && isrcs->NumItems()>0)
+			rectrack.ISRC = isrcs->Item(0)->ID();
 	}
-	*/
+
 	return rec;
 }
 

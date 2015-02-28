@@ -40,11 +40,17 @@ int main(int argc, const char *argv[])
 		*/
 		
 		CDbMusicBrainz mb5;
-		mb5.Query(cdrom.GetPath(), cdrom.CueSheet, cdrom.GetLength(),true);	// auto-populate
+		mb5.Query(cdrom.GetPath(), cdrom.CueSheet, cdrom.GetLength(),false);	// auto-populate
 		cout << "DISCID: " << mb5.GetDiscId() << endl << endl;
 		mb5.Print();
-		cout << endl;
-		mb5.Print(mb5.NumberOfMatches()-1);
+		int nmatches = mb5.NumberOfMatches();
+		if (nmatches>0)
+		{
+			mb5.Populate(nmatches-1);
+			//mb5.Print(nmatches-1);
+			std::unique_ptr<SDbrBase> cdr(mb5.Retrieve(nmatches-1));
+			cout << *cdr << endl;
+		}
 	}
 	catch (exception& e)
 	{

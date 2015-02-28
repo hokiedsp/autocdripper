@@ -3,9 +3,11 @@
 #include <deque>
 #include <string>
 #include <musicbrainz5/Query.h>
+#include <musicbrainz5/ArtistCredit.h>
 
 #include "SCueSheet.h"
 #include "SDbrBase.h"
+#include "credirect.h" // to redirect std::cerr stream
 
 /** MusicBrainz CD Database Record structure - SCueSheet with DbType()
  */
@@ -142,6 +144,15 @@ private:
 	/** Clear all the disc entries
 	 */
 	void ClearDiscs_();
+
+	/** Form an artist credit string 
+	 *
+	 *  @param[in] ArtistCredit query data
+	 *  @param[in] true to use SortName (if available) for the first asrtist's name
+	 *             (default is false) 
+	 *  @return    Artist name in plain string
+	 */
+	std::string GetArtistString_(const MusicBrainz5::CArtistCredit &credit, const bool sortfirst=false);
 
 	std::string discid;
 	MusicBrainz5::CQuery MB5;
