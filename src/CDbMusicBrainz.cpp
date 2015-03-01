@@ -134,7 +134,6 @@ std::string CDbMusicBrainz::GetDiscId() const
     return discid;
 }
 
-
 /** Returns the number of matches (records) returned from the last Query() call.
  *
  *  @return    Number of matches
@@ -144,14 +143,85 @@ int CDbMusicBrainz::NumberOfMatches() const
     return Releases.size();
 };
 
-/** Returns the CD record ID associated  with the specified genre. If no matching
- *  record is found, it returns -1.
+/** Get album title
  *
- *  @return Matching CD record ID. -1 if no match found.
+ *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+ *             is returned.
+ *  @return    Title string (empty if title not available)
  */
-int CDbMusicBrainz::MatchByGenre(const std::string &genre) const
+std::string CDbMusicBrainz::AlbumTitle(const int recnum) const
 {
-    return -1;
+    // set disc
+    if (recnum<0 || recnum>=(int)Releases.size()) // all discs
+        throw(runtime_error("Invalid CD record ID."));
+
+    return Releases[recnum].Title();
+}
+
+/** Get album artist
+ *
+ *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+ *             is returned.
+ *  @return    Artist string (empty if artist not available)
+ */
+std::string CDbMusicBrainz::AlbumArtist(const int recnum) const
+{
+    // set disc
+    if (recnum<0 || recnum>=(int)Releases.size()) // all discs
+        throw(runtime_error("Invalid CD record ID."));
+
+    CArtistCredit *credit = Releases[recnum].ArtistCredit();
+    if (credit) return GetArtistString_(*credit);
+    else return "";
+}
+
+/** Get label name
+ *
+ *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+ *             is returned.
+ *  @return    Label string (empty if label not available)
+ */
+std::string CDbMusicBrainz::AlbumLabel(const int recnum) const
+{
+    // set disc
+    if (recnum<0 || recnum>=(int)Releases.size()) // all discs
+        throw(runtime_error("Invalid CD record ID."));
+
+    CLabelInfoList *list = Releases[recnum].LabelInfoList();
+    CLabelInfo *info;
+    CLabel *label;
+    if (list && list->NumItems() && (info=list->Item(0)) && (label=info->Label())) return label->Name();
+    else return "";
+}
+
+/** Get album UPC
+ *
+ *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+ *             is returned.
+ *  @return    UPC string (empty if title not available)
+ */
+std::string CDbMusicBrainz::AlbumUPC(const int recnum) const
+{
+    // set disc
+    if (recnum<0 || recnum>=(int)Releases.size()) // all discs
+        throw(runtime_error("Invalid CD record ID."));
+
+    return Releases[recnum].Barcode();
+}
+
+/** Get album ASIN (Amazon Standard Identification Number)
+ *
+ *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+ *             is returned.
+ *  @return    ASIN string (empty if title not available)
+ */
+std::string CDbMusicBrainz::AlbumASIN(const int recnum) const
+{
+    // set disc
+    if (recnum<0 || recnum>=(int)Releases.size()) // all discs
+        throw(runtime_error("Invalid CD record ID."));
+
+    return Releases[recnum].ASIN();
 }
 
 /** Look up full disc information from MusicBrainz server. It supports single record or
@@ -192,7 +262,7 @@ void CDbMusicBrainz::Populate(const int recnum, const int timeout)
  *             (default is false)
  *  @return    Artist name in plain string
  */
-std::string CDbMusicBrainz::GetArtistString_(const MusicBrainz5::CArtistCredit &credit, const bool sortfirst)
+std::string CDbMusicBrainz::GetArtistString_(const MusicBrainz5::CArtistCredit &credit, const bool sortfirst) const
 {
     string str;
     CNameCredit *name;
@@ -247,7 +317,7 @@ std::string CDbMusicBrainz::GetArtistString_(const MusicBrainz5::CArtistCredit &
  *  @return    SDbrBase Pointer to newly created database record object. Caller is
  *             responsible for deleting the object.
  */
-SDbrBase* CDbMusicBrainz::Retrieve(const int recnum)
+SDbrBase* CDbMusicBrainz::Retrieve(const int recnum) const
 {
     int nrems;
     //const char *str;	// temp
@@ -291,7 +361,7 @@ SDbrBase* CDbMusicBrainz::Retrieve(const int recnum)
 
     if (!r.Barcode().empty())
     {
-        rec->Rems.emplace_back("BARCODE ");
+        rec->Rems.emplace_back("UPC ");
         rec->Rems[nrems].append(r.Barcode());
         nrems++;
     }
@@ -303,15 +373,15 @@ SDbrBase* CDbMusicBrainz::Retrieve(const int recnum)
         nrems++;
     }
 
-    if (r.LabelInfoList() && r.LabelInfoList()->NumItems()>0)
+    CLabelInfoList *list = r.LabelInfoList();
+    CLabelInfo *info;
+    CLabel *label;
+    string name;
+    if (list && list->NumItems() && (info=list->Item(0)) && (label=info->Label()) && (name=label->Name()).size())
     {
-        CLabel *info = r.LabelInfoList ()->Item(0)->Label();
-        if (!info->Name().empty())
-        {
-            rec->Rems.emplace_back("LABEL ");
-            rec->Rems[nrems].append(info->Name());
-            nrems++;
-        }
+        rec->Rems.emplace_back("LABEL ");
+        rec->Rems[nrems].append(name);
+        nrems++;
     }
 
     // get cd media info
@@ -647,11 +717,12 @@ bool CDbMusicBrainz::Back(const int recnum) const
  *  @param[out] image data buffer.
  *  @param[in]  record index (default=0)
  */
-void CDbMusicBrainz::FrontData(std::vector<unsigned char> &data, const int recnum) const
+std::vector<unsigned char> CDbMusicBrainz::FrontData(const int recnum) const
 {
     if (recnum<0||recnum>(int)CoverArts.size())
         throw(runtime_error("Invalid Record Index requested."));
 
+    return CAA.FetchFront(Releases[recnum].ID());
 }
 
 /** Check if the query returned a front cover
@@ -659,11 +730,12 @@ void CDbMusicBrainz::FrontData(std::vector<unsigned char> &data, const int recnu
  *  @param[out] image data buffer.
  *  @param[in]  record index (default=0)
  */
-void CDbMusicBrainz::BackData(std::vector<unsigned char> &data, const int recnum) const
+std::vector<unsigned char> CDbMusicBrainz::BackData(const int recnum) const
 {
     if (recnum<0||recnum>(int)CoverArts.size())
         throw(runtime_error("Invalid Record Index requested."));
 
+    return CAA.FetchBack(Releases[recnum].ID());
 }
 
 /** Get the URL of the front cover image

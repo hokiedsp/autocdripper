@@ -58,14 +58,14 @@ public:
      *  @param[out] image data buffer.
      *  @param[in]  record index (default=0)
      */
-    virtual void FrontData(std::vector<unsigned char> &data, const int recnum=0) const=0;
+    virtual std::vector<unsigned char> FrontData(const int recnum=0) const=0;
 
     /** Check if the query returned a front cover
      *
      *  @param[out] image data buffer.
      *  @param[in]  record index (default=0)
      */
-    virtual void BackData(std::vector<unsigned char> &data, const int recnum=0) const=0;
+    virtual std::vector<unsigned char> BackData(const int recnum=0) const=0;
 
     /** Get the URL of the front cover image
      *

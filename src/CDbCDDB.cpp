@@ -269,7 +269,6 @@ std::string CDbCDDB::GetDiscId() const
 	return os.str();
 }
 
-
 /** Returns the number of matches (records) returned from the last Query() call.
  *
  *  @return    Number of matches
@@ -279,7 +278,52 @@ int CDbCDDB::NumberOfMatches() const
 	return discs.size();
 };
 
-	/** Returns the CD record ID associated with the specified genre. If no matching
+/** Get album title
+*
+*  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+*             is returned.
+*  @return    Title string (empty if title not available)
+*/
+virtual std::string CDbCDDB::AlbumTitle(const int recnum=0) const
+{
+    // set disc
+    if (recnum<0 || recnum>=(int)discs.size()) // all discs
+        throw(runtime_error("Invalid CD record ID."));
+
+    return cddb_disc_get_title(discs[recnum]);
+}
+
+/** Get album artist
+ *
+ *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+ *             is returned.
+ *  @return    Artist string (empty if artist not available)
+ */
+virtual std::string CDbCDDB::AlbumArtist(const int recnum=0) const
+{
+    // set disc
+    if (recnum<0 || recnum>=(int)discs.size()) // all discs
+        throw(runtime_error("Invalid CD record ID."));
+
+    return cddb_disc_get_artist(discs[recnum]);	// performer (80-char long max)
+}
+
+/** Get genre
+ *
+ *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+ *             is returned.
+ *  @return    Genre string (empty if genre not available)
+ */
+virtual std::string CDbCDDB::Genre(const int recnum=0) const
+{
+    // set disc
+    if (recnum<0 || recnum>=(int)discs.size()) // all discs
+        throw(runtime_error("Invalid CD record ID."));
+
+    return cddb_disc_get_genre(discs[recnum]);
+}
+
+/** Returns the CD record ID associated with the specified genre. If no matching
 	 *  record is found, it returns -1.
 	 *
 	 *  @return Matching CD record ID. -1 if no match found.
