@@ -13,7 +13,7 @@ CFLAGS = -Wall -std=c++11
 
 MAIN = cdinfodemo
 SRCS = cdinfodemo.cpp CSourceCdda.cpp SCueSheet.cpp CDbMusicBrainz.cpp
-LIBS = -lcdio -lcdio_cdda -lcdio_paranoia -lmusicbrainz5 -ldiscid
+LIBS = -lcdio -lcdio_cdda -lcdio_paranoia -lmusicbrainz5 -ldiscid -lcoverart
 LDFLAGS =
 
 OBJS = $(SRCS:.cpp=.o)
