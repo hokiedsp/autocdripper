@@ -2,7 +2,7 @@
  * Libraries: libmusicbrainz5, libdiscid
  */
 
-#include "CDbMusicBrainz.h"
+#include "CDbDiscogs.h"
 
 #include <stdexcept>
 #include <sstream>
@@ -11,31 +11,6 @@
 
 #include "SCueSheet.h"
 #include "credirect.h" // to redirect std::cerr stream
-
-#include <musicbrainz5/Release.h>
-#include <musicbrainz5/Medium.h>
-#include <musicbrainz5/MediumList.h>
-#include <musicbrainz5/ReleaseGroup.h>
-#include <musicbrainz5/Track.h>
-#include <musicbrainz5/Recording.h>
-#include <musicbrainz5/NameCredit.h>
-#include <musicbrainz5/Artist.h>
-#include <musicbrainz5/Label.h>
-#include <musicbrainz5/LabelInfo.h>
-#include <musicbrainz5/ISRC.h>
-
-#include <musicbrainz5/TextRepresentation.h>
-#include <musicbrainz5/ArtistCredit.h>
-#include <musicbrainz5/RelationListList.h>
-#include <musicbrainz5/Relation.h>
-
-#include <coverart/HTTPFetch.h>
-#include <coverart/ImageList.h>
-#include <coverart/Image.h>
-#include <coverart/Thumbnails.h>
-
-#include <discid/discid.h>
-
 
 using std::cout;
 using std::endl;
@@ -46,104 +21,59 @@ using std::string;
 using std::runtime_error;
 using std::to_string;
 
-using namespace MusicBrainz5;
-using namespace CoverArtArchive;
-
 /** Constructor.
  *
- *  @param[in] CDDB server name. If omitted or empty, default server
- *             "musicbrainz.org" is used.
- *  @param[in] CDDB server port. If omitted, default value is 80.
- *  @param[in] MusicBrainz account name for tagging. If omitted or empty, no
- *             action is taken.
- *  @param[in] MusicBrainz account password for tagging. If omitted or empty
- *             no action is taken.
  *  @param[in] Client program name. If omitted or empty, uses "autorip"
  *  @param[in] Client program version. If omitted or empty, uses "alpha"
  */
-CDbMusicBrainz::CDbMusicBrainz(const std::string &servername, const int serverport,
-                               const std::string &username, const std::string &password,
-                               const std::string &cname,const std::string &cversion):
-    MB5(cname+"-"+cversion,servername,serverport), CAA(cname+"-"+cversion), CoverArtSize(0)
-{
-    if (!username.empty()) MB5.SetUserName(username);
-    if (!password.empty()) MB5.SetPassword(password);
-}
+CDbDiscogs::CDbDiscogs(const std::string &cname,const std::string &cversion)
+    : CDbHttpBase(cname,cversion), CDbJsonBase()
+{}
 
-CDbMusicBrainz::~CDbMusicBrainz()
-{
-    // Clear disc info collection
-    ClearDiscs_();
-}
-
-/** Perform a new CDDB query for the disc info given in the supplied cuesheet 
- *  and its length. Previous query outcome discarded. After disc and its tracks are initialized,
- *  CDDB disc ID is computed. If the computation fails, function
- *  throws an runtime_error.
+/** Constructor.
  *
- *  After successful query, disc's genre, artist, and title should be filled.
- *
- *  @param[in] Cuesheet with its basic data populated
- *  @param[in] Length of the CD in seconds
- *  @param[in] Network time out in seconds. CDbMusicBrainz does not use this parameter
- *  @return    Number of matches
+ *  @param[in] Client program name. If omitted or empty, uses "autorip"
+ *  @param[in] Client program version. If omitted or empty, uses "alpha"
  */
-int CDbMusicBrainz::Query(const std::string &dev, const SCueSheet &cuesheet, const size_t len, const bool autofill, const int timeout)
+CDbDiscogs(const CDbMusicBrainz &mb, const std::string &cname,const std::string &cversion)
+    : CDbHttpBase(cname,cversion), CDbJsonBase()
 {
-    // redirect cerr stream during this function call
-    cerr_redirect quiet_cerr;
+    // for each discogs release URL
 
-    // must build disc based on cuesheet (throws error if fails to compute discid)
-    InitDisc_(dev);
+}
 
-    // Run the query
-    CReleaseList list = MB5.LookupDiscID(discid);
+CDbDiscogs::~CDbDiscogs() {}
 
-    // Add all the matched releases to Releases deque
-    for (int i=0;i<list.NumItems();i++)
+/** Perform a new Discogs query given a list of its release IDs
+ *
+ *  @param[in] collection of release IDs
+ *  @return    Number of valid records
+ */
+virtual int Query(const std::deque<std::string> &list)
+{
+    // if empty deque given, do nothing
+    if (releases.empty()) return 0;
+
+    ClearDiscs_();
+
+    // look up all releases
+    deque<string>::iterator it;
+    for (it=list.begin();it!=list.end();it++)
     {
-        CRelease *r = list.Item(i);
-        if (r->MediaMatchingDiscID (discid).NumItems())
-        {
-            Releases.emplace_back(*r);
+        Perform_(base_url+"releases/"+*it);
 
-            // also look for the coverart
-            try
-            {
-                CoverArts.emplace_back(CAA.ReleaseInfo(r->ID()));
-            }
-            catch (CResourceNotFoundError err)
-            {
-                CoverArts.emplace_back(); // not found, enque empty info
-            }
-        }
+        // now load the data onto json object
+        json_error_t error;
+        json_t *root = json_loadb(data.c_str(), data.size(), 0, &error);
+        if(!root) throw(std::runtime_error(error.text));
+
+        // push the new release record onto the deque
+        Releases.push_back(root);
     }
-
-    // Populate the records if requested
-    if (autofill) Populate(-1);
 
     // return the number of matches
     return Releases.size();
 }
-
-/** Return the CDDB discid
- *
- *  @return CDDB discid if Query() has been completed successfully. Otherwise
- *          zero.
- */
-std::string CDbMusicBrainz::GetDiscId() const
-{
-    return discid;
-}
-
-/** Returns the number of matches (records) returned from the last Query() call.
- *
- *  @return    Number of matches
- */
-int CDbMusicBrainz::NumberOfMatches() const
-{
-    return Releases.size();
-};
 
 /** Get album title
  *
@@ -151,13 +81,13 @@ int CDbMusicBrainz::NumberOfMatches() const
  *             is returned.
  *  @return    Title string (empty if title not available)
  */
-std::string CDbMusicBrainz::AlbumTitle(const int recnum) const
+std::string CDbDiscogs::AlbumTitle(const int recnum) const
 {
-    // set disc
+    // set record
     if (recnum<0 || recnum>=(int)Releases.size()) // all discs
-        throw(runtime_error("Invalid CD record ID."));
+        throw(runtime_error("Invalid Release record ID."));
 
-    return Releases[recnum].Title();
+    return FindString_(Releases[recnum],"title");
 }
 
 /** Get album artist
@@ -166,7 +96,7 @@ std::string CDbMusicBrainz::AlbumTitle(const int recnum) const
  *             is returned.
  *  @return    Artist string (empty if artist not available)
  */
-std::string CDbMusicBrainz::AlbumArtist(const int recnum) const
+std::string CDbDiscogs::AlbumArtist(const int recnum) const
 {
     // set disc
     if (recnum<0 || recnum>=(int)Releases.size()) // all discs
@@ -183,7 +113,7 @@ std::string CDbMusicBrainz::AlbumArtist(const int recnum) const
  *             is returned.
  *  @return    Label string (empty if label not available)
  */
-std::string CDbMusicBrainz::AlbumLabel(const int recnum) const
+std::string CDbDiscogs::AlbumLabel(const int recnum) const
 {
     // set disc
     if (recnum<0 || recnum>=(int)Releases.size()) // all discs
@@ -202,114 +132,13 @@ std::string CDbMusicBrainz::AlbumLabel(const int recnum) const
  *             is returned.
  *  @return    UPC string (empty if title not available)
  */
-std::string CDbMusicBrainz::AlbumUPC(const int recnum) const
+std::string CDbDiscogs::AlbumUPC(const int recnum) const
 {
     // set disc
     if (recnum<0 || recnum>=(int)Releases.size()) // all discs
         throw(runtime_error("Invalid CD record ID."));
 
     return Releases[recnum].Barcode();
-}
-
-/** Get album ASIN (Amazon Standard Identification Number)
- *
- *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
- *             is returned.
- *  @return    ASIN string (empty if title not available)
- */
-std::string CDbMusicBrainz::AlbumASIN(const int recnum) const
-{
-    // set disc
-    if (recnum<0 || recnum>=(int)Releases.size()) // all discs
-        throw(runtime_error("Invalid CD record ID."));
-
-    return Releases[recnum].ASIN();
-}
-
-/** Look up full disc information from MusicBrainz server. It supports single record or
- *  multiple records if multiple entries were found by Query(). If the computation
- *  fails, function throws an runtime_error.
- *
- *  @param[in] Disc record ID (0-based index to discs). If negative, retrieves info
- *             for all records.
- *  @param[in] Network time out in seconds. CDbMusicBrainz does not use this parameter
- */
-void CDbMusicBrainz::Populate(const int recnum, const int timeout)
-{
-    // redirect cerr stream during this function call
-    cerr_redirect quiet_cerr;
-
-    // set disc
-    if (recnum<0) // all discs
-    {
-        deque<CRelease>::iterator it;
-        for (it=Releases.begin(); it!=Releases.end(); it++)
-            (*it) = MB5.LookupRelease((*it).ID()); 	// replace the initial output with the full output
-    }
-    else if (recnum<(int)Releases.size())	// single disc
-    {
-        CRelease &r = Releases[recnum];
-        r = MB5.LookupRelease(r.ID()); 	// replace the initial output with the full output
-    }
-    else
-    {
-        throw(runtime_error("Invalid Release ID."));
-    }
-}
-
-/** Form an artist credit string 
- *
- *  @param[in] ArtistCredit query data
- *  @param[in] true to use SortName (if available) for the first asrtist's name
- *             (default is false)
- *  @return    Artist name in plain string
- */
-std::string CDbMusicBrainz::GetArtistString_(const MusicBrainz5::CArtistCredit &credit, const bool sortfirst) const
-{
-    string str;
-    CNameCredit *name;
-    CArtist *artist;
-    int n;
-
-    // get the name list
-    CNameCreditList * list = credit.NameCreditList();
-    if (!(list && (n=list->NumItems()))) return str; // no credit
-
-    // get the first artist
-    name = list->Item(0);
-    if (!name) return str;
-
-    artist=name->Artist();
-    if (artist)
-    {
-        // grab the first artist's name
-        if (sortfirst) str = artist->SortName();
-        if (!sortfirst || str.empty()) str = artist->Name();
-        if (str.empty()) str = name->Name();
-    }
-
-    // append join phrase if available
-    str.append(name->JoinPhrase());
-
-    for (int i=1;i<n;i++)
-    {
-        name = list->Item(i);
-        if (!name) return str; // no name, abort
-        artist=name->Artist();
-
-        string next;
-        if (artist)
-        {
-            // grab the first artist's name
-            next = artist->Name();
-            if (next.empty()) str = name->Name();
-        }
-
-        str.append(next);
-        str.append(name->JoinPhrase());
-    }
-
-    return str;
 }
 
 /** Retrieve the disc info from specified database record
@@ -319,7 +148,7 @@ std::string CDbMusicBrainz::GetArtistString_(const MusicBrainz5::CArtistCredit &
  *  @return    SDbrBase Pointer to newly created database record object. Caller is
  *             responsible for deleting the object.
  */
-SDbrBase* CDbMusicBrainz::Retrieve(const int recnum) const
+SDbrBase* CDbDiscogs::Retrieve(const int recnum) const
 {
     int nrems;
     //const char *str;	// temp
@@ -440,11 +269,10 @@ SDbrBase* CDbMusicBrainz::Retrieve(const int recnum) const
 
 /** Clear all the disc entries
  */
-void CDbMusicBrainz::ClearDiscs_()
+void CDbDiscogs::ClearDiscs_()
 {
     // clear the list of matched releases and their coverart info
     Releases.clear();
-    CoverArts.clear();
 }
 
 /** Initialize a new disc and fill it with disc info
@@ -456,7 +284,7 @@ void CDbMusicBrainz::ClearDiscs_()
  *  @param[in] Cuesheet with its basic data populated
  *  @param[in] Length of the CD in sectors
  */
-void CDbMusicBrainz::InitDisc_(const std::string &path)
+void CDbDiscogs::InitDisc_(const std::string &path)
 {
 
     // Clear the discs
@@ -476,7 +304,7 @@ void CDbMusicBrainz::InitDisc_(const std::string &path)
 
 }
 
-void CDbMusicBrainz::Print(const int recnum) const
+void CDbDiscogs::Print(const int recnum) const
 {
     if (Releases.empty()) cout << "No match found" << endl;
 
@@ -648,150 +476,4 @@ void CDbMusicBrainz::Print(const int recnum) const
     {
         throw(runtime_error("Invalid CD record ID."));
     }
-}
-
-
-/** Specify the preferred coverart image width
- *
- *  @param[in] Preferred width of the image
- */
-void CDbMusicBrainz::SetPreferredWidth(const size_t &width)
-{
-    if (width>500) CoverArtSize = 0;
-    else if (width>250) CoverArtSize = 1;
-    else CoverArtSize = 2;
-}
-
-/** Specify the preferred coverart image height
- *
- *  @param[in] Preferred height of the image
- */
-void CDbMusicBrainz::SetPreferredHeight(const size_t &height)
-{
-    if (height>500) CoverArtSize = 0;
-    else if (height>250) CoverArtSize = 1;
-    else CoverArtSize = 2;
-}
-
-
-/** Check if the query returned a front cover
- *
- *  @param[in]  record index (default=0)
- *  @return     true if front cover is found.
- */
-bool CDbMusicBrainz::Front(const int recnum) const
-{
-    if (recnum<0||recnum>(int)CoverArts.size())
-        throw(runtime_error("Invalid Record Index requested."));
-
-    const CImageList *info = CoverArts[recnum].ImageList();
-    if (!info) return false; // coverart not found
-
-    for (int i=0;i<info->NumItems();i++)
-    {
-        if (info->Item(i)->Front()) return true;
-    }
-    return false;
-}
-
-/** Check if the query returned a back cover
- *
- *  @param[in]  record index (default=0)
- *  @return     true if back cover is found.
- */
-bool CDbMusicBrainz::Back(const int recnum) const
-{
-    if (recnum<0||recnum>(int)CoverArts.size())
-        throw(runtime_error("Invalid Record Index requested."));
-
-    const CImageList *info = CoverArts[recnum].ImageList();
-    if (!info) return false; // coverart not found
-
-    for (int i=0;i<info->NumItems();i++)
-    {
-        if (info->Item(i)->Back()) return true;
-    }
-    return false;
-}
-
-/** Retrieve the front cover data.
- *
- *  @param[out] image data buffer.
- *  @param[in]  record index (default=0)
- */
-std::vector<unsigned char> CDbMusicBrainz::FrontData(const int recnum) const
-{
-    if (recnum<0||recnum>(int)CoverArts.size())
-        throw(runtime_error("Invalid Record Index requested."));
-
-    return CAA.FetchFront(Releases[recnum].ID());
-}
-
-/** Check if the query returned a front cover
- *
- *  @param[out] image data buffer.
- *  @param[in]  record index (default=0)
- */
-std::vector<unsigned char> CDbMusicBrainz::BackData(const int recnum) const
-{
-    if (recnum<0||recnum>(int)CoverArts.size())
-        throw(runtime_error("Invalid Record Index requested."));
-
-    return CAA.FetchBack(Releases[recnum].ID());
-}
-
-/** Get the URL of the front cover image
- *
- *  @param[in]  Record index (default=0)
- *  @return     URL string
- */
-std::string CDbMusicBrainz::FrontURL(const int recnum) const
-{
-    if (recnum<0||recnum>(int)CoverArts.size())
-        throw(runtime_error("Invalid Record Index requested."));
-
-    const CImageList *info = CoverArts[recnum].ImageList();
-    if (!info) return ""; // coverart not found
-
-    for (int i=0;i<info->NumItems();i++)
-    {
-        const CImage *image = info->Item(i);
-        if (image->Front())  // front cover found,look for request image size
-        {
-            string url;
-            const CThumbnails *tn = image->Thumbnails();
-            if (CoverArtSize==2 && !(url=tn->Small()).empty()) return url;
-            else if (CoverArtSize>0 && !(url=tn->Large()).empty()) return url;
-            else return image->Image();
-        }
-    }
-    return "";
-}
-
-/** Get the URL of the back cover image
- *
- *  @param[in]  Record index (default=0)
- *  @return     URL string
- */
-std::string CDbMusicBrainz::BackURL(const int recnum) const
-{
-    if (recnum<0||recnum>(int)CoverArts.size())
-        throw(runtime_error("Invalid Record Index requested."));
-
-    const CImageList *info = CoverArts[recnum].ImageList();
-    if (!info) return ""; // coverart not found
-
-    for (int i=0;i<info->NumItems();i++)
-    {
-        const CImage *image = info->Item(i);
-        if (image->Back())  // back cover found,look for request image size
-        {
-            string url;
-            const CThumbnails *tn = image->Thumbnails();
-            if (CoverArtSize==2 && !(url=tn->Small()).empty()) return url;
-            else if (CoverArtSize>0 && !(url=tn->Large()).empty()) return url;
-            else return image->Image();
-        }
-    }
-    return "";
 }

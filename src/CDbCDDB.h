@@ -61,6 +61,20 @@ public:
      */
     virtual ~CDbCDDB();
 
+    /** Returns true if database supports direct query of CD based on its track info.
+     *  If false, Query() call always returns 0 matches.
+     *
+     *  @return    true if query is supported
+     */
+    static bool IsQueryable() const { return true; }
+
+    /** Returns true if database supports search by album title and artist.
+     *  If false, Search() call always returns 0 matches.
+     *
+     *  @return    true if search is supported
+     */
+    static bool IsSearchable() const { return false; }
+
     /** Set a server connection protocol.
      *
      *  @param[in] Connection protocol ("cddbp","http", or "proxy"). If omitted
@@ -94,6 +108,18 @@ public:
      */
     virtual int Query(const std::string &dev, const SCueSheet &cuesheet, const size_t len,
                       const bool autofill=false, const int timeout=-1);
+
+    /** Always return zero as CDDB cannot be searched for album title and artist.
+     *
+     *  @param[in] Album title
+     *  @param[in] Album artist
+     *  @param[in] If true, immediately calls Read() to populate disc records.
+     *  @param[in] Network time out in seconds. If omitted or negative, previous value
+     *             will be reused. System default is 10.
+     *  @return    Number of matched records
+     */
+    virtual int Search(const std::string &title, const std::string &artist, const bool autofill=false, const int timeout=-1)
+    { return 0; }
 
     /** Return the CDDB discid
      *

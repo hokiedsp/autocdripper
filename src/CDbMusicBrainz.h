@@ -11,6 +11,7 @@
 #include "SDbrBase.h"
 
 struct SCueSheet;
+class CDbDiscogs;
 
 /** MusicBrainz CD Database Record structure - SCueSheet with DbType()
  */
@@ -62,6 +63,18 @@ public:
      */
     virtual ~CDbMusicBrainz();
 
+    /** Always return true as MusicBrainz query is supported.
+     *
+     *  @return    true if query is supported
+     */
+    static bool IsQueryable() const { return true; }
+
+    /** Always return false as MusicBrainz's search feature is not implemented.
+     *
+     *  @return    true if search is supported
+     */
+    static bool IsSearchable() const { return false; }
+
     /** Set a server connection protocol.
      *
      *  @param[in] Connection protocol ("cddbp","http", or "proxy"). If omitted
@@ -86,6 +99,18 @@ public:
      *  @return    Number of matched records
      */
     virtual int Query(const std::string &dev, const SCueSheet &cuesheet, const size_t len, const bool autofill=false, const int timeout=-1);
+
+    /** Searching MusicBrainz database by album title and artist is not implemented. Thus, always returns 0.
+     *
+     *  @param[in] Album title
+     *  @param[in] Album artist
+     *  @param[in] If true, immediately calls Read() to populate disc records.
+     *  @param[in] Network time out in seconds. If omitted or negative, previous value
+     *             will be reused. System default is 10.
+     *  @return    Number of matched records
+     */
+    virtual int Search(const std::string &title, const std::string &artist, const bool autofill=false, const int timeout=-1)
+    { return 0; }
 
     /** Return the MusicBrainz discid string
      *
@@ -236,6 +261,20 @@ public:
      *  @return     URL string
      */
     virtual std::string BackURL(const int recnum=0) const;
+
+    /** Return the MusicBrainz release ID string
+     *
+     *  @return MusicBrainz release ID string if Query was successful. Otherwise "".
+     */
+    virtual std::string GetReleaseId(const int recnum=0) const;
+
+    /** Spawn a Discogs Database object based on the current query results. The Discogs
+     *  object is created for every MusicBrainz queried release, which contains a link to
+     *  http://www.discogs.com/release/*
+     *
+     *  @return Discogs databased object
+     */
+    //virtual CDbDiscogs SpawnDiscogs() const;
 
 private:
     /** Initialize a new disc and fill it with disc info
