@@ -11,9 +11,16 @@ CFLAGS = -Wall -std=c++11
 #LIBS = -lcdio -lcdio_cdda -lcdio_paranoia -lcddb
 #LDFLAGS =
 
-MAIN = cdinfodemo
-SRCS = cdinfodemo.cpp CSourceCdda.cpp SCueSheet.cpp CDbMusicBrainz.cpp
-LIBS = -lcdio -lcdio_cdda -lcdio_paranoia -lmusicbrainz5 -ldiscid -lcoverart
+#MAIN = cdinfodemo
+#SRCS = cdinfodemo.cpp CSourceCdda.cpp SCueSheet.cpp CDbMusicBrainz.cpp
+#LIBS = -lcdio -lcdio_cdda -lcdio_paranoia -lmusicbrainz5 -ldiscid -lcoverart
+#LDFLAGS =
+
+#MAIN = discogsdemo
+#SRCS = discogsdemo.cpp SCueSheet.cpp CDbDiscogs.cpp CDbHttpBase.cpp CDbJsonBase.cpp
+MAIN = lastfmdemo
+SRCS = lastfmdemo.cpp SCueSheet.cpp CDbLastFm.cpp CDbHttpBase.cpp CDbJsonBase.cpp
+LIBS = -lcurl -ljansson
 LDFLAGS =
 
 OBJS = $(SRCS:.cpp=.o)

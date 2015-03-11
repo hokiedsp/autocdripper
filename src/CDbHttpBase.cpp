@@ -1,13 +1,16 @@
 #include "CDbHttpBase.h"
 
 #include <stdexcept>
+#include <iostream>
 
 using std::string;
 using std::mutex;
+using std::runtime_error;
 
 // initialize static member variables
-std::atomic_int CDbHttpBase::Nobjs = 0;
-std::atomic_bool CDbHttpBase::AutoCleanUp = true;
+int CDbHttpBase::Nobjs = 0;
+std::atomic_bool CDbHttpBase::AutoCleanUp(true);
+std::mutex CDbHttpBase::globalmutex;
 
 /** Constructor.
  *
@@ -28,11 +31,11 @@ CDbHttpBase::CDbHttpBase(const std::string &cname,const std::string &cversion)
     data.reserve(CURL_MAX_WRITE_SIZE);    // reserve memory for receive buffer
 
     // use static write_callback as the default write callback function
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, CDbHttpBase::write_callback());
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, *data);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, CDbHttpBase::write_callback);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &data);
 
     // set user agent
-    url_easy_setopt(curl, CURLOPT_USERAGENT, (cname+"/"+cversion).c_str());
+    curl_easy_setopt(curl, CURLOPT_USERAGENT, (cname+"/"+cversion).c_str());
 }
 
 /** Destructor
@@ -55,7 +58,7 @@ CDbHttpBase::~CDbHttpBase()
  *  @brief Perform a blocking file transfer
  *  @param url
  */
-CDHttpBase::Perform(const std::string &url)
+void CDbHttpBase::PerformHttpTransfer_(const std::string &url)
 {
     // empty the buffer
     data.clear();
@@ -67,6 +70,30 @@ CDHttpBase::Perform(const std::string &url)
     if(res != CURLE_OK) throw(std::runtime_error(curl_easy_strerror(res)));
 }
 
+/**
+ * @brief Get the length of remote content
+ * @param[in] URL of the remote content
+ * @return Length in bytes; if unknown, returns 0
+ */
+size_t CDbHttpBase::GetHttpContentLength_(const std::string &url)
+{
+    double size;
+
+    // set so only header is returned
+    curl_easy_setopt(curl, CURLOPT_NOBODY, 1);
+
+    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+    curl_easy_perform(curl);
+    curl_easy_getinfo(curl, CURLINFO_CONTENT_LENGTH_DOWNLOAD, &size);
+
+    // revert to receive the body
+    curl_easy_setopt(curl, CURLOPT_NOBODY, 0);
+
+    // if unknkown size (-1), return 0
+    if (size<0.0) return 0;
+    else return (size_t) size;
+}
+
 /* Default callback for writing received HTTP data
  *
  * @param[in]   Points to the delivered data
@@ -76,7 +103,16 @@ CDHttpBase::Perform(const std::string &url)
  */
 size_t CDbHttpBase::write_callback(char *ptr, size_t size, size_t nmemb, void *userdata)
 {
-    size* = nmemb;
-    dynamic_dcast<string*>(userdata)->append(ptr,size);
+    size *= nmemb;
+    ((string*)userdata)->append(ptr,size);
+    return size;
+}
+
+size_t CDbHttpBase::write_uchar_vector_callback(char *ptr, size_t size, size_t nmemb, void *userdata)
+{
+    size *= nmemb;
+    std::vector<unsigned char>* bindata = (std::vector<unsigned char>*)userdata;
+    std::vector<unsigned char>::iterator it = bindata->end();
+    bindata->insert(it, (unsigned char*)ptr,(unsigned char*)ptr+size);
     return size;
 }

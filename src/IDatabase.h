@@ -15,14 +15,14 @@ public:
      *
      *  @return    true if query is supported
      */
-    static bool IsQueryable() const=0;
+    virtual bool IsQueryable() const=0;
 
     /** Returns true if database supports search by album title and artist.
      *  If false, Search() call always returns 0 matches.
      *
      *  @return    true if search is supported
      */
-    static bool IsSearchable() const=0;
+    virtual bool IsSearchable() const=0;
 
   /** If IsQueryable() returns true, Query() performs a new query for the CD info
    *  in the specified drive with its *  tracks specified in the supplied cuesheet

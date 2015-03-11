@@ -3,6 +3,7 @@
 #include <string>
 #include <atomic>
 #include <mutex>
+#include <vector>
 #include <curl/curl.h>
 
 #include "IDatabase.h"
@@ -27,7 +28,7 @@ public:
      *
      *  @return true if curl_global_cleanup is to be called automatically.
      */
-    static void SetAutoCleanUpMode(const bool mode) { return AutoCleanUp; }
+    static bool GetAutoCleanUpMode(const bool mode) { return AutoCleanUp; }
 
     /** Set static AutoCleanUpMode parameter
      *
@@ -39,26 +40,44 @@ protected:
     CURL *curl; // pointer to the curl session
     std::string data; // received data buffer
 
-    /* Default callback for writing received HTTP data
-     *
-     * @param[in]   Points to the delivered data
-     * @param[in]   The actual size of that data in byte is size multiplied with nmemb
-     * @param[in]   See above
-     * @return      The number of bytes actually taken care of
-     */
-    static size_t write_callback(char *ptr, size_t size, size_t nmemb, void *userdata);
-
     /** Invoke this function to perform the HTTP transfer. Upon completion of the call,
      *  data member variable contains the received data. The previous content of data will
      *  be lost.
      *
      *  @brief Perform a blocking file transfer
-     *  @param url
+     *  @param The URLof the other endpoint
      */
-    virtual Perform_(const std::string &url);
+    virtual void PerformHttpTransfer_(const std::string &url);
+
+    /**
+     * @brief Get the length of remote content
+     * @param[in] URL of the remote content
+     * @return Length in bytes; if unknown, returns 0
+     */
+    virtual size_t GetHttpContentLength_(const std::string &url);
+
+    /* Default callback for writing received HTTP data
+     *
+     * @param[in]   Points to the delivered data
+     * @param[in]   The actual size of that data in byte is size multiplied with nmemb
+     * @param[in]   See above
+     * @param[out]  std::string data buffer
+     * @return      The number of bytes actually taken care of
+     */
+    static size_t write_callback(char *ptr, size_t size, size_t nmemb, void *userdata);
+
+    /* Callback for writing received HTTP data to std::vector<unsigned char> buffer
+     *
+     * @param[in]   Points to the delivered data
+     * @param[in]   The actual size of that data in byte is size multiplied with nmemb
+     * @param[in]   std::vector<unsigned char> buffer
+     * @return      The number of bytes actually taken care of
+     */
+    static size_t write_uchar_vector_callback(char *ptr, size_t size, size_t nmemb, void *userdata);
 
 private:
     static std::mutex globalmutex; /// mutex to make curl_global_init and curl_global_cleanup thread safe
     static int Nobjs; /// number of instantiated CDbHttpBase objects
     static std::atomic_bool AutoCleanUp;    /// if true (default)
+
 };

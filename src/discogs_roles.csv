@@ -1,0 +1,546 @@
+Performer,Songwriter,Credit
+TRUE,,Featuring
+TRUE,,Conductor
+TRUE,,Directed By
+TRUE,,Alto Vocals
+TRUE,,Backing Vocals
+TRUE,,Baritone Vocals
+TRUE,,Bass Vocals
+TRUE,,Caller
+TRUE,,Choir
+TRUE,,Chorus
+TRUE,,Contralto Vocals
+TRUE,,Coro
+TRUE,,Countertenor Vocals
+TRUE,,Harmony Vocals
+TRUE,,Human Beatbox
+TRUE,,Humming
+TRUE,,Kakegoe
+TRUE,,Lead Vocals
+TRUE,,MC
+TRUE,,Mezzo-soprano Vocals
+TRUE,,Overtone Voice
+TRUE,,Rap
+TRUE,,Scat
+TRUE,,Solo Vocal
+TRUE,,Soprano Vocals
+TRUE,,Speech
+TRUE,,Tenor Vocals
+TRUE,,Toasting
+TRUE,,Treble Vocals
+TRUE,,Vocalese
+TRUE,,Vocals
+TRUE,,Voice
+TRUE,,Whistling
+TRUE,,Yodeling
+TRUE,,Afoxé
+TRUE,,Agogô
+TRUE,,Ashiko
+TRUE,,Bapang
+TRUE,,Bass Drum
+TRUE,,Bata
+TRUE,,Bell Tree
+TRUE,,Bells
+TRUE,,Bendir
+TRUE,,Bodhrán
+TRUE,,Body Percussion
+TRUE,,Bombo
+TRUE,,Bones
+TRUE,,Bongos
+TRUE,,Buhay
+TRUE,,Buk
+TRUE,,Cabasa
+TRUE,,Caixa
+TRUE,,Cajón
+TRUE,,Calabash
+TRUE,,Castanets
+TRUE,,Caxixi
+TRUE,,Chak'chas
+TRUE,,Ching
+TRUE,,Claves
+TRUE,,Congas
+TRUE,,Cowbell
+TRUE,,Cuica
+TRUE,,Cymbal
+TRUE,,Daf
+TRUE,,Davul
+TRUE,,Dhol
+TRUE,,Dholak
+TRUE,,Djembe
+TRUE,,Drum
+TRUE,,Drum Programming
+TRUE,,Drums
+TRUE,,Dunun
+TRUE,,Electronic Drums
+TRUE,,Finger Cymbals
+TRUE,,Finger Snaps
+TRUE,,Frame Drum
+TRUE,,Friction Drum
+TRUE,,Ganzá
+TRUE,,Ghatam
+TRUE,,Ghungroo
+TRUE,,Goblet Drum
+TRUE,,Gong
+TRUE,,Guiro
+TRUE,,Handclaps
+TRUE,,Hihat
+TRUE,,Idiophone
+TRUE,,Janggu
+TRUE,,K'kwaengwari
+TRUE,,Kanjira
+TRUE,,Karkabas
+TRUE,,Khartal
+TRUE,,Khurdak
+TRUE,,Lion's Roar
+TRUE,,Maracas
+TRUE,,Monkey stick
+TRUE,,Mridangam
+TRUE,,Pandeiro
+TRUE,,Percussion
+TRUE,,Rainstick
+TRUE,,Ratchet
+TRUE,,Rattle
+TRUE,,Reco-reco
+TRUE,,Repinique
+TRUE,,Rototoms
+TRUE,,Scraper
+TRUE,,Shaker
+TRUE,,Shekere
+TRUE,,Singing Bowls
+TRUE,,Skratjie
+TRUE,,Slapstick
+TRUE,,Slit Drum
+TRUE,,Snare
+TRUE,,Spoons
+TRUE,,Surdo
+TRUE,,Tabla
+TRUE,,Taiko
+TRUE,,Talking Drum
+TRUE,,Tam-tam
+TRUE,,Tambora
+TRUE,,Tamborim
+TRUE,,Tambourine
+TRUE,,Tan-Tan
+TRUE,,Tap Dance
+TRUE,,Tar (Drum)
+TRUE,,Tüngür
+TRUE,,Temple Bells
+TRUE,,Temple Block
+TRUE,,Timbales
+TRUE,,Timpani
+TRUE,,Tom Tom
+TRUE,,Triangle
+TRUE,,Udu
+TRUE,,Vibraslap
+TRUE,,Washboard
+TRUE,,Waterphone
+TRUE,,Wood Block
+TRUE,,Amadinda
+TRUE,,Angklung
+TRUE,,Balafon
+TRUE,,Boomwhacker
+TRUE,,Carillon
+TRUE,,Celesta
+TRUE,,Chimes
+TRUE,,Crotales
+TRUE,,Glockenspiel
+TRUE,,Kalimba
+TRUE,,Marimba
+TRUE,,Marimbula
+TRUE,,Metallophone
+TRUE,,Musical Box
+TRUE,,Steel Drums
+TRUE,,Thumb Piano
+TRUE,,Vibraphone
+TRUE,,Xylophone
+TRUE,,Baby Grand Piano
+TRUE,,Chamberlin
+TRUE,,Concert Grand Piano
+TRUE,,Dulcitone
+TRUE,,Electric Piano
+TRUE,,Fortepiano
+TRUE,,Grand Piano
+TRUE,,Harmonium
+TRUE,,Harpsichord
+TRUE,,Keyboards
+TRUE,,Mellotron
+TRUE,,Melodica
+TRUE,,Omnichord
+TRUE,,Ondes Martenot
+TRUE,,Organ
+TRUE,,Parlour Grand Piano
+TRUE,,Pedalboard
+TRUE,,Piano
+TRUE,,Player Piano
+TRUE,,Regal
+TRUE,,Stylophone
+TRUE,,Synth
+TRUE,,Synthesizer
+TRUE,,Toy Piano
+TRUE,,Upright Piano
+TRUE,,Virginal
+TRUE,,Acoustic Bass
+TRUE,,Acoustic Guitar
+TRUE,,Arco Bass
+TRUE,,Arpa
+TRUE,,Autoharp
+TRUE,,Baglama
+TRUE,,Bajo Quinto
+TRUE,,Bajo Sexto
+TRUE,,Balalaika
+TRUE,,Bandura
+TRUE,,Bandurria
+TRUE,,Banhu
+TRUE,,Banjo
+TRUE,,Baritone Guitar
+TRUE,,Bass Guitar
+TRUE,,Berimbau
+TRUE,,Bhapang
+TRUE,,Biwa
+TRUE,,Blaster Beam
+TRUE,,Bouzouki
+TRUE,,Bulbul Tarang
+TRUE,,Byzaanchi
+TRUE,,Cavaquinho
+TRUE,,Cümbüş
+TRUE,,Cello
+TRUE,,Chanzy
+TRUE,,Chapman Stick
+TRUE,,Charango
+TRUE,,Chitarrone
+TRUE,,Cimbalom
+TRUE,,Cittern
+TRUE,,Classical Guitar
+TRUE,,Clavichord
+TRUE,,Clavinet
+TRUE,,Cobza
+TRUE,,Contrabass
+TRUE,,Cuatro
+TRUE,,Dilruba
+TRUE,,Domra
+TRUE,,Doshpuluur
+TRUE,,Double Bass
+TRUE,,Dulcimer
+TRUE,,Dutar
+TRUE,,Ehru
+TRUE,,Ektare
+TRUE,,Electric Bass
+TRUE,,Electric Guitar
+TRUE,,Electric Upright Bass
+TRUE,,Erhu
+TRUE,,Esraj
+TRUE,,Fiddle
+TRUE,,Flamenco Guitar
+TRUE,,Gadulka
+TRUE,,Gaohu
+TRUE,,Gayageum
+TRUE,,Geomungo
+TRUE,,Gottuvâdyam
+TRUE,,Guimbri
+TRUE,,Guitalele
+TRUE,,Guitar
+TRUE,,Guitar Synthesizer
+TRUE,,Guitarrón
+TRUE,,GuitarViol
+TRUE,,Guqin
+TRUE,,Gusli
+TRUE,,Guzheng
+TRUE,,Halldorophone
+TRUE,,Hardingfele
+TRUE,,Harp
+TRUE,,Harp Guitar
+TRUE,,Hummel
+TRUE,,Huqin
+TRUE,,Hurdy Gurdy
+TRUE,,Igil
+TRUE,,Jarana
+TRUE,,Jinghu
+TRUE,,Jouhikko
+TRUE,,Kabosy
+TRUE,,Kamancha
+TRUE,,Kantele
+TRUE,,Kanun
+TRUE,,Kemenche
+TRUE,,Kobyz
+TRUE,,Kokyu
+TRUE,,Kora
+TRUE,,Koto
+TRUE,,Laúd
+TRUE,,Lap Steel Guitar
+TRUE,,Lead Guitar
+TRUE,,Liuqin
+TRUE,,Lute
+TRUE,,Lyre
+TRUE,,Mandocello
+TRUE,,Mandoguitar
+TRUE,,Mandola
+TRUE,,Mandolin
+TRUE,,Mandolincello
+TRUE,,Monochord
+TRUE,,Morinhoor
+TRUE,,Musical bow
+TRUE,,Nyckelharpa
+TRUE,,Oud
+TRUE,,Outi
+TRUE,,Pedal Steel Guitar
+TRUE,,Pipa
+TRUE,,Portuguese Guitar
+TRUE,,Psalmodicon
+TRUE,,Psaltery
+TRUE,,Rabab
+TRUE,,Rebab
+TRUE,,Rebec
+TRUE,,Requinto Guitar
+TRUE,,Resonator Guitar
+TRUE,,Rhythm Guitar
+TRUE,,Ronroco
+TRUE,,Ruan
+TRUE,,Santoor
+TRUE,,Sanxian
+TRUE,,Sarangi
+TRUE,,Sarod
+TRUE,,Semi-Acoustic Guitar
+TRUE,,Shahi Baaja
+TRUE,,Shamisen
+TRUE,,Sintir
+TRUE,,Sitar
+TRUE,,Slide Guitar
+TRUE,,Spinet
+TRUE,,Steel Guitar
+TRUE,,Strings
+TRUE,,Stroh Violin
+TRUE,,Strumstick
+TRUE,,Surbahar
+TRUE,,Svara Mandala
+TRUE,,Swarmandel
+TRUE,,Sympitar
+TRUE,,SynthAxe
+TRUE,,Tambura
+TRUE,,Tamburitza
+TRUE,,Tapboard
+TRUE,,Tar (lute)
+TRUE,,Theorbo
+TRUE,,Tiple
+TRUE,,Tipple
+TRUE,,Tonkori
+TRUE,,Tres
+TRUE,,Twelve-String Guitar
+TRUE,,Ukulele
+TRUE,,Utogardon
+TRUE,,Valiha
+TRUE,,Veena
+TRUE,,Vielle
+TRUE,,Vihuela
+TRUE,,Viol
+TRUE,,Viola
+TRUE,,Viola d'Amore
+TRUE,,Violin
+TRUE,,Violone
+TRUE,,Xalam
+TRUE,,Yang T'Chin
+TRUE,,Yangqin
+TRUE,,Zither
+TRUE,,Zongora
+TRUE,,Đàn bầu
+TRUE,,Accordion
+TRUE,,Algoza
+TRUE,,Alphorn
+TRUE,,Alto Clarinet
+TRUE,,Alto Horn
+TRUE,,Alto Recorder
+TRUE,,Alto Saxophone
+TRUE,,Apito
+TRUE,,Bagpipes
+TRUE,,Bandoneon
+TRUE,,Bansuri
+TRUE,,Baritone Saxophone
+TRUE,,Barrel Organ
+TRUE,,Bass Clarinet
+TRUE,,Bass Harmonica
+TRUE,,Bass Saxophone
+TRUE,,Bass Tuba
+TRUE,,Basset Horn
+TRUE,,Bassoon
+TRUE,,Bayan
+TRUE,,Bellowphone
+TRUE,,Beresta
+TRUE,,Blues Harp
+TRUE,,Bombarde
+TRUE,,Brass
+TRUE,,Brass Bass
+TRUE,,Bucium
+TRUE,,Bugle
+TRUE,,Chalumeau
+TRUE,,Chanter
+TRUE,,Chirimia
+TRUE,,Clarinet
+TRUE,,Clarion
+TRUE,,Claviola
+TRUE,,Concert Flute
+TRUE,,Concertina
+TRUE,,Conch
+TRUE,,Contra-Alto Clarinet
+TRUE,,Contrabass Clarinet
+TRUE,,Contrabass Saxophone
+TRUE,,Contrabassoon
+TRUE,,Cor Anglais
+TRUE,,Cornet
+TRUE,,Cornett
+TRUE,,Crumhorn
+TRUE,,Daegeum
+TRUE,,Didgeridoo
+TRUE,,Dili Tuiduk
+TRUE,,Dizi
+TRUE,,Drone
+TRUE,,Duduk
+TRUE,,Dulcian
+TRUE,,Dulzaina
+TRUE,,Electronic Valve Instrument
+TRUE,,Electronic Wind Instrument
+TRUE,,English Horn
+TRUE,,Euphonium
+TRUE,,Fife
+TRUE,,Flageolet
+TRUE,,Flugabone
+TRUE,,Flugelhorn
+TRUE,,Fluier
+TRUE,,Flute
+TRUE,,French Horn
+TRUE,,Gemshorn
+TRUE,,Harmonica
+TRUE,,Heckelphone
+TRUE,,Helicon
+TRUE,,Horagai
+TRUE,,Horn
+TRUE,,Horns
+TRUE,,Hunting Horn
+TRUE,,Jug
+TRUE,,Kaval
+TRUE,,Kazoo
+TRUE,,Khene
+TRUE,,Launeddas
+TRUE,,Low Whistle
+TRUE,,Lur
+TRUE,,Lyricon
+TRUE,,Mellophone
+TRUE,,Melodeon
+TRUE,,Mizmar
+TRUE,,Mizwad
+TRUE,,Moceño
+TRUE,,Murli
+TRUE,,Musette
+TRUE,,Nadaswaram
+TRUE,,Ney
+TRUE,,Nose Flute
+TRUE,,Oboe
+TRUE,,Oboe d'Amore
+TRUE,,Ocarina
+TRUE,,Ophicleide
+TRUE,,Panpipes
+TRUE,,Piano Accordion
+TRUE,,Piccolo Flute
+TRUE,,Pipe
+TRUE,,Pito
+TRUE,,Pixiephone
+TRUE,,Quena
+TRUE,,Quenacho
+TRUE,,Rauschpfeife
+TRUE,,Recorder
+TRUE,,Reeds
+TRUE,,Rhaita
+TRUE,,Rondador
+TRUE,,Rozhok
+TRUE,,Ryuteki
+TRUE,,Sackbut
+TRUE,,Sampona
+TRUE,,Sarrusophone
+TRUE,,Saxello
+TRUE,,Saxophone
+TRUE,,Serpent
+TRUE,,Shakuhachi
+TRUE,,Shanai
+TRUE,,Shawm
+TRUE,,Shenai
+TRUE,,Sheng
+TRUE,,Shinobue
+TRUE,,Sho
+TRUE,,Slide Whistle
+TRUE,,Sopilka
+TRUE,,Sopranino Saxophone
+TRUE,,Soprano Clarinet
+TRUE,,Soprano Saxophone
+TRUE,,Souna
+TRUE,,Sousaphone
+TRUE,,Sruti Box
+TRUE,,Subcontrabass Saxophone
+TRUE,,Suling
+TRUE,,Suona
+TRUE,,Tárogató
+TRUE,,Tenor Saxophone
+TRUE,,Ti-tse
+TRUE,,Tin Whistle
+TRUE,,Trombone
+TRUE,,Trumpet
+TRUE,,Tuba
+TRUE,,Valve Trombone
+TRUE,,Whistle
+TRUE,,Whistling Water Jar
+TRUE,,Wind
+TRUE,,Woodwind
+TRUE,,Yorgaphone
+TRUE,,Zhaleika
+TRUE,,Zukra
+TRUE,,Zurna
+TRUE,,Computer
+TRUE,,Drum Machine
+TRUE,,Effects
+TRUE,,Electronics
+TRUE,,Groovebox
+TRUE,,Loops
+TRUE,,MIDI Controller
+TRUE,,Noises
+TRUE,,Sampler
+TRUE,,Scratches
+TRUE,,Talkbox
+TRUE,,Tape
+TRUE,,Theremin
+TRUE,,Turntables
+TRUE,,Vocoder
+TRUE,,Accompanied By
+TRUE,,Audio Generator
+TRUE,,Backing Band
+TRUE,,Band
+TRUE,,Bass
+TRUE,,Brass Band
+TRUE,,Bullroarer
+TRUE,,Concert Band
+TRUE,,E-Bow
+TRUE,,Ensemble
+TRUE,,Gamelan
+TRUE,,Glass Harmonica
+TRUE,,Guest
+TRUE,,Homus
+TRUE,,Instruments
+TRUE,,Jew's Harp
+TRUE,,Mbira
+TRUE,,Morchang
+TRUE,,Musician
+TRUE,,Orchestra
+TRUE,,Performer
+TRUE,,Saw
+TRUE,,Siren
+TRUE,,Soloist
+TRUE,,Sounds
+TRUE,,Toy
+TRUE,,Trautonium
+TRUE,,Wind Chimes
+TRUE,,Wobble Board
+,TRUE,Written By
+,TRUE,Written-By
+,TRUE,Adapted By
+,TRUE,Arranged By
+,TRUE,Composed By
+,TRUE,Lyrics By
+,TRUE,Music By
+,TRUE,Songwriter
+,TRUE,Words By
