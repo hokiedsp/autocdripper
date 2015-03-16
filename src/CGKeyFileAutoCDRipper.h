@@ -6,6 +6,10 @@
 #include "enums.h"
 #include "CGKeyFileBase.h"
 
+#ifndef DEFAULT_MUSIC_DIR
+#define DEFAULT_MUSIC_DIR "$HOME/Music"
+#endif
+
 class CGKeyFileAutoCDRipper : public CGKeyFileBase
 {
 public:
@@ -21,16 +25,46 @@ public:
     virtual ~CGKeyFileAutoCDRipper();
 
     /**
-     * @brief Get General::SkipUnknownDisc option
-     * @return true to skip disc if its information is not found in databases
+     * @brief Get General::DrivePath option
+     * @return default CD drive path
      */
-    bool GeneralSkipUnknownDisc();
+    std::string GeneralDrivePath();
 
     /**
      * @brief Get General::FileFormat option
      * @return Output file format as ReleaseDatabase enum type
      */
     OutputFileFormat GeneralFileFormat();
+
+    /**
+     * @brief Get General::DoNotRipUnknownDisc option
+     * @return true to skip disc if its information is not found in databases
+     */
+    bool GeneralDoNotRipUnknownDisc();
+
+    /**
+     * @brief Get General::OutputDir option
+     * @return the base path to place the output file
+     */
+    std::string GeneralOutputDir();
+
+    /**
+     * @brief Get General::FileNamingScheme option
+     * @return output file naming scheme if CD info is successfully retrieved
+     */
+    std::string GeneralFileNamingScheme();
+
+    /**
+     * @brief Get General::FileNamingSchemeNoInfo option
+     * @return output file naming scheme if CD info is not found
+     */
+    std::string GeneralFileNamingSchemeNoInfo();
+
+    /**
+     * @brief Get General::PromptUPC option
+     * @return true to prompt user for the UPC barcode of the album
+     */
+    bool GeneralPromptUPC();
 
     /**
      * @brief Get General::SkipTrackOnePregap option
@@ -60,7 +94,7 @@ public:
      * @brief Get General::ShowNotification option
      * @return true to enable notification
      */
-    int GeneralShowNotification();
+    bool GeneralShowNotification();
 
     /**
      * @brief Get Rems::DBINFO option

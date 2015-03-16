@@ -37,32 +37,23 @@ std::string to_string(const ImageDatabase db);
 /**
  * @brief Convert string to OutputFileFormat
  * @param[in] String object with the representation of OutputFileFormat value
- * @param[in] Pointer to an object of type size_t, whose value is set by the function to position
- *            of the next character in str after the OutputFileFormat value. This parameter can
- *            also be a null pointer, in which case it is not used.
  * @return On success, the function returns the converted value of OutputFileFormat type
  * @throw std::invalid_argument if no conversion could be performed
  */
-OutputFileFormat sttooff(const std::string& str, size_t* idx = 0);
+OutputFileFormat sttooff(const std::string& str);
 
 /**
  * @brief Convert string to ReleaseDatabase
  * @param[in] String object with the representation of ReleaseDatabase value
- * @param[in] Pointer to an object of type size_t, whose value is set by the function to position
- *            of the next character in str after the ReleaseDatabase value. This parameter can
- *            also be a null pointer, in which case it is not used.
  * @return On success, the function returns the converted value of ReleaseDatabase type
  * @throw std::invalid_argument if no conversion could be performed
  */
-ReleaseDatabase sttordb(const std::string& str, size_t* idx = 0);
+ReleaseDatabase sttordb(const std::string& str);
 
 /**
  * @brief Convert string to ImageDatabase
  * @param[in] String object with the representation of ImageDatabase value
- * @param[in] Pointer to an object of type size_t, whose value is set by the function to position
- *            of the next character in str after the ImageDatabase value. This parameter can also
- *            be a null pointer, in which case it is not used.
  * @return On success, the function returns the converted value of ImageDatabase type
  * @throw std::invalid_argument if no conversion could be performed
  */
-ImageDatabase sttoidb(const std::string& str, size_t* idx = 0);
+ImageDatabase sttoidb(const std::string& str);

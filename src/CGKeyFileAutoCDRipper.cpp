@@ -40,22 +40,12 @@ CGKeyFileAutoCDRipper::~CGKeyFileAutoCDRipper() {}
 ///////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
- * @brief Get General::SkipUnknownDisc option
- * @return true to skip disc if its information is not found in databases
+ * @brief Get General::DrivePath option
+ * @return default CD drive path, empty string indicates auto-detect
  */
-bool CGKeyFileAutoCDRipper::GeneralSkipUnknownDisc()
+std::string CGKeyFileAutoCDRipper::GeneralDrivePath()
 {
-    GError *err = NULL;
-    bool rval = g_key_file_get_boolean(key_file, "General", "SkipUnknownDisc", &err);
-    if (err)
-    {
-        if ((err->code==G_KEY_FILE_ERROR_KEY_NOT_FOUND)
-                || (err->code==G_KEY_FILE_ERROR_GROUP_NOT_FOUND))
-            rval = true; // default value
-        else
-            throw(runtime_error("General::SkipUnknownDisc option value is invalid."));
-    }
-    return rval;
+    return GetStringKey("General","DrivePath","");
 }
 
 /**
@@ -64,31 +54,56 @@ bool CGKeyFileAutoCDRipper::GeneralSkipUnknownDisc()
  */
 OutputFileFormat CGKeyFileAutoCDRipper::GeneralFileFormat()
 {
-    GError *err = NULL;
-    char* keyval = g_key_file_get_string(key_file, "General", "FileFormat", &err);
-    if (err)
-    {
-        if ((err->code==G_KEY_FILE_ERROR_KEY_NOT_FOUND)
-                || (err->code==G_KEY_FILE_ERROR_GROUP_NOT_FOUND))
-            return OutputFileFormat::WAVPACK; // if key value does not exist, use the default value
-        else
-            goto throw_except;
-    }
+    return GetStringKey<OutputFileFormat>("General", "FileFormat",
+                                          OutputFileFormat::WAVPACK, sttooff);
+}
 
-    // Try converting the string value to OutputFileFormat value
-    try
-    {
-        return sttooff(keyval);
-    }
-    catch (const std::invalid_argument& ia)
-    {
-        // proceed if failed to convert
-    }
 
-throw_except:
-    throw(runtime_error("General::FileFormat option value is invalid."));
+/**
+ * @brief Get General::OutputDir option
+ * @return the base path to place the output file
+ */
+std::string CGKeyFileAutoCDRipper::GeneralOutputDir()
+{
+    return GetStringKey("General", "OutputDir", DEFAULT_MUSIC_DIR);
+}
 
-    return OutputFileFormat::WAVPACK; // should never get here
+/**
+ * @brief Get General::FileNamingScheme option
+ * @return returns output file naming scheme if CD info is successfully retrieved
+ */
+std::string CGKeyFileAutoCDRipper::GeneralFileNamingScheme()
+{
+    return GetStringKey("General","FileNamingScheme",
+                        "%album artist%-%album%[ (%discnumber% of %totaldiscs%)]");
+}
+
+/**
+ * @brief Get General::DoNotRipUnknownDisc option
+ * @return true to skip disc if its information is not found in databases
+ */
+bool CGKeyFileAutoCDRipper::GeneralDoNotRipUnknownDisc()
+{
+    return GetBooleanKey("General", "DoNotRipUnknownDisc", true);
+}
+
+/**
+ * @brief Get General::FileNamingSchemeNoInfo option
+ * @return returns output file naming scheme if CD info is not found
+ */
+std::string CGKeyFileAutoCDRipper::GeneralFileNamingSchemeNoInfo()
+{
+    return GetStringKey("General","FileNamingScheme",
+                        "%cddbid%");
+}
+
+/**
+ * @brief Get General::PromptUPC option
+ * @return true to prompt user for the UPC barcode of the album
+ */
+bool CGKeyFileAutoCDRipper::GeneralPromptUPC()
+{
+    return GetBooleanKey("General", "GeneralPromptUPC", false);
 }
 
 /**
@@ -97,17 +112,7 @@ throw_except:
  */
 bool CGKeyFileAutoCDRipper::GeneralSkipTrackOnePreGap()
 {
-    GError *err = NULL;
-    bool rval = g_key_file_get_boolean(key_file, "General", "SkipTrackOnePreGap", &err);
-    if (err)
-    {
-        if ((err->code==G_KEY_FILE_ERROR_KEY_NOT_FOUND)
-                || (err->code==G_KEY_FILE_ERROR_GROUP_NOT_FOUND))
-            rval = true; // default value
-        else
-            throw(runtime_error("General::SkipTrackOnePreGap option value is invalid."));
-    }
-    return rval;
+    return GetBooleanKey("General", "SkipTrackOnePreGap", true);
 }
 
 /**
@@ -133,48 +138,16 @@ std::vector<std::string> CGKeyFileAutoCDRipper::GeneralDatabasePreferenceStringL
  */
 std::vector<ReleaseDatabase> CGKeyFileAutoCDRipper::GeneralDatabasePreferenceList()
 {
-    std::vector<ReleaseDatabase> rlist;
+    // create default vector
+    std::vector<ReleaseDatabase> defval;
+    defval.reserve(4);
+    defval.push_back(ReleaseDatabase::DISCOGS);
+    defval.push_back(ReleaseDatabase::MUSICBRAINZ);
+    defval.push_back(ReleaseDatabase::FREEDB);
+    defval.push_back(ReleaseDatabase::LASTFM);
 
-    GError *err = NULL;
-    size_t len;
-    char **strlist = g_key_file_get_string_list(key_file, "General", "DataBasePreferenceList", &len, &err);
-    if (err)
-    {
-        if ((err->code==G_KEY_FILE_ERROR_KEY_NOT_FOUND)
-                || (err->code==G_KEY_FILE_ERROR_GROUP_NOT_FOUND))
-        {
-            // if key value does not exist, use the default value
-            rlist.reserve(4);
-            rlist.emplace_back(ReleaseDatabase::DISCOGS);
-            rlist.emplace_back(ReleaseDatabase::MUSICBRAINZ);
-            rlist.emplace_back(ReleaseDatabase::FREEDB);
-            rlist.emplace_back(ReleaseDatabase::LASTFM);
-
-            return rlist;
-        }
-        else
-        {
-            goto throw_except;
-        }
-    }
-
-    // Try converting the string value to OutputFileFormat value
-    try
-    {
-        rlist.reserve(len);
-        for (size_t n=0;n<len;n++)
-            rlist.push_back(sttordb(strlist[n]));
-        return rlist;
-    }
-    catch (const std::invalid_argument& ia)
-    {
-        // proceed if failed to convert
-    }
-
-throw_except:
-    throw(runtime_error("General::DatabasePreferenceList option value is invalid."));
-
-    return rlist; // should never get here
+    return GetStringListKey<ReleaseDatabase>("General", "DataBasePreferenceList",
+                                             defval, sttordb);
 }
 
 /**
@@ -183,17 +156,7 @@ throw_except:
  */
 bool CGKeyFileAutoCDRipper::GeneralCoverArt()
 {
-    GError *err = NULL;
-    bool rval = g_key_file_get_boolean(key_file, "General", "CoverArt", &err);
-    if (err)
-    {
-        if ((err->code==G_KEY_FILE_ERROR_KEY_NOT_FOUND)
-                || (err->code==G_KEY_FILE_ERROR_GROUP_NOT_FOUND))
-            rval = true; // default value
-        else
-            throw(runtime_error("General::CoverArt option value is invalid."));
-    }
-    return rval;
+    return GetBooleanKey("General", "CoverArt", true);
 }
 
 /**
@@ -202,36 +165,16 @@ bool CGKeyFileAutoCDRipper::GeneralCoverArt()
  */
 int CGKeyFileAutoCDRipper::GeneralCoverArtPreferredSize()
 {
-    GError *err = NULL;
-    bool rval = g_key_file_get_boolean(key_file, "General", "CoverArtPreferredSize", &err);
-    if (err)
-    {
-        if ((err->code==G_KEY_FILE_ERROR_KEY_NOT_FOUND)
-                || (err->code==G_KEY_FILE_ERROR_GROUP_NOT_FOUND))
-            rval = 300; // default value
-        else
-            throw(runtime_error("General::CoverArtPreferredSize option value is invalid."));
-    }
-    return rval;
+    return GetIntegerKey("General", "CoverArtPreferredSize",300);
 }
 
 /**
  * @brief Get General::ShowNotification option
  * @return true to enable notification
  */
-int CGKeyFileAutoCDRipper::GeneralShowNotification()
+bool CGKeyFileAutoCDRipper::GeneralShowNotification()
 {
-    GError *err = NULL;
-    bool rval = g_key_file_get_boolean(key_file, "General", "ShowNotification", &err);
-    if (err)
-    {
-        if ((err->code==G_KEY_FILE_ERROR_KEY_NOT_FOUND)
-                || (err->code==G_KEY_FILE_ERROR_GROUP_NOT_FOUND))
-            rval = true; // default value
-        else
-            throw(runtime_error("General::ShowNotification option value is invalid."));
-    }
-    return rval;
+    return GetBooleanKey("General", "ShowNotification", true);
 }
 
 /**
@@ -240,17 +183,7 @@ int CGKeyFileAutoCDRipper::GeneralShowNotification()
  */
 bool CGKeyFileAutoCDRipper::RemsDbInfo()
 {
-    GError *err = NULL;
-    bool rval = g_key_file_get_boolean(key_file, "Rems", "DBINFO", &err);
-    if (err)
-    {
-        if ((err->code==G_KEY_FILE_ERROR_KEY_NOT_FOUND)
-                || (err->code==G_KEY_FILE_ERROR_GROUP_NOT_FOUND))
-            rval = true; // default value
-        else
-            throw(runtime_error("Rems::DBINFO option value is invalid."));
-    }
-    return rval;
+    return GetBooleanKey("Rems", "DBINFO", true);
 }
 
 /**
@@ -259,17 +192,7 @@ bool CGKeyFileAutoCDRipper::RemsDbInfo()
  */
 bool CGKeyFileAutoCDRipper::RemsDate()
 {
-    GError *err = NULL;
-    bool rval = g_key_file_get_boolean(key_file, "Rems", "DATE", &err);
-    if (err)
-    {
-        if ((err->code==G_KEY_FILE_ERROR_KEY_NOT_FOUND)
-                || (err->code==G_KEY_FILE_ERROR_GROUP_NOT_FOUND))
-            rval = true; // default value
-        else
-            throw(runtime_error("Rems::DATE option value is invalid."));
-    }
-    return rval;
+    return GetBooleanKey("Rems", "DATE", true);
 }
 
 
@@ -279,17 +202,7 @@ bool CGKeyFileAutoCDRipper::RemsDate()
  */
 bool CGKeyFileAutoCDRipper::RemsLabel()
 {
-    GError *err = NULL;
-    bool rval = g_key_file_get_boolean(key_file, "Rems", "LABEL", &err);
-    if (err)
-    {
-        if ((err->code==G_KEY_FILE_ERROR_KEY_NOT_FOUND)
-                || (err->code==G_KEY_FILE_ERROR_GROUP_NOT_FOUND))
-            rval = true; // default value
-        else
-            throw(runtime_error("Rems::LABEL option value is invalid."));
-    }
-    return rval;
+    return GetBooleanKey("Rems", "LABEL", true);
 }
 
 
@@ -299,17 +212,7 @@ bool CGKeyFileAutoCDRipper::RemsLabel()
  */
 bool CGKeyFileAutoCDRipper::RemsCountry()
 {
-    GError *err = NULL;
-    bool rval = g_key_file_get_boolean(key_file, "Rems", "COUNTRY", &err);
-    if (err)
-    {
-        if ((err->code==G_KEY_FILE_ERROR_KEY_NOT_FOUND)
-                || (err->code==G_KEY_FILE_ERROR_GROUP_NOT_FOUND))
-            rval = true; // default value
-        else
-            throw(runtime_error("Rems::COUNTRY option value is invalid."));
-    }
-    return rval;
+    return GetBooleanKey("Rems", "COUNTRY", true);
 }
 
 
@@ -319,39 +222,8 @@ bool CGKeyFileAutoCDRipper::RemsCountry()
  */
 bool CGKeyFileAutoCDRipper::RemsUPC()
 {
-    GError *err = NULL;
-    bool rval = g_key_file_get_boolean(key_file, "Rems", "UPC", &err);
-    if (err)
-    {
-        if ((err->code==G_KEY_FILE_ERROR_KEY_NOT_FOUND)
-                || (err->code==G_KEY_FILE_ERROR_GROUP_NOT_FOUND))
-            rval = true; // default value
-        else
-            throw(runtime_error("Rems::UPC option value is invalid."));
-    }
-    return rval;
+    return GetBooleanKey("Rems", "UPC", true);
 }
-
-
-/**
- * @brief Get Rems::ASIN option
- * @return true to embed Amazon product code
- */
-bool CGKeyFileAutoCDRipper::RemsASIN()
-{
-    GError *err = NULL;
-    bool rval = g_key_file_get_boolean(key_file, "Rems", "ASIN", &err);
-    if (err)
-    {
-        if ((err->code==G_KEY_FILE_ERROR_KEY_NOT_FOUND)
-                || (err->code==G_KEY_FILE_ERROR_GROUP_NOT_FOUND))
-            rval = true; // default value
-        else
-            throw(runtime_error("Rems::ASIN option value is invalid."));
-    }
-    return rval;
-}
-
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -369,6 +241,7 @@ std::vector<std::string> CGKeyFileAutoCDRipper::GenerateOutputFileFormatList()
 
     return rval;
 }
+
 
 /**
  * @brief Generate list of supported databases
@@ -403,13 +276,55 @@ void CGKeyFileAutoCDRipper::Initialize_()
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // General Option Group
 
+    CreateStringKey("General","DrivePath",
+                    GeneralDrivePath(),
+                    "CD drive path. An empty string indicates auto-detect.");
+
     CreateStringKey("General","FileFormat",
                     GenerateOutputFileFormatList(),
                     to_string(GeneralFileFormat()),
                     "Output file format. For now, only wavpack is supported.");
 
+    CreateStringKey("General", "OutputDir",
+                    GeneralOutputDir(),
+                    "A base path to where the output files will be placed. Use \"$HOME\""
+                    "for the user's home directory.");
+
+    CreateStringKey("General","FileNamingScheme",
+                    GeneralFileNamingScheme(),
+                    "Output file naming convension. It uses a subset of the foobar2000/CUETools convension:\n"
+                    "http://www.cuetools.net/wiki/Cuetools_templates\n"
+                    "http://wiki.hydrogenaudio.org/index.php?title=Foobar2000:Titleformat_Reference\n"
+                    "\n"
+                    "Variables\n"
+                    "   %artist% is replaced by the artist name.\n"
+                    "   %album% is replaced by the album name.\n"
+                    "   %year% is replaced by the album date.\n"
+                    "   %genre% is replaced by the album genre.\n"
+                    "   %discnumber% is replaced by the disc number in a multidisc release.\n"
+                    "   %totaldiscs% is replaced by the total number of discs in a multidisc release.\n"
+                    "   %cddbid% is replaced by the CDDB ID string.\n"
+                    "   %totaltracks% is replaced by the number of tracks on the disc.\n"
+                    "   %unique% is replaced by the number starting from 1, and increased until the output path is unique.\n"
+                    "Conditional Stion\n"
+                    "   Text encolosed in brackets is removed if variables inside it are undefined.\n"
+                    "Quotation Mark\n"
+                    "   Text enclosed in single quotation marks, e.g. '(%)' is inserted bypassing "
+                    "syntax processing; allows special characters such as %,$,[,] to be inserted. "
+                    "In order to insert a quotation mark character, use '' (two single quotation marks).");
+
+    CreateBooleanKey("General","DoNotRipUnknownDisc",
+                     GeneralDoNotRipUnknownDisc(),
+                     "true to skip a CD if its information is not found in any of the databases.");
+
+    CreateStringKey("General","FileNamingSchemeNoInfo",
+                    GeneralFileNamingSchemeNoInfo(),
+                    "If General::DoNoRipUnknownDisc=false, and the CD info is not available, "
+                    "this file naming scheme is being used instead of General::FileNamingScheme. "
+                    "Only %cddbid% %totaltracks% and %unique% variables may be used.");
+
     CreateBooleanKey("General","SkipTrackOnePreGap",
-                     GeneralSkipTrackOnePregap(),
+                     GeneralSkipTrackOnePreGap(),
                      "Setting this key to false keeps the pregap of the first track.");
 
     CreateStringListKey("General","DatabasePreferenceList",
@@ -454,8 +369,5 @@ void CGKeyFileAutoCDRipper::Initialize_()
 
     CreateBooleanKey("Rems","UPC",RemsUPC(),
                      "true to embed barcode or universal product code.");
-
-    CreateBooleanKey("Rems","ASIN",RemsASIN(),
-                     "true to embed Amazon.com product code.");
 
 }

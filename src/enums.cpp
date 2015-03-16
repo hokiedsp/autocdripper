@@ -68,16 +68,12 @@ std::string to_string(const ImageDatabase db)
  * @return On success, the function returns the converted value of OutputFileFormat type
  * @throw std::invalid_argument if no conversion could be performed
  */
-OutputFileFormat sttooff(const std::string& str, size_t* idx)
+OutputFileFormat sttooff(const std::string& str)
 {
     if (str.compare(0,7,"wavpack")==0)
-    {
-        if (idx) *idx = 7;
         return OutputFileFormat::WAVPACK;
-    }
 
     throw(runtime_error("Unsupported output file type name."));
-
 }
 
 
@@ -90,28 +86,16 @@ OutputFileFormat sttooff(const std::string& str, size_t* idx)
  * @return On success, the function returns the converted value of ReleaseDatabase type
  * @throw std::invalid_argument if no conversion could be performed
  */
-ReleaseDatabase sttordb(const std::string& str, size_t* idx)
+ReleaseDatabase sttordb(const std::string& str)
 {
     if (str.compare(0,7,"discogs")==0)
-    {
-        if (idx) *idx = 7;
         return ReleaseDatabase::DISCOGS;
-    }
     else if (str.compare(0,11,"musicbrainz")==0)
-    {
-        if (idx) *idx = 11;
         return ReleaseDatabase::MUSICBRAINZ;
-    }
     else if (str.compare(0,6,"freedb")==0)
-    {
-        if (idx) *idx = 6;
         return ReleaseDatabase::FREEDB;
-    }
     else if (str.compare(0,6,"lastfm")==0)
-    {
-        if (idx) *idx = 6;
         return ReleaseDatabase::LASTFM;
-    }
 
     throw(runtime_error("Unsupported database name."));
 }
@@ -128,15 +112,9 @@ ReleaseDatabase sttordb(const std::string& str, size_t* idx)
 ImageDatabase sttoidb(const std::string& str, size_t* idx)
 {
     if (str.compare(0,11,"musicbrainz")==0)
-    {
-        if (idx) *idx = 11;
         return ImageDatabase::MUSICBRAINZ;
-    }
     else if (str.compare(0,6,"lastfm")==0)
-    {
-        if (idx) *idx = 6;
         return ImageDatabase::LASTFM;
-    }
 
     throw(runtime_error("Unsupported database name."));
 }
