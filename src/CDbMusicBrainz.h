@@ -40,14 +40,14 @@ inline std::ostream& operator<<(std::ostream& os, const SDbrMusicBrainz& o)
 
 /** Class to access MusicBrainz online CD and coverart databases service.
  */
-class CDbMusicBrainz : public IDatabase, public ICoverArt
+class CDbMusicBrainz : public CDbBase, public IDatabase, public ICoverArt
 {
 public:
     /** Constructor.
      *
-     *  @param[in] CDDB server name. If omitted or empty, default server
+     *  @param[in] Server name. If omitted or empty, default server
      *             "musicbrainz.org" is used.
-     *  @param[in] CDDB server port. If omitted, default value is 80.
+     *  @param[in] Server port. If omitted, default value is 80.
      *  @param[in] MusicBrainz account name for tagging. If omitted or empty, no
      *             action is taken.
      *  @param[in] MusicBrainz account password for tagging. If omitted or empty
@@ -62,6 +62,24 @@ public:
     /** Destructor
      */
     virtual ~CDbMusicBrainz();
+
+    /**
+     * @brief Return true if Database can be searched for a CD info
+     * @return true if database can be searched for a CD release
+     */
+    bool IsReleaseDb() { return true; }
+
+    /**
+     * @brief Return true if Database can be searched for a CD cover art
+     * @return true if database can be searched for a CD cover art
+     */
+    bool IsImageDb() { return true; }
+
+    /**
+     * @brief Return database type enum
+     * @return ReleaseDatabase enumuration value
+     */
+    virtual ReleaseDatabase GetDatabaseType() const { return ReleaseDatabase::MUSICBRAINZ; }
 
     /** Always return true as MusicBrainz query is supported.
      *

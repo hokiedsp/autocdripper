@@ -5,6 +5,7 @@
 #include <stdexcept>
 #include <cstdio>
 #include <cstring>
+#include <sstream>
 
 using std::string;
 using std::runtime_error;
@@ -69,8 +70,11 @@ CSinkWavPack::~CSinkWavPack()
 }
 
 /* Write a the header for a WAV file. */
-void CSinkWavPack::WritePreamble()
+void CSinkWavPack::WritePreamble(const uintptr_t sign)
 {
+    if (sign!=GetLockSign_())
+        throw(runtime_error("The calling thread must call Lock() first; it has not attained exclusive access."));
+
 	if (!WavpackSetConfiguration (wpc, &config, -1))
 		throw(runtime_error("Failed to set wavpack configuration."));
 
@@ -78,9 +82,12 @@ void CSinkWavPack::WritePreamble()
 	WavpackPackInit(wpc);
 }
 
-int CSinkWavPack::WriteFrame(const int16_t* data, const size_t framesize)
+int CSinkWavPack::WriteFrame(const int16_t* data, const size_t framesize, const uintptr_t sign)
 {
-	// copy data to the sample buffers as a 32-bit data
+    if (sign!=GetLockSign_())
+        throw(runtime_error("The calling thread must call Lock() first; it has not attained exclusive access."));
+
+    // copy data to the sample buffers as a 32-bit data
 	buffer.assign(data,data+framesize);
 	
 	// 5. actually compress audio and write blocks with WavpackPackSamples()
@@ -90,7 +97,7 @@ int CSinkWavPack::WriteFrame(const int16_t* data, const size_t framesize)
 	return framesize;
 }
 
-void CSinkWavPack::WritePostamble()
+void CSinkWavPack::WritePostamble(const uintptr_t sign)
 {
 /*
   6. flush final samples into blocks with WavpackFlushSamples()
@@ -102,7 +109,10 @@ void CSinkWavPack::WritePostamble()
 	application retrieve the first block written and let the library update the
 	total samples indication. A function is provided to do this update.
 */
-	// we're now done with any WavPack blocks, so flush any remaining data
+    if (sign!=GetLockSign_())
+        throw(runtime_error("The calling thread must call Lock() first; it has not attained exclusive access."));
+
+    // we're now done with any WavPack blocks, so flush any remaining data
 	if (!WavpackFlushSamples (wpc))
 		throw(runtime_error("WavPack: Failed to flush samples."));
 
@@ -184,3 +194,21 @@ size_t CSinkWavPack::WriteFile(const void *buf, const size_t N)
 	return bcount;
 }
 
+/**
+ * @brief returns true if cuesheet can be embedded
+ * @return always false
+ */
+bool CSinkWavPack::CueSheetEmbeddable() { return true; }
+
+/**
+ * @brief Add "cuesheet" tag entry to the output file
+ * @param[in] reference to the cuesheet
+ * @throw std::runtime_error if ISink instance does not support embedded
+ *        cuesheet (i.e., CueSheetEmbeddable() returns false)
+ */
+void CSinkWavPack::SetCueSheet(const SCueSheet& cuesheet)
+{
+    std::ostringstream os ;
+    os << cuesheet;
+    tags.AppendTag("cuesheet", os.str().c_str());
+}

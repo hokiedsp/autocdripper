@@ -3,13 +3,19 @@
 #include <string>
 #include <vector>
 
-class ICoverArt
+class IImageDatabase
 {
 public:
 
     /** Destructor
      */
-    virtual ~ICoverArt(){}
+    virtual ~IImageDatabase(){}
+
+    /**
+     * @brief Return database type enum
+     * @return ReleaseDatabase enumuration value
+     */
+    virtual ImageDatabaseType GetImageDatabaseType() const=0;
 
     /** Specify the preferred coverart image width
      *

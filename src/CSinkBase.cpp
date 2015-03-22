@@ -5,8 +5,11 @@
 
 using std::string;
 using std::runtime_error;
+using std::mutex;
+using std::lock_guard;
+using std::unique_lock;
 
-CSinkBase::CSinkBase(const std::string &path) : nbytes_total(0)
+CSinkBase::CSinkBase(const std::string &path) : lock_sign(0), nbytes_total(0)
 {
 	file = fopen(path.c_str(), "w+b");
 	if (!file) throw(runtime_error("Could not open the output file."));
@@ -58,3 +61,50 @@ size_t CSinkBase::GetNumberOfBytesWritten_()
 	return nbytes_total;
 }
 
+bool CSinkBase::IsLocked()
+{
+    lock_guard<mutex> lck(mutex_sign);
+    return lock_sign;
+}
+
+void CSinkBase::Lock(const uintptr_t sign)
+{
+    unique_lock<mutex> lck(mutex_sign);
+    // if locked, block until unlocked
+    while (lock_sign) cv_sign.wait(lck);
+
+    lock_sign = sign;
+}
+
+bool CSinkBase::TryLock(const uintptr_t sign)
+{
+    lock_guard<mutex> lck(mutex_sign);
+    if (lock_sign) return false;
+
+    lock_sign = sign;
+    return true;
+}
+
+bool CSinkBase::Unlock(const uintptr_t sign)
+{
+    std::unique_lock<std::mutex> lck(mutex_sign);
+
+    if (lock_sign!=sign) return false;
+
+    lock_sign = 0;
+    cv_sign.notify_all();
+    return true;
+}
+
+void CSinkBase::WaitTillUnlock()
+{
+    unique_lock<mutex> lck(mutex_sign);
+    // if locked, block until unlocked
+    while (lock_sign) cv_sign.wait(lck);
+}
+
+uintptr_t CSinkBase::GetLockSign_()
+{
+    lock_guard<mutex> lck(mutex_sign);
+    return lock_sign;
+}

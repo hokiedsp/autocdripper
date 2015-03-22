@@ -67,7 +67,8 @@ struct SCueTrack
 	 *  the existing index object.
 	 *
 	 *  @param[in] Index number to add (0-99). Throws error if out of range value.
-	 *  @return    Reference to the created/found SCueTrackIndex object
+     *  @param[in] Index time in sectors. Only applied if non-zero.
+     *  @return    Reference to the created/found SCueTrackIndex object
 	 */
 	SCueTrackIndex& AddIndex(const int number=1, const size_t time=0);
 	

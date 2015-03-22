@@ -5,7 +5,7 @@
 using std::string;
 using std::runtime_error;
 
-CSinkWav::CSinkWav(const string &path) :	CSinkBase(path)
+CSinkWav::CSinkWav(const string &path) : CSinkBase(path)
 {}	
 
 CSinkWav::~CSinkWav()
@@ -26,9 +26,12 @@ void CSinkWav::WriteInteger_(long int num, int bytes)
 WriteFile_(s, sizeof(s)-1) /* Subtract 1 for trailing '\0'. */
 
 /* Write a the header for a WAV file. */
-void CSinkWav::WritePreamble()
+void CSinkWav::WritePreamble(const uintptr_t sign)
 {
-	/* quick and dirty */
+    if (sign!=GetLockSign_())
+        throw(runtime_error("The calling thread must call Lock() first; it has not attained exclusive access."));
+
+    /* quick and dirty */
 	WriteString_("RIFF"); /* 0-3 : FILE ID String */
 
 	SeekFile_(4, SEEK_CUR);	// skip the file size for now
@@ -44,14 +47,20 @@ void CSinkWav::WritePreamble()
 	WriteString_("data"); /* 36-39 : data chunk header */
 }
 
-int CSinkWav::WriteFrame(const int16_t* data, const size_t framesize)
+int CSinkWav::WriteFrame(const int16_t* data, const size_t framesize, const uintptr_t sign)
 {
-	return WriteFile_(data, 2*framesize);
+    if (sign!=GetLockSign_())
+        throw(runtime_error("The calling thread must call Lock() first; it has not attained exclusive access."));
+
+    return WriteFile_(data, 2*framesize);
 }
 
-void CSinkWav::WritePostamble()
+void CSinkWav::WritePostamble(const uintptr_t sign)
 {
-	size_t nbytes_total = GetNumberOfBytesWritten_();
+    if (sign!=GetLockSign_())
+        throw(runtime_error("The calling thread must call Lock() first; it has not attained exclusive access."));
+
+    size_t nbytes_total = GetNumberOfBytesWritten_();
 	SeekFile_(4, SEEK_SET);	// skip the file size for now
 	WriteInteger_(nbytes_total-8, 4); /* 4-7 : Size of the overall file - 8*/
 	SeekFile_(40, SEEK_SET);	// skip the file size for now
@@ -59,3 +68,16 @@ void CSinkWav::WritePostamble()
 	SeekFile_(0, SEEK_END);	// move the cursor to the end
 }
 
+/**
+ * @brief returns true if cuesheet can be embedded
+ * @return always false
+ */
+bool CSinkWav::CueSheetEmbeddable() { return false; }
+
+/**
+ * @brief Add "cuesheet" tag entry to the output file
+ * @param[in] reference to the cuesheet
+ * @throw std::runtime_error if ISink instance does not support embedded
+ *        cuesheet (i.e., CueSheetEmbeddable() returns false)
+ */
+void CSinkWav::SetCueSheet(const SCueSheet& cuesheet) {}

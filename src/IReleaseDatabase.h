@@ -1,14 +1,22 @@
 #pragma once
 
+#include "enums.h"
+
 struct SDbrBase;
 struct SCueSheet;
 
 /** Database Access Interface
  */
-class IDatabase
+class IReleaseDatabase
 {
 public:
-    virtual ~IDatabase() {}
+    virtual ~IReleaseDatabase() {}
+
+    /**
+     * @brief Return database type enum
+     * @return ReleaseDatabase enumuration value
+     */
+    virtual ReleaseDatabaseType GetReleaseDatabaseType() const=0;
 
     /** Returns true if database supports direct query of CD based on its track info.
      *  If false, Query() call always returns 0 matches.

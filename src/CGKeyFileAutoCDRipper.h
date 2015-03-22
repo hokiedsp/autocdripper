@@ -70,7 +70,7 @@ public:
      * @brief Get General::SkipTrackOnePregap option
      * @return true to skip the first tracks' pregap
      */
-    bool GeneralSkipTrackOnePreGap();
+    //bool GeneralSkipTrackOnePreGap();
 
     /**
      * @brief Get General::DatabasePreferenceList option

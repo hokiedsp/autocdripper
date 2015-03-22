@@ -7,8 +7,8 @@
 #define NumberOfImageDatabases 2
 
 enum class OutputFileFormat {WAVPACK};
-enum class ReleaseDatabase {DISCOGS,MUSICBRAINZ,FREEDB,LASTFM};
-enum class ImageDatabase {MUSICBRAINZ,LASTFM};
+enum class ReleaseDatabaseType {DISCOGS,MUSICBRAINZ,FREEDB,LASTFM};
+enum class ImageDatabaseType {MUSICBRAINZ,LASTFM};
 
 /**
  * @brief Convert OutputFileFormat value to string
@@ -24,15 +24,15 @@ std::string to_string(const OutputFileFormat fmt);
  * @return a string with the representation of db
  * @throw std::runtime_error if associated string is not given for db
  */
-std::string to_string(const ReleaseDatabase db);
+std::string to_string(const ReleaseDatabaseType db);
 
 /**
- * @brief Convert ImageDatabase value to string
- * @param[in] ImageDatabase value
+ * @brief Convert ImageDatabaseType value to string
+ * @param[in] ImageDatabaseType value
  * @return a string with the representation of db
  * @throw std::runtime_error if associated string is not given for db
  */
-std::string to_string(const ImageDatabase db);
+std::string to_string(const ImageDatabaseType db);
 
 /**
  * @brief Convert string to OutputFileFormat
@@ -43,17 +43,17 @@ std::string to_string(const ImageDatabase db);
 OutputFileFormat sttooff(const std::string& str);
 
 /**
- * @brief Convert string to ReleaseDatabase
- * @param[in] String object with the representation of ReleaseDatabase value
- * @return On success, the function returns the converted value of ReleaseDatabase type
+ * @brief Convert string to ReleaseDatabaseType
+ * @param[in] String object with the representation of ReleaseDatabaseType value
+ * @return On success, the function returns the converted value of ReleaseDatabaseType type
  * @throw std::invalid_argument if no conversion could be performed
  */
-ReleaseDatabase sttordb(const std::string& str);
+ReleaseDatabaseType sttordb(const std::string& str);
 
 /**
  * @brief Convert string to ImageDatabase
- * @param[in] String object with the representation of ImageDatabase value
- * @return On success, the function returns the converted value of ImageDatabase type
+ * @param[in] String object with the representation of ImageDatabaseType value
+ * @return On success, the function returns the converted value of ImageDatabaseType type
  * @throw std::invalid_argument if no conversion could be performed
  */
-ImageDatabase sttoidb(const std::string& str);
+ImageDatabaseType sttoidb(const std::string& str);

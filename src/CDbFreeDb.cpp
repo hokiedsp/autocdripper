@@ -1,4 +1,4 @@
-#include "CDbCDDB.h"
+#include "CDbFreeDb.h"
 
 #include <stdexcept>
 #include <stdlib.h> // for http_proxy environmental variable access
@@ -12,6 +12,7 @@ using std::endl;
 #define ENV_HTTP_PROXY "http_proxy"
 #define HTTP_PREFIX "http://"
 #define HTTP_PREFIX_LEN 7
+#define PREGAP_OFFSET 2*75 // in sectors
 
 using std::ostringstream;
 using std::deque;
@@ -19,8 +20,7 @@ using std::string;
 using std::runtime_error;
 using std::to_string;
 
-
-int CDbCDDB::num_instances = 0;
+int CDbFreeDb::num_instances = 0;
 
 /** Initialize a new disc and fill it with disc info
  *  from the supplied cuesheet and length. Previously created disc
@@ -43,7 +43,7 @@ int CDbCDDB::num_instances = 0;
  *  @param[in] Client program name. If omitted or empty, no action is taken.
  *  @param[in] Client program version. If omitted or empty, no action is taken.
  */
-CDbCDDB::CDbCDDB(const std::string &servername, const int serverport,
+CDbFreeDb::CDbFreeDb(const std::string &servername, const int serverport,
 		  const std::string &protocol,  const std::string &email,
 		  const std::string &cachemode, const std::string &cachedir,
 		  const std::string &cname,const std::string &cversion)
@@ -80,7 +80,7 @@ CDbCDDB::CDbCDDB(const std::string &servername, const int serverport,
 	num_instances++;
 }
 
-CDbCDDB::~CDbCDDB()
+CDbFreeDb::~CDbFreeDb()
 {
 	// Clear disc info collection
 	ClearDiscs_();
@@ -100,7 +100,7 @@ CDbCDDB::~CDbCDDB()
  *             variable will be used. If the variable is not set, the
  *             constructor throws an error.
  */
-void CDbCDDB::SetProtocol(const std::string &protocol)
+void CDbFreeDb::SetProtocol(const std::string &protocol)
 {
 	if (protocol.empty() || protocol.compare("cddbp") == 0)
 	{
@@ -189,7 +189,7 @@ void CDbCDDB::SetProtocol(const std::string &protocol)
  *  @param[in] Local cache mode: "on", "off", or "only". If empty, left unchanged.
  *  @param[in] Local cache directory. If empty, left unchanged.
  */
-void CDbCDDB::SetCacheSettings(const std::string &cachemode, const std::string &cachedir)
+void CDbFreeDb::SetCacheSettings(const std::string &cachemode, const std::string &cachedir)
 {
 	if (!cachemode.empty())
 	{
@@ -218,7 +218,7 @@ void CDbCDDB::SetCacheSettings(const std::string &cachemode, const std::string &
  *             will be reused. System default is 10.
  *  @return    Number of matched records
  */
-int CDbCDDB::Query(const std::string &dev, const SCueSheet &cuesheet, const size_t len,
+int CDbFreeDb::Query(const std::string &dev, const SCueSheet &cuesheet, const size_t len,
 						const bool autofill, const int timeout)
 {
 	// must build disc based on cuesheet (throws error if fails to compute discid)
@@ -259,7 +259,7 @@ int CDbCDDB::Query(const std::string &dev, const SCueSheet &cuesheet, const size
  *  @return CDDB discid (8 hexdigits) if Query() has been completed successfully. 
  *          Otherwise "00000000".
  */
-std::string CDbCDDB::GetDiscId() const
+std::string CDbFreeDb::GetDiscId() const
 {
 	if (discs.empty()) return string("00000000");
 
@@ -273,7 +273,7 @@ std::string CDbCDDB::GetDiscId() const
  *
  *  @return    Number of matches
  */
-int CDbCDDB::NumberOfMatches() const
+int CDbFreeDb::NumberOfMatches() const
 {
 	return discs.size();
 };
@@ -284,7 +284,7 @@ int CDbCDDB::NumberOfMatches() const
 *             is returned.
 *  @return    Title string (empty if title not available)
 */
-virtual std::string CDbCDDB::AlbumTitle(const int recnum=0) const
+std::string CDbFreeDb::AlbumTitle(const int recnum) const
 {
     // set disc
     if (recnum<0 || recnum>=(int)discs.size()) // all discs
@@ -299,7 +299,7 @@ virtual std::string CDbCDDB::AlbumTitle(const int recnum=0) const
  *             is returned.
  *  @return    Artist string (empty if artist not available)
  */
-virtual std::string CDbCDDB::AlbumArtist(const int recnum=0) const
+std::string CDbFreeDb::AlbumArtist(const int recnum) const
 {
     // set disc
     if (recnum<0 || recnum>=(int)discs.size()) // all discs
@@ -314,7 +314,7 @@ virtual std::string CDbCDDB::AlbumArtist(const int recnum=0) const
  *             is returned.
  *  @return    Genre string (empty if genre not available)
  */
-virtual std::string CDbCDDB::Genre(const int recnum=0) const
+std::string CDbFreeDb::Genre(const int recnum) const
 {
     // set disc
     if (recnum<0 || recnum>=(int)discs.size()) // all discs
@@ -328,7 +328,7 @@ virtual std::string CDbCDDB::Genre(const int recnum=0) const
 	 *
 	 *  @return Matching CD record ID. -1 if no match found.
 	 */
-int CDbCDDB::MatchByGenre(const std::string &genre) const
+int CDbFreeDb::MatchByGenre(const std::string &genre) const
 {
 	deque<cddb_disc_t*>::const_iterator it;
 	for (it=discs.begin(); it!=discs.end(); it++)
@@ -353,7 +353,7 @@ int CDbCDDB::MatchByGenre(const std::string &genre) const
  *  @param[in] Network time out in seconds. If omitted or negative, previous value
  *             will be reused. System default is 10.
  */
-void CDbCDDB::Populate(const int recnum, const int timeout)
+void CDbFreeDb::Populate(const int recnum, const int timeout)
 {
 	// Set timeout if specified
 	if (timeout>0) cddb_set_timeout(conn,timeout);
@@ -387,7 +387,7 @@ void CDbCDDB::Populate(const int recnum, const int timeout)
  *  @return    SDbrBase Pointer to newly created database record object. Caller is
  *             responsible for deleting the object.
  */
-SDbrBase* CDbCDDB::Retrieve(const int recnum)
+SDbrBase* CDbFreeDb::Retrieve(const int recnum) const
 {
 	const char *str;	// temp
 
@@ -399,7 +399,7 @@ SDbrBase* CDbCDDB::Retrieve(const int recnum)
 	cddb_disc_t *disc = discs[recnum];
 
 	// instantiate new DBR object
-	SDbrCDDB * rec = new SDbrCDDB;
+    SDbrFreeDb * rec = new SDbrFreeDb;
 
 	// populate the disc info (use REM for non-essential data)
 	rec->Performer = cddb_disc_get_artist(disc);	// performer (80-char long max)
@@ -409,9 +409,6 @@ SDbrBase* CDbCDDB::Retrieve(const int recnum)
 	rec->Rems.emplace_back("DISCID ");	// comments on the disc 
 	rec->Rems[1].append(GetDiscId()); 
 
-	rec->Rems.emplace_back("LENGTH ");
-	rec->Rems[2].append(to_string(cddb_disc_get_length(disc)));
-	
 	rec->Rems.emplace_back("GENRE ");
 	str = cddb_disc_get_genre(disc);
 	if (str) rec->Rems[3].append(cddb_disc_get_genre(disc));
@@ -438,7 +435,7 @@ SDbrBase* CDbCDDB::Retrieve(const int recnum)
 		SCueTrack &rectrack = rec->Tracks[i-1];
 
 		// add Index 1 with the start time
-		rectrack.AddIndex(1,cddb_track_get_frame_offset(track));
+        rectrack.AddIndex(1,cddb_track_get_frame_offset(track)-PREGAP_OFFSET);
 		
 		rectrack.Title = cddb_track_get_title(track);
 		rectrack.Performer = cddb_track_get_artist(track);
@@ -454,7 +451,7 @@ SDbrBase* CDbCDDB::Retrieve(const int recnum)
 
 /** Clear all the disc entries
  */
-void CDbCDDB::ClearDiscs_()
+void CDbFreeDb::ClearDiscs_()
 {
 	// destroy the discs
 	deque<cddb_disc_t*>::iterator it;
@@ -473,7 +470,7 @@ void CDbCDDB::ClearDiscs_()
  *  @param[in] Cuesheet with its basic data populated
  *  @param[in] Length of the CD in sectors
  */
-void CDbCDDB::InitDisc_(const SCueSheet &cuesheet, const size_t len)
+void CDbFreeDb::InitDisc_(const SCueSheet &cuesheet, const size_t len)
 {
 	// Clear the discs
 	ClearDiscs_();
@@ -496,7 +493,7 @@ void CDbCDDB::InitDisc_(const SCueSheet &cuesheet, const size_t len)
 		cddb_disc_add_track(disc,track);
 		
 		// set its offset in seconds
-		cddb_track_set_frame_offset(track, (*it).StartTime());
+        cddb_track_set_frame_offset(track, (*it).StartTime()+PREGAP_OFFSET);
 	}
 
 	// Populate the discid
@@ -505,7 +502,7 @@ void CDbCDDB::InitDisc_(const SCueSheet &cuesheet, const size_t len)
 
 }
 
-void CDbCDDB::Print(const int recnum) const
+void CDbFreeDb::Print(const int recnum) const
 {
 	if (discs.empty()) cout << "No match found" << endl;
 
@@ -535,4 +532,3 @@ void CDbCDDB::Print(const int recnum) const
 		throw(runtime_error("Invalid CD record ID."));
 	}
 }
-

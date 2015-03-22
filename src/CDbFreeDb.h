@@ -4,12 +4,14 @@
 #include <string>
 #include <cddb/cddb.h>
 
+#include "CDbBase.h"
+#include "IDatabase.h"
 #include "SCueSheet.h"
 #include "SDbrBase.h"
 
 /** CD Database Record structure - SCueSheet with DbType()
  */
-struct SDbrCDDB : SDbrBase
+struct SDbrFreeDb : SDbrBase
 {
     /** Name of the database the record was retrieved from
      *
@@ -17,22 +19,22 @@ struct SDbrCDDB : SDbrBase
      */
     virtual std::string SourceDatabase() const { return "CDDB"; }
 
-    friend std::ostream& operator<<(std::ostream& stdout, const SDbrCDDB& obj);
+    friend std::ostream& operator<<(std::ostream& stdout, const SDbrFreeDb& obj);
 };
 
-/** Overloaded stream insertion operator to output the content of SDbrCDDB
+/** Overloaded stream insertion operator to output the content of SDbrFreeDb
  *  object. The output is in accordance with the CDRWIN's Cue-Sheet syntax
  *
  *  @param[in]  Reference to an std::ostream object
  *  @return     Copy of the stream object
  */
-inline std::ostream& operator<<(std::ostream& os, const SDbrCDDB& o)
+inline std::ostream& operator<<(std::ostream& os, const SDbrFreeDb& o)
 {
     os << dynamic_cast<const SCueSheet&>(o);
     return os;
 }
 
-class CDbCDDB: public IDatabase
+class CDbFreeDb: public CDbBase, public IDatabase
 {
 public:
     /** Constructor.
@@ -52,28 +54,52 @@ public:
      *  @param[in] Client program name. If omitted or empty, no action is taken.
      *  @param[in] Client program version. If omitted or empty, no action is taken.
      */
-    CDbCDDB(const std::string &servername=std::string(), const int serverport=-1,
+    CDbFreeDb(const std::string &servername=std::string(), const int serverport=-1,
             const std::string &protocol=std::string(),  const std::string &email=std::string(),
             const std::string &cachemode=std::string(), const std::string &cachedir=std::string(),
             const std::string &cname=std::string(),const std::string &cversion=std::string());
 
     /** Destructor
      */
-    virtual ~CDbCDDB();
+    virtual ~CDbFreeDb();
+
+    /**
+     * @brief Return true if Database can be searched for a CD info
+     * @return true if database can be searched for a CD release
+     */
+    bool IsReleaseDb() { return true; }
+
+    /**
+     * @brief Return true if Database can be searched for a CD cover art
+     * @return true if database can be searched for a CD cover art
+     */
+    bool IsImageDb() { return false; }
+
+    /**
+     * @brief Return true if Database can be searched for a CD cover art
+     * @return true if database can be searched for a CD cover art
+     */
+    bool IsCoverArtDb()=0;
+
+    /**
+     * @brief Return database type enum
+     * @return ReleaseDatabase enumuration value
+     */
+    virtual ReleaseDatabase GetReleaseDbType() const { return ReleaseDatabase::FREEDB  ; }
 
     /** Returns true if database supports direct query of CD based on its track info.
      *  If false, Query() call always returns 0 matches.
      *
      *  @return    true if query is supported
      */
-    static bool IsQueryable() const { return true; }
+    virtual bool IsQueryable() const { return true; }
 
     /** Returns true if database supports search by album title and artist.
      *  If false, Search() call always returns 0 matches.
      *
      *  @return    true if search is supported
      */
-    static bool IsSearchable() const { return false; }
+    virtual bool IsSearchable() const { return false; }
 
     /** Set a server connection protocol.
      *
@@ -239,4 +265,3 @@ private:
 
     static int num_instances;	// keep up with # of active instances
 };
-

@@ -22,14 +22,30 @@ CSourceCdda::CSourceCdda()	// auto-detect CD-ROM drive
 : d(NULL)
 {
 	OpenDisc_();	// throws exception if failed
-	InitParanoia_(); // throws exception if failed
+    try
+    {
+        InitParanoia_(); // throws exception if failed
+    }
+    catch (...)
+    {
+        cdda_close(d);
+        throw;
+    }
 }
 
 CSourceCdda::CSourceCdda(const std::string &path) // use the given drive
 : d(NULL)
 {
 	OpenDisc_(path.c_str());	// throws exception if failed
-	InitParanoia_(); // throws exception if failed
+    try
+    {
+        InitParanoia_(); // throws exception if failed
+    }
+    catch (...)
+    {
+        cdda_close(d);
+        throw;
+    }
 }
 
 CSourceCdda::~CSourceCdda()
@@ -65,7 +81,11 @@ void CSourceCdda::OpenDisc_(const char * drivepath)
 	/* Found such a CD-ROM with a CD-DA loaded. Use the first drive in
 	the list. */
 	d = cdda_identify(*ppsz_cd_drives, 1, NULL);
-	
+
+    /* Quiet operation */
+    cdda_verbose_set(d, CDDA_MESSAGE_FORGETIT, CDDA_MESSAGE_FORGETIT);
+
+
 	/* Don't need a list of CD's with CD-DA's any more. */
 	cdio_free_device_list(ppsz_cd_drives);
 	
@@ -78,21 +98,17 @@ void CSourceCdda::OpenDisc_(const char * drivepath)
 		cdda_close(d);
 		throw (runtime_error("Unable to open audio CD."));
 	}
-	
-	/* Populate CueSheet with tracks */
-	InitCd_();
-	
-	/* CD is ready. */
+
+    /* CD is ready. */
 }
 
 /** Get device path
  *
  *  @return Device path string.
  */
-std::string CSourceCdda::GetPath() const
+std::string CSourceCdda::GetDevicePath() const
 {
    return string(((cdrom_drive_s*)d)->cdda_device_name);
-	
 }
 
 /** Get the length of the CD in specified units
@@ -103,7 +119,7 @@ std::string CSourceCdda::GetPath() const
 size_t CSourceCdda::GetLength(cdtimeunit_t units)
 {
    /* Now all we still have to do, is calculate the length of the
-       disc in seconds.  We use the LEADOUT_TRACK for this. */
+       disc in requested time units.  We use the LEADOUT_TRACK for this. */
     CdIo_t *cdio = ((cdrom_drive_s*)d)->p_cdio;
     uint32_t length = cdio_get_track_lba(cdio, CDIO_CDROM_LEADOUT_TRACK);
 
@@ -120,18 +136,12 @@ size_t CSourceCdda::GetLength(cdtimeunit_t units)
 	}
 }
 
-void CSourceCdda::SetVerbose()
-{
-	/* We'll set for verbose paranoia messages. */
-	cdda_verbose_set(d, CDDA_MESSAGE_PRINTIT, CDDA_MESSAGE_PRINTIT);
-}
-
 void CSourceCdda::InitParanoia_()
 {
 	p = paranoia_init(d);
 	paranoia_modeset(p, PARANOIA_MODE_FULL^PARANOIA_MODE_NEVERSKIP);
-	i_last_lsn = cdda_disc_lastsector(d);
-	Rewind();
+    i_last_lsn = cdda_disc_lastsector(d);
+    Rewind();
 }
 	
 size_t CSourceCdda::GetSectorSize()
@@ -157,22 +167,24 @@ const int16_t* CSourceCdda::ReadNextSector()
 void CSourceCdda::Rewind()
 {
 	/* Set reading mode for full paranoia, but allow skipping sectors. */
-	paranoia_seek(p, 0, SEEK_SET);
+    lsn_t lsn = paranoia_seek(p, 0, SEEK_SET);
 	i_curr_lsn = 0;
 }
 
 /** /brief Fill track info on SCueSheet Cd object
  * 
  */
-void CSourceCdda::InitCd_() /* populates CueSheet */
+SCueSheet CSourceCdda::GetCueSheet() /* populates CueSheet */
 {
+    SCueSheet CueSheet;
+
 	// initialize tracks
 	CueSheet.AddTracks(cdda_tracks(d));
 
 	// check pregap for Track 1. If valid sector returned, 
 	// create the first track on the cuesheet and set its a pregap index
 	if (cdda_track_lastsector(d,0)>=0)
-		CueSheet.Tracks[0].AddIndex(0,cdda_track_firstsector(d,0)+CDIO_PREGAP_SECTORS);
+        CueSheet.Tracks[0].AddIndex(0,cdda_track_firstsector(d,0));
 	else
 		CueSheet.Tracks[0].AddIndex(0,0);
 
@@ -202,7 +214,7 @@ void CSourceCdda::InitCd_() /* populates CueSheet */
 	for (size_t i = 1; i <= cdda_tracks(d) ; i++)
 	{
 		// record the starting index
-		size_t start = cdda_track_firstsector(d,i) + CDIO_PREGAP_SECTORS;	// add unaccounted 150 pregap sectors
+        size_t start = cdda_track_firstsector(d,i);	// add unaccounted 150 pregap sectors
 
 		// get the track object
 		SCueTrack &track = CueSheet.Tracks[i-1];
@@ -227,5 +239,6 @@ void CSourceCdda::InitCd_() /* populates CueSheet */
 			mmc_valid = false;
 		}
 	}
-}
 
+    return CueSheet;
+}

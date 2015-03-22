@@ -1,10 +1,11 @@
 CC = g++
 CFLAGS = -Wall -std=c++11 -I/usr/include/glib-2.0 -I/usr/lib/x86_64-linux-gnu/glib-2.0/include
 
-#MAIN = cdripdemo
-#SRCS = cdripdemo.cpp CSourceCdda.cpp CSinkBase.cpp CSinkWav.cpp CSinkWavPack.cpp CTagsGeneric.cpp CTagsAPEv2.cpp
-#LIBS = -lwavpack -lcdio -lcdio_cdda -lcdio_paranoia
-#LDFLAGS = -Wall
+MAIN = autocdripper
+SRCS = autocdripper.cpp CCdRipper.cpp CSourceCdda.cpp CSinkBase.cpp CSinkWav.cpp\
+       CSinkWavPack.cpp CTagsGeneric.cpp CTagsAPEv2.cpp SCueSheet.cpp CDbCDDB.cpp
+LIBS = -lwavpack -lcdio -lcdio_cdda -lcdio_paranoia -lcddb
+LDFLAGS = -Wall -pthread
 
 #MAIN = cdinfodemo
 #SRCS = cdinfodemo.cpp CSourceCdda.cpp SCueSheet.cpp CDbCDDB.cpp
@@ -23,10 +24,10 @@ CFLAGS = -Wall -std=c++11 -I/usr/include/glib-2.0 -I/usr/lib/x86_64-linux-gnu/gl
 #LIBS = -lcurl -ljansson
 #LDFLAGS =
 
-MAIN = gkeyfiletest
-SRCS = gkeyfiletest.cpp CGKeyFileAutoCDRipper.cpp CGKeyFileBase.cpp enums.cpp
-LIBS = -lglib-2.0
-LDFLAGS =
+#MAIN = gkeyfiletest
+#SRCS = gkeyfiletest.cpp CGKeyFileAutoCDRipper.cpp CGKeyFileBase.cpp enums.cpp
+#LIBS = -lglib-2.0
+#LDFLAGS =
 
 OBJS = $(SRCS:.cpp=.o)
 

@@ -4,6 +4,7 @@
 #include <curl/curl.h>
 #include <jansson.h>
 
+#include "CDbBase.h"
 #include "CDbHttpBase.h"
 #include "CDbJsonBase.h"
 #include "ICoverArt.h"
@@ -40,7 +41,7 @@ class CDbMusicBrainz;
 
 /** Class to access last.fm online CD databases service.
  */
-class CDbLastFm : public CDbHttpBase, public CDbJsonBase
+class CDbLastFm : public CDbBase, public CDbHttpBase, public CDbJsonBase
 {
 public:
     /** Constructor.
@@ -62,6 +63,30 @@ public:
     /** Destructor
      */
     virtual ~CDbLastFm();
+
+    /**
+     * @brief Return true if Database can be searched for a CD info
+     * @return true if database can be searched for a CD release
+     */
+    bool IsReleaseDb() { return true; }
+
+    /**
+     * @brief Return true if Database can be searched for a CD cover art
+     * @return true if database can be searched for a CD cover art
+     */
+    bool IsImageDb() { return true; }
+
+    /**
+     * @brief Return true if DB depends on MusicBrainz results
+     * @return
+     */
+    bool DependsOnMusicBrainz() { return true; }
+
+    /**
+     * @brief Return database type enum
+     * @return ReleaseDatabase enumuration value
+     */
+    virtual ReleaseDatabase GetDatabaseType() const { return ReleaseDatabase::LASTFM; }
 
     /** Returns false as LastFm database cannot be queried based on CD track info.
      *

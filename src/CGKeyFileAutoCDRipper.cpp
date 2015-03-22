@@ -110,10 +110,10 @@ bool CGKeyFileAutoCDRipper::GeneralPromptUPC()
  * @brief Get General::SkipTrackOnePreGap option
  * @return true to skip the first tracks' pregap
  */
-bool CGKeyFileAutoCDRipper::GeneralSkipTrackOnePreGap()
-{
-    return GetBooleanKey("General", "SkipTrackOnePreGap", true);
-}
+//bool CGKeyFileAutoCDRipper::GeneralSkipTrackOnePreGap()
+//{
+//    return GetBooleanKey("General", "SkipTrackOnePreGap", true);
+//}
 
 /**
  * @brief Get General::DatabasePreferenceList option

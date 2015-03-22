@@ -7,15 +7,11 @@
 
 #include <cdio/paranoia.h>
 
-#include "SCueSheet.h"
+#include "ISourceCdda.h"
 
-class CSourceCdda
+class CSourceCdda : public ISourceCdda
 {
 public:
-	/** Populated CueSheet for the current disc
-	 */
-	SCueSheet CueSheet;
-
 	/** Constructor.
 	 */
 	CSourceCdda();
@@ -32,7 +28,7 @@ public:
 	 *
 	 *  @return Device path string.
 	 */
-	std::string GetPath() const;
+    std::string GetDevicePath() const;
 
 	size_t GetSectorSize(); /* number of samples returned by ReadNextSector*/
 
@@ -46,7 +42,11 @@ public:
 	const int16_t* ReadNextSector(); /* returns non-NULL until end of CD */
 	void Rewind(); /* rewind to the first sector of the disc*/
 	
-	void SetVerbose();
+    /**
+     * @brief Get a cuesheet object populated with the CD track info
+     * @return SCueSheet instance with fully populated track information.
+     */
+    virtual SCueSheet GetCueSheet();
 	
 private:
 	cdrom_drive_t *d; 	/* Place to store handle given by cd-paranoia. */
@@ -59,7 +59,6 @@ private:
 	void InitParanoia_();
 	void CloseDisc_();
 
-	void InitCd_(); /* populates libcue CD struct */
 	
 };
 
