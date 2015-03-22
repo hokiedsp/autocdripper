@@ -83,7 +83,7 @@ CDbFreeDb::CDbFreeDb(const std::string &servername, const int serverport,
 CDbFreeDb::~CDbFreeDb()
 {
 	// Clear disc info collection
-	ClearDiscs_();
+    Clear();
 	
 	// destroy the connection
 	cddb_destroy(conn);
@@ -451,7 +451,7 @@ SDbrBase* CDbFreeDb::Retrieve(const int recnum) const
 
 /** Clear all the disc entries
  */
-void CDbFreeDb::ClearDiscs_()
+void CDbFreeDb::Clear()
 {
 	// destroy the discs
 	deque<cddb_disc_t*>::iterator it;
@@ -473,7 +473,7 @@ void CDbFreeDb::ClearDiscs_()
 void CDbFreeDb::InitDisc_(const SCueSheet &cuesheet, const size_t len)
 {
 	// Clear the discs
-	ClearDiscs_();
+    Clear();
 
 	// Create a disc
 	cddb_disc_t* disc = cddb_disc_new();

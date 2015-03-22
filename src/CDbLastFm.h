@@ -4,10 +4,11 @@
 #include <curl/curl.h>
 #include <jansson.h>
 
-#include "CDbBase.h"
+#include "IDatabase.h"
+#include "IReleaseDatabase.h"
+#include "IImageDatabase.h"
 #include "CDbHttpBase.h"
 #include "CDbJsonBase.h"
-#include "ICoverArt.h"
 #include "SDbrBase.h"
 
 struct SCueSheet;
@@ -41,7 +42,9 @@ class CDbMusicBrainz;
 
 /** Class to access last.fm online CD databases service.
  */
-class CDbLastFm : public CDbBase, public CDbHttpBase, public CDbJsonBase
+class CDbLastFm :
+        public IDatabase, public IReleaseDatabase, public IImageDatabase,
+        public CDbHttpBase, public CDbJsonBase
 {
 public:
     /** Constructor.

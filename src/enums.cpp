@@ -27,15 +27,15 @@ std::string to_string(const OutputFileFormat fmt)
  * @return a string with the representation of db
  * @throw std::runtime_error if associated string is not given for db
  */
-std::string to_string(const ReleaseDatabaseType db)
+std::string to_string(const DatabaseType db)
 {
     switch (db)
     {
-    case ReleaseDatabaseType::DISCOGS: return "discogs";
-    case ReleaseDatabaseType::MUSICBRAINZ: return "musicbrainz";
-    case ReleaseDatabaseType::FREEDB: return "freedb";
-    case ReleaseDatabaseType::LASTFM: return "lastfm";
-    default: throw(runtime_error("Unsupported database. Update std::string to_string(const ReleaseDatabaseType db)"));
+    case DatabaseType::DISCOGS: return "discogs";
+    case DatabaseType::MUSICBRAINZ: return "musicbrainz";
+    case DatabaseType::FREEDB: return "freedb";
+    case DatabaseType::LASTFM: return "lastfm";
+    default: throw(runtime_error("Unsupported database. Update std::string to_string(const DatabaseType db)"));
     }
 
     return "";
@@ -78,24 +78,24 @@ OutputFileFormat sttooff(const std::string& str)
 
 
 /**
- * @brief Convert string to ReleaseDatabaseType
- * @param[in] String object with the representation of ReleaseDatabaseType value
+ * @brief Convert string to DatabaseType
+ * @param[in] String object with the representation of DatabaseType value
  * @param[in] Pointer to an object of type size_t, whose value is set by the function to position
- *            of the next character in str after the ReleaseDatabaseType value. This parameter can
+ *            of the next character in str after the DatabaseType value. This parameter can
  *            also be a null pointer, in which case it is not used.
- * @return On success, the function returns the converted value of ReleaseDatabaseType type
+ * @return On success, the function returns the converted value of DatabaseType type
  * @throw std::invalid_argument if no conversion could be performed
  */
-ReleaseDatabaseType sttordb(const std::string& str)
+DatabaseType sttordb(const std::string& str)
 {
     if (str.compare(0,7,"discogs")==0)
-        return ReleaseDatabaseType::DISCOGS;
+        return DatabaseType::DISCOGS;
     else if (str.compare(0,11,"musicbrainz")==0)
-        return ReleaseDatabaseType::MUSICBRAINZ;
+        return DatabaseType::MUSICBRAINZ;
     else if (str.compare(0,6,"freedb")==0)
-        return ReleaseDatabaseType::FREEDB;
+        return DatabaseType::FREEDB;
     else if (str.compare(0,6,"lastfm")==0)
-        return ReleaseDatabaseType::LASTFM;
+        return DatabaseType::LASTFM;
 
     throw(runtime_error("Unsupported database name."));
 }

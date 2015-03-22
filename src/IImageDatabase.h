@@ -2,6 +2,12 @@
 
 #include <string>
 #include <vector>
+#include <functional>
+
+class IImageDatabase;
+typedef std::vector<IImageDatabase*> IImageDatabasePtrVector;
+typedef std::vector<std::reference_wrapper<IImageDatabase>> IImageDatabaseRefVector;
+typedef std::vector<unsigned char> UByteVector;
 
 class IImageDatabase
 {
@@ -10,12 +16,6 @@ public:
     /** Destructor
      */
     virtual ~IImageDatabase(){}
-
-    /**
-     * @brief Return database type enum
-     * @return ReleaseDatabase enumuration value
-     */
-    virtual ImageDatabaseType GetImageDatabaseType() const=0;
 
     /** Specify the preferred coverart image width
      *
@@ -28,6 +28,11 @@ public:
      *  @param[in] Preferred height of the image
      */
     virtual void SetPreferredHeight(const size_t &height)=0;
+
+    /**
+     * @brief Clear all the matches from previous search
+     */
+    virtual void Clear()=0;
 
     /** Perform a new query for cover art of the currently loaded CD. Previous
      *  query outcome will be discarded.
@@ -67,14 +72,14 @@ public:
      *  @param[out] image data buffer.
      *  @param[in]  record index (default=0)
      */
-    virtual std::vector<unsigned char> FrontData(const int recnum=0) const=0;
+    virtual UByteVector FrontData(const int recnum=0) const=0;
 
     /** Check if the query returned a front cover
      *
      *  @param[out] image data buffer.
      *  @param[in]  record index (default=0)
      */
-    virtual std::vector<unsigned char> BackData(const int recnum=0) const=0;
+    virtual UByteVector BackData(const int recnum=0) const=0;
 
     /** Get the URL of the front cover image
      *

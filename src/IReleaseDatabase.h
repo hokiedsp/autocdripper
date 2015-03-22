@@ -1,9 +1,14 @@
 #pragma once
 
-#include "enums.h"
+#include <vector>
+#include <functional>
 
 struct SDbrBase;
 struct SCueSheet;
+class IReleaseDatabase;
+
+typedef std::vector<IReleaseDatabase*> IReleaseDatabasePtrVector;
+typedef std::vector<std::reference_wrapper<IReleaseDatabase>> IReleaseDatabaseRefVector;
 
 /** Database Access Interface
  */
@@ -11,26 +16,6 @@ class IReleaseDatabase
 {
 public:
     virtual ~IReleaseDatabase() {}
-
-    /**
-     * @brief Return database type enum
-     * @return ReleaseDatabase enumuration value
-     */
-    virtual ReleaseDatabaseType GetReleaseDatabaseType() const=0;
-
-    /** Returns true if database supports direct query of CD based on its track info.
-     *  If false, Query() call always returns 0 matches.
-     *
-     *  @return    true if query is supported
-     */
-    virtual bool IsQueryable() const=0;
-
-    /** Returns true if database supports search by album title and artist.
-     *  If false, Search() call always returns 0 matches.
-     *
-     *  @return    true if search is supported
-     */
-    virtual bool IsSearchable() const=0;
 
   /** If IsQueryable() returns true, Query() performs a new query for the CD info
    *  in the specified drive with its *  tracks specified in the supplied cuesheet
@@ -147,4 +132,9 @@ public:
    *             responsible for deleting the object.
    */
     virtual SDbrBase* Retrieve(const int recnum=0) const=0;
+
+    /**
+     * @brief Clear all the matches from previous search
+     */
+    virtual void Clear()=0;
 };

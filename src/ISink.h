@@ -7,7 +7,9 @@
 #include "SCueSheet.h"
 
 class ISink;
-typedef std::vector<std::reference_wrapper<ISink>> ISinkVector ;
+typedef std::vector<ISink*> ISinkPtrVector;
+typedef std::vector<std::reference_wrapper<ISink>> ISinkRefVector ;
+
 
 class ISink
 {

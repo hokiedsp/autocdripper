@@ -7,7 +7,8 @@
 #include <coverart/CoverArt.h>
 
 #include "IDatabase.h"
-#include "ICoverArt.h"
+#include "IReleaseDatabase.h"
+#include "IImageDatabase.h"
 #include "SDbrBase.h"
 
 struct SCueSheet;
@@ -40,7 +41,7 @@ inline std::ostream& operator<<(std::ostream& os, const SDbrMusicBrainz& o)
 
 /** Class to access MusicBrainz online CD and coverart databases service.
  */
-class CDbMusicBrainz : public CDbBase, public IDatabase, public ICoverArt
+class CDbMusicBrainz : public IDatabase, public IReleaseDatabase, public IImageDatabase
 {
 public:
     /** Constructor.

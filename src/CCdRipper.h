@@ -9,9 +9,14 @@ class CCdRipper : public CThreadManBase
 {
 public:
     CCdRipper(ISourceCdda& source, ISink& sink);
-    CCdRipper(ISourceCdda& source, const ISinkVector &sinks);
+    CCdRipper(ISourceCdda& source, const ISinkRefVector &sinks);
     virtual ~CCdRipper();
 
+    /**
+     * @brief Returns the status of last thread run
+     * @return true if its thread was externally stopped prematurely during
+     *         its last run.
+     */
     bool Canceled() const { return canceled; }
 
 protected:
@@ -22,6 +27,6 @@ protected:
 
 private:
     ISourceCdda &source;
-    ISinkVector sinks;
+    ISinkRefVector sinks;
     bool canceled;
 };

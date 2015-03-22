@@ -4,10 +4,12 @@
 #include <curl/curl.h>
 #include <jansson.h>
 
+#include "IDatabase.h"
+#include "IReleaseDatabase.h"
+#include "IImageDatabase.h"
 #include "CDbBase.h"
 #include "CDbHttpBase.h"
 #include "CDbJsonBase.h"
-//#include "ICoverArt.h"
 #include "SDbrBase.h"
 
 struct SCueSheet;
@@ -41,7 +43,9 @@ class CDbMusicBrainz;
 
 /** Class to access Discogs online CD databases service.
  */
-class CDbDiscogs : public CDbBase, public CDbHttpBase, public CDbJsonBase
+class CDbDiscogs :
+        public IDatabase, public IReleaseDatabase, public IImageDatabase,
+        public CDbHttpBase, public CDbJsonBase
 {
 public:
     /** Constructor.

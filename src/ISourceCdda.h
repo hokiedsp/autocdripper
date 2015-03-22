@@ -1,6 +1,12 @@
 #pragma once
 
 #include <string>
+#include <vector>
+#include <functional>
+
+class ISourceCdda;
+typedef std::vector<ISourceCdda*> ISourceCddaPtrVector;
+typedef std::vector<std::reference_wrapper<ISourceCdda>> ISourceCddaRefVector;
 
 #include "SCueSheet.h"
 

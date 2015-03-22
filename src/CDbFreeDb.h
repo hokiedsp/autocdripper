@@ -4,8 +4,8 @@
 #include <string>
 #include <cddb/cddb.h>
 
-#include "CDbBase.h"
 #include "IDatabase.h"
+#include "IReleaseDatabase.h"
 #include "SCueSheet.h"
 #include "SDbrBase.h"
 
@@ -34,7 +34,7 @@ inline std::ostream& operator<<(std::ostream& os, const SDbrFreeDb& o)
     return os;
 }
 
-class CDbFreeDb: public CDbBase, public IDatabase
+class CDbFreeDb: public IDatabase, public IReleaseDatabase
 {
 public:
     /** Constructor.
@@ -76,30 +76,55 @@ public:
     bool IsImageDb() { return false; }
 
     /**
-     * @brief Return true if Database can be searched for a CD cover art
-     * @return true if database can be searched for a CD cover art
+     * @brief Return true if database can be queried directly from CD info
+     * @return true if database can receive CD info based query
      */
-    bool IsCoverArtDb()=0;
+    bool AllowQueryCD() { return true; }
+
+    /**
+     * @brief Return true if MusicBrainz database is known to contain
+     *        a link to this database
+     * @return true if release ID is obtainable from MusicBrainz
+     */
+    bool MayBeLinkedFromMusicBrainz() { return false; }
+
+    /**
+     * @brief Return true if database supports UPC barcode search
+     * @return true if database supports UPC barcode search
+     */
+    bool AllowSearchByUPC()  { return false; }
+
+    /**
+     * @brief Return true if database supports search by album artist and title
+     * @return true if database supports search by album artist and title
+     */
+    bool AllowSearchByArtistTitle() { return false; }
+
+    /**
+     * @brief Return true if database supports search by CDDBID
+     * @return true if database supports search by CDDBID
+     */
+    bool AllowSearchByCDDBID() { return false; }
+
+    /**
+     * @brief Return true if database supports search by MusicBrainz ID
+     * @return true if database supports search by MusicBrainz ID
+     */
+    bool AllowSearchByMBID() { return false; }
 
     /**
      * @brief Return database type enum
      * @return ReleaseDatabase enumuration value
      */
-    virtual ReleaseDatabase GetReleaseDbType() const { return ReleaseDatabase::FREEDB  ; }
+    virtual DatabaseType GetDatabaseType() const { return DatabaseType::FREEDB  ; }
 
-    /** Returns true if database supports direct query of CD based on its track info.
-     *  If false, Query() call always returns 0 matches.
-     *
-     *  @return    true if query is supported
-     */
-    virtual bool IsQueryable() const { return true; }
+    ///////////////////////////////////////////////////////////////////////////
 
-    /** Returns true if database supports search by album title and artist.
-     *  If false, Search() call always returns 0 matches.
-     *
-     *  @return    true if search is supported
+    /**
+     * @brief Return database type enum
+     * @return ReleaseDatabase enumuration value
      */
-    virtual bool IsSearchable() const { return false; }
+    virtual void Clear();
 
     /** Set a server connection protocol.
      *
@@ -255,10 +280,6 @@ private:
      *  @param[in] Length of the CD in sectors
      */
     void InitDisc_(const SCueSheet &cuesheet, const size_t len);
-
-    /** Clear all the disc entries
-     */
-    void ClearDiscs_();
 
     cddb_conn_t *conn;   /* libcddb connection structure */
     std::deque<cddb_disc_t*> discs;   /* collection of libcddb disc structure */

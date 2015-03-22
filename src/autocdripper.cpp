@@ -11,7 +11,7 @@ using std::endl;
 #include "CSinkWav.h"
 #include "CSinkWavPack.h"
 
-#include "CDbCDDB.h"
+#include "CDbFreeDb.h"
 
 using std::exception;
 
@@ -23,24 +23,24 @@ int main(int argc, const char *argv[])
         CSinkWav wavwriter("track1s.wav"); // save to the wav file
         CSinkWavPack wvwriter("track1s.wv"); // save to the wav file
 
-        CDbCDDB cddb;
+        CDbFreeDb freedb;
 
-        cddb.SetCacheSettings("off");
-        cddb.Query(cdrom.GetDevicePath(), cdrom.GetCueSheet(), cdrom.GetLength(),true);	// auto-populate
+        freedb.SetCacheSettings("off");
+        freedb.Query(cdrom.GetDevicePath(), cdrom.GetCueSheet(), cdrom.GetLength(),true);	// auto-populate
 
-        cout << std::setfill ('0') << std::setw(8) << std::hex << cddb.GetDiscId() << std::dec << endl;
-        cout << "Found " << cddb.NumberOfMatches() << " matches found" << endl;
-        //int discnum = cddb.MatchByGenre("jazz");
+        cout << std::setfill ('0') << std::setw(8) << std::hex << freedb.GetDiscId() << std::dec << endl;
+        cout << "Found " << freedb.NumberOfMatches() << " matches found" << endl;
+        //int discnum = freedb.MatchByGenre("jazz");
         //cout << "matched disc: " << discnum << std::endl;
 
-        SCueSheet* cs = cddb.Retrieve();
+        SCueSheet* cs = freedb.Retrieve();
         cout << *cs << endl;
         delete cs;
 return 0;
-        //ISinkVector writers = {wavwriter,wvwriter};
-        ISinkVector writers = {wavwriter};
+        //ISinkRefVector writers = {wavwriter,wvwriter};
+        ISinkRefVector writers = {wavwriter};
 
-        ISinkVector::iterator it;
+        ISinkRefVector::iterator it;
         for (it=writers.begin();it!=writers.end();it++)
         {
             ISink &writer = (*it).get();

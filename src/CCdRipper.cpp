@@ -11,7 +11,7 @@ CCdRipper::CCdRipper(ISourceCdda& src, ISink& snk) : source(src), canceled(false
     sinks.emplace_back(snk);
 }
 
-CCdRipper::CCdRipper(ISourceCdda& src, const ISinkVector &snks)
+CCdRipper::CCdRipper(ISourceCdda& src, const ISinkRefVector &snks)
     : source(src), sinks(snks) {}
 
 CCdRipper::~CCdRipper() {}
@@ -21,7 +21,7 @@ void CCdRipper::ThreadMain()
     canceled = false;
 
     uintptr_t sign = reinterpret_cast<uintptr_t>(this);
-    ISinkVector::iterator it;
+    ISinkRefVector::iterator it;
 
     // Lock sinks so other threads cannot write to the file while ripping
     for (it = sinks.begin(); it!=sinks.end(); it++)
