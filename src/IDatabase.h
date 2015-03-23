@@ -6,6 +6,7 @@
 #include "enums.h"
 
 struct SCueSheet;
+class CDbMusicBrainz;
 
 class IDatabase;
 typedef std::vector<IDatabase*> IDatabasePtrVector;
@@ -80,12 +81,19 @@ public:
      *  @param[in] CD-ROM device path
      *  @param[in] Cuesheet with its basic data populated
      *  @param[in] Length of the CD in sectors
-     *  @param[in] If true, immediately calls Read() to populate disc records.
-     *  @param[in] Network time out in seconds. If omitted or negative, previous value
-     *             will be reused. System default is 10.
+     *  @param[in] (Optional) UPC barcode
      *  @return    Number of matched records
      */
-      virtual int Query(const std::string &dev, const SCueSheet &cuesheet, const size_t len, const bool autofill=false, const int timeout=-1)=0;
+      virtual int Query(const std::string &dev, const SCueSheet &cuesheet, const size_t len, const std::string cdrom_upc="")=0;
+
+    /** If MayBeLinkedFromMusicBrainz() returns true, Query() performs a new
+     *  query based on the MusicBrainz query results.
+     *
+     *  @param[in] MusicBrainz database object.
+     *  @param[in] (Optional) UPC barcode
+     *  @return    Number of matched records
+     */
+      virtual int Query(const CDbMusicBrainz &mbdb, const std::string upc="")=0;
 
     /**
      * @brief Clear all the matches from previous search

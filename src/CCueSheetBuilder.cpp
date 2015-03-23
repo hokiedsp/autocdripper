@@ -136,6 +136,7 @@ void CCueSheetBuilder::ThreadMain()
     CDbMusicBrainz *mbdb = NULL;
 
     canceled = false;
+    matched = false;
 
     // Step 1: Query based on CD info alone
     for (it=databases.begin(); it!=databases.end(); it++)
@@ -150,60 +151,147 @@ void CCueSheetBuilder::ThreadMain()
             if (db.GetDatabaseType() == DatabaseType::MUSICBRAINZ)
                 mbdb = &static_cast<CDbMusicBrainz&>(db);
 
-            // run query first
-            db.Query(cdrom_path, cuesheet, cdrom_len);
-
-            // match found in a release database
-            if (db.NumberOfMatches() && db.IsReleaseDb())
-            {
-                IReleaseDatabase &rdb = static_cast<IReleaseDatabase>(db);
-                int &recid = (*it).get().recid;
-
-                for (int rid=0;rid<db.NumberOfMatches();rid++)
-                {
-                    // retrieve the UPC (empty if not available)
-                    std::string this_upc = rdb.AlbumUPC(recnum);
-
-                    if (cdrom_upc.empty()) // actual UPC unknown
-                    {
-                        if (this_upc.size()) // DB UPC known
-                        {
-                            if (upc.empty())
-                            {
-                                upc = this_upc;
-                                recid = rid;
-                                break;
-                            }
-                            else if (upc.compare(this_upc)==0)
-                            {
-                                recid = rid;
-                                break;
-                            }
-                        }
-                    }
-                    else // actual UPC known
-                    {
-                         // DB UPC known && matches the actual UPC
-                        if (this_upc.size() && cdrom_upc.compare(this_upc)==0)
-                        {
-                            recid = rid;
-                            break;
-                        }
-                    }
-                }
-            }
+            // run query
+            db.Query(cdrom_path, cuesheet, cdrom_len, cdrom_upc);
         }
-        else // if not queryable, check if it can use MusicBrainz
-        {
-            // clear the previous match
-            db.Clear();
+    }
+    else // if not queryable, check if it can use MusicBrainz
+    {
+        // clear the previous match
+        db.Clear();
 
-            // check if MusicBrainz may return a link to it
-            check_link_in_mb = check_link_in_mb || db.MayBeLinkedFromMusicBrainz();
+        // check if MusicBrainz may return a link to it
+        check_link_in_mb = check_link_in_mb || db.MayBeLinkedFromMusicBrainz();
+    }
+
+    // Step 2: Query based off of MusicBrainz search if possible
+    if (mbdb && check_link_in_mb) // MusicBrainz DB is included
+    {
+        for (it=databases.begin(); it!=databases.end(); it++)
+        {
+            if (stop_request) goto cancel;
+
+            IDatabase &db = (*it).get().eg;
+
+            // if previous query not succss & queriable off MBDB, query
+            if (!db.NumberOfMatches() && db.MayBeLinkedFromMusicBrainz())
+                db.Query(*mbdb, cdrom_upc);
         }
     }
 
+    // Step 3: If UPC is not known, use the UPC of the first entry with the UPC
+    if (upc.empty())
+    {
+        for (it=databases.begin(); it!=databases.end() && upc.empty(); it++)
+        {
+            if (stop_request) goto cancel;
 
+            IDatabase &db = (*it).get().eg;
+
+            if (db.NumberOfMatches() && db.IsReleaseDb())
+            {
+                IReleaseDatabase &rdb = static_cast<IReleaseDatabase>(db);
+
+                for (int rid=0;rid<db.NumberOfMatches() && upc.empty();rid++)
+                {
+                    // Retrieve the UPC
+                    std::string this_upc = rdb.AlbumUPC(rid); // returns empty if not available
+                    if (this_upc.size()) upc = this_upc;
+                }
+            }
+        }
+    }
+
+    // Step 4: Go over databases again to find the records with matching UPC
+    if (upc.size()) // upc is resolved (either given or from earlier database results)
+    {
+        for (it=databases.begin(); it!=databases.end() && upc.empty(); it++)
+        {
+            if (stop_request) goto cancel;
+
+            IDatabase &db = (*it).get().eg;
+            int &recid = (*it).get().recid;
+
+            if (db.AllowSearchByUPC)
+            {
+                if (db.NumberOfMatches()) // already returned results
+                {
+                    // narrow-down the results if possible
+                    if (db.SearchByUPC(upc,true)) recid = 0;
+                }
+                else // none found previously
+                {
+                    // new search
+                    if (db.SearchByUPC(upc,false)) recid = 0;
+                }
+            }
+            else if (db.NumberOfMatches() && db.IsReleaseDb())
+            {
+                // if db cannot be searched for UPC, still check if
+                // the matching UPC was found
+
+                IReleaseDatabase &rdb = static_cast<IReleaseDatabase>(db);
+
+                for (int rid=0; rid<db.NumberOfMatches() && recid<0; rid++)
+                {
+                    std::string this_upc = rdb.AlbumUPC(rid); // returns empty if not available
+                    if (this_upc.compare(upc)) recid = rid;
+                }
+            }
+        }
+    }
+
+    // Step 5: Populate the cuesheet, first with the UPC-matched databases (only if UPC given)
+    if (cdrom_upc.size())
+    {
+        for (it=databases.begin(); it!=databases.end(); it++)
+        {
+            if (stop_request) goto cancel;
+
+            IDatabase &db = (*it).get().eg;
+            int &recid = (*it).get().recid;
+
+            // set matched flag
+            matched = matched || db.NumberOfMatches();
+
+            // if contains UPC-matched result...
+            if (recid>=0)
+            {
+                if (db.IsReleaseDb()) // marge the data to the cuesheet
+                    BuildCueSheet_(cuesheet,static_cast<IReleaseDatabase>(db),recid);
+
+                if (db.IsImageDb()) // grab the cover image if available
+                {
+                    IImageDatabase idb = static_cast<IImageDatabase>(db);
+                    if (front.empty() && idb.Front()) front = idb.FrontData(recid);
+                    if (back.empty() && idb.Back()) back = idb.BackData(recid);
+                }
+            }
+        }
+    }
+
+    // Step 6: Further populate the cuesheet with the UPC-less database matches
+    for (it=databases.begin(); it!=databases.end(); it++)
+    {
+        if (stop_request) goto cancel;
+
+        IDatabase &db = (*it).get().eg;
+        int &recid = (*it).get().recid;
+
+        // if contains a UPC-unmatched result, marge the data to the cuesheet
+        if ((recid<0 || cdrom_upc.empty()) && db.NumberOfMatches())
+        {
+            if (db.IsReleaseDb()) // marge the data to the cuesheet
+                BuildCueSheet_(cuesheet,static_cast<IReleaseDatabase>(db),0);
+
+            if (db.IsImageDb()) // grab the cover image if available
+            {
+                IImageDatabase idb = static_cast<IImageDatabase>(db);
+                if (front.empty() && idb.Front()) front = idb.FrontData(0);
+                if (back.empty() && idb.Back()) back = idb.BackData(0);
+            }
+        }
+    }
 
     // all completed
     return;
@@ -212,4 +300,16 @@ void CCueSheetBuilder::ThreadMain()
 cancel:
     canceled = true;
     return;
+}
+
+/**
+ * @brief Internal function to be called by ThreadMain to build the
+ *        cuesheet from database.
+ * @param[inout] cuesheet to accumulate data
+ * @param[in] source database
+ * @param[in] record index of the matched
+ */
+void CCueSheetBuilder::BuildCueSheet_(SCueSheet &cuesheet, const IReleaseDatabase &db, const int recid)
+{
+
 }

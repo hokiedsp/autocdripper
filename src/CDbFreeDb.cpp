@@ -76,7 +76,10 @@ CDbFreeDb::CDbFreeDb(const std::string &servername, const int serverport,
 		else cddb_set_client(conn, cname.c_str(), cversion.c_str());
 	}
 
-	// increment instance counter
+    // Set timeout if specified
+    //if (timeout>0) cddb_set_timeout(conn,timeout);
+
+    // increment instance counter
 	num_instances++;
 }
 
@@ -203,29 +206,23 @@ void CDbFreeDb::SetCacheSettings(const std::string &cachemode, const std::string
 	if (!cachedir.empty()) cddb_cache_set_dir(conn, cachedir.c_str());
 }
 
-/** Perform a new CDDB query for the disc info given in the supplied cuesheet 
- *  and its length. Previous query outcome discarded. After disc and its tracks are initialized, 
- *  CDDB disc ID is computed. If the computation fails, function 
+
+/** If AllowQueryCD() returns true, Query() performs a new query for the CD info
+ *  in the specified drive with its *  tracks specified in the supplied cuesheet
+ *  and its length. Previous query outcome discarded. After disc and its tracks
+ *  are initialized, CDDB disc ID is computed. If the computation fails, function
  *  throws an runtime_error.
  *
- *  After successful Query() call, NumberOfMatches() and 
- *
- *  @param[in] CD-ROM device path (not used)
+ *  @param[in] CD-ROM device path
  *  @param[in] Cuesheet with its basic data populated
  *  @param[in] Length of the CD in sectors
- *  @param[in] If true, immediately calls Read() to populate disc records.
- *  @param[in] Network time out in seconds. If omitted or negative, previous value
- *             will be reused. System default is 10.
+ *  @param[in] (Optional) UPC barcode
  *  @return    Number of matched records
  */
-int CDbFreeDb::Query(const std::string &dev, const SCueSheet &cuesheet, const size_t len,
-						const bool autofill, const int timeout)
+int CDbFreeDb::Query(const std::string &dev, const SCueSheet &cuesheet, const size_t len, const std::string upc)
 {
 	// must build disc based on cuesheet (throws error if fails to compute discid)
 	InitDisc_(cuesheet, len);
-
-	// Set timeout if specified
-	if (timeout>0) cddb_set_timeout(conn,timeout);
 
 	// Run the query
 	int matches = cddb_query(conn, discs[0]);
@@ -247,10 +244,7 @@ int CDbFreeDb::Query(const std::string &dev, const SCueSheet &cuesheet, const si
 		discs.push_back(disc);
 	}
 	
-	// Populate the records if requested
-	if (autofill) Populate(-1,timeout);
-	
-	// return the number of matches
+    // return the number of matches
 	return matches;
 }
 

@@ -142,23 +142,27 @@ public:
      */
     void SetCacheSettings(const std::string &cachemode=std::string(), const std::string &cachedir=std::string());
 
-    /** Perform a new CDDB query for the disc info given in the supplied cuesheet
-     *  and its length. Previous query outcome discarded. After disc and its tracks are initialized,
-     *  CDDB disc ID is computed. If the computation fails, function
+    /** If AllowQueryCD() returns true, Query() performs a new query for the CD info
+     *  in the specified drive with its *  tracks specified in the supplied cuesheet
+     *  and its length. Previous query outcome discarded. After disc and its tracks
+     *  are initialized, CDDB disc ID is computed. If the computation fails, function
      *  throws an runtime_error.
      *
-     *  After successful Query() call, NumberOfMatches() and
-     *
-     *  @param[in] CD-ROM device path (not used)
+     *  @param[in] CD-ROM device path
      *  @param[in] Cuesheet with its basic data populated
      *  @param[in] Length of the CD in sectors
-     *  @param[in] If true, immediately calls Read() to populate disc records.
-     *  @param[in] Network time out in seconds. If omitted or negative, previous value
-     *             will be reused. System default is 10.
+     *  @param[in] (Optional) UPC barcode
      *  @return    Number of matched records
      */
-    virtual int Query(const std::string &dev, const SCueSheet &cuesheet, const size_t len,
-                      const bool autofill=false, const int timeout=-1);
+      virtual int Query(const std::string &dev, const SCueSheet &cuesheet, const size_t len, const std::string cdrom_upc="")=0;
+
+    /** If MayBeLinkedFromMusicBrainz() returns true, Query() performs a new
+     *  query based on the MusicBrainz query results.
+     *
+     *  @param[in] MusicBrainz database object.
+     *  @return    Number of matched records
+     */
+    int Query(const CDbMusicBrainz &mbdb) { return 0; }
 
     /** Always return zero as CDDB cannot be searched for album title and artist.
      *

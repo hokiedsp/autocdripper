@@ -2,6 +2,7 @@
 
 #include "CThreadManBase.h"
 #include "IDatabase.h"
+#include "IReleaseDatabase.h"
 
 #include "CSourceCdda.h"
 #include "SCueSheet.h"
@@ -149,4 +150,13 @@ private:
     SCueSheet cuesheet;
     UByteVector front;
     UByteVector back;
+
+    /**
+     * @brief Internal function to be called by ThreadMain to build the
+     *        cuesheet from database.
+     * @param[inout] cuesheet to accumulate data
+     * @param[in] source database
+     * @param[in] record index of the matched
+     */
+    static void BuildCueSheet_(SCueSheet &cuesheet, const IReleaseDatabase &db, const int recid);
 };
