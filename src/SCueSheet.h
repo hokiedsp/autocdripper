@@ -1,8 +1,10 @@
 #pragma once
 
 #include <string>
-#include <deque>
+#include <vector>
 #include <ostream>
+
+#define "enums.h"
 
 #define CUE_FILETYPE_BINARY   0
 #define CUE_FILETYPE_MOTOROLA 1
@@ -25,6 +27,9 @@
 #define CUE_TRACKFLAG_SCMS 0x08 // – Serial copy management system (not supported by all recorders)
 #define CUE_TRACKFLAG_DATA 0x10 // - Data (non-audio) CD
 
+/**
+ * @brief The cdtimeunit_t enum specifies the CD
+ */
 enum cdtimeunit_t {CDTIMEUNIT_SECONDS, CDTIMEUNIT_SECTORS, CDTIMEUNIT_WORDS, CDTIMEUNIT_BYTES};
 
 struct SCueTrackIndex
@@ -49,12 +54,12 @@ struct SCueTrack
 	std::string Performer;	// performer (80-char long max)
 	std::string Songwriter;	// name of songwriter (80-char max)
 	std::string ISRC;	// “International Standard Recording Code” 12 character long
-	std::deque<std::string> Rems;	// comments on track
+    std::vector<std::string> Rems;	// comments on track
 
 	size_t Pregap;    // track pregap in # of sectors (i.e., frames)
 	size_t Postgap;	// track postgap in # of sectors (i.e., frames)
 	
-	std::deque<SCueTrackIndex> Indexes;
+    std::vector<SCueTrackIndex> Indexes;
 
 	SCueTrack(const int number, const int type = CUE_TRACKTYPE_AUDIO);
 	virtual ~SCueTrack();
@@ -104,11 +109,11 @@ public:
 	std::string FileName;	// path to CD Data File
 	int FileType;           // one of CUE_FILETYPE_XXX
 	std::string Performer;	// performer (80-char long max)
-	std::deque<std::string> Rems;	// comments on the disc 
+    std::vector<std::string> Rems;	// comments on the disc
 	std::string Songwriter;	// name of songwriter (80-char max)
 	std::string Title;		// album title (80-char max)
 
-	std::deque<SCueTrack> Tracks;
+    std::vector<SCueTrack> Tracks;
 
 	SCueSheet(const int type=CUE_FILETYPE_WAVE);
 	virtual ~SCueSheet();

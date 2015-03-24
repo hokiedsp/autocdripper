@@ -1,12 +1,37 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 #define NumberOfOutputFileFormats 1
 #define NumberOfDatabases 4
 
+/**
+ * @brief The OutputFileFormat enum
+ */
 enum class OutputFileFormat {WAVPACK};
+
+/**
+ * @brief The DatabaseType enum
+ */
 enum class DatabaseType {DISCOGS,MUSICBRAINZ,FREEDB,LASTFM};
+
+/**
+ * @brief The AlbumRemFieldType enum
+ */
+enum class AlbumRemFieldType
+{
+    DBINFO,     /// source database & ID
+    GENRE,      /// music genre
+    DATE,       /// release date
+    COUNTRY,    /// release country
+    UPC,        /// UPC barcode
+    LABEL,      /// label
+    DISC,       /// disc#
+    DISCS,      /// number of discs in a set
+};
+
+typedef std::vector<AlbumRemFieldType> AlbumRemFieldVector;
 
 /**
  * @brief Convert OutputFileFormat value to string

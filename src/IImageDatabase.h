@@ -19,6 +19,12 @@ public:
      */
     virtual ~IImageDatabase(){}
 
+    /**
+     * @brief Return database type enum
+     * @return ReleaseDatabase enumuration value
+     */
+    virtual DatabaseType GetDatabaseType() const=0;
+
     /** Specify the preferred coverart image width
      *
      *  @param[in] Preferred width of the image

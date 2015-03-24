@@ -23,16 +23,21 @@ struct DatabaseElem;
  * starting its thread execution by calling the following member
  * functions:
  *
- * SetCdInfo() - gathers the CD info (device path, track info, and
+ * SetCdInfo() - Gathers the CD info (device path, track info, and
  *               length) from a CSourceCdda object.
- * AddDatabase() - appends the databases to search. Each database
- *                 object must be configured externally and must
- *                 be ready to query/search before Start() is called.
  *
- *                 The priority of the databases is set by the order
- *                 they are added. If multiple databases were assigned
- *                 at once with IDatabaseRefVector, the lower the index
- *                 in the vector, higher its priorities are.
+ * AddDatabase()  - Appends the databases to search. Each database
+ * AddDatabases()   object must be configured externally and must
+ *                  be ready to query/search before Start() is called.
+ *
+ *                  The priority of the databases is set by the order
+ *                  they are added. If multiple databases were assigned
+ *                  at once with IDatabaseRefVector, the lower the index
+ *                  in the vector, higher its priorities are.
+ *
+ * AddRemField()  - Registers album REM fields to be included in the cue
+ * AddRemFields()   sheet. The regiestered REM fields appear in the cue
+ *                  sheet in the order added.
  *
  * Once CD info and databases are set, call Start() to begin gathering
  * the information. WaitTillDone() maybe called by the calling thread
@@ -82,6 +87,18 @@ public:
     void SetCdInfo(const CSourceCdda &cdrom, std::string upc="");
 
     /**
+     * @brief Add an Album REM field
+     * @param[in] REM field to be included
+     */
+    void AddRemField(const AlbumRemFieldType field);
+
+    /**
+     * @brief Add REM fields
+     * @param[in] a vector of REM fields to be included
+     */
+    void AddRemFields(const AlbumRemFieldVector &fields);
+
+    /**
      * @brief Add database object to the search list
      * @param[in] IDatabase reference
      * @throw runtime_error if thread is already running
@@ -93,7 +110,7 @@ public:
      * @param[in] vector of databases in the order of search
      * @throw runtime_error if thread is already running
      */
-    void AddDatabase(const IDatabaseRefVector &dbs);
+    void AddDatabases(const IDatabaseRefVector &dbs);
 
     /**
      * @brief Returns true if any cuesheet info was found
@@ -146,6 +163,7 @@ private:
     std::string cdrom_upc;
 
     std::vector<DatabaseElem> databases;
+    AlbumRemFieldVector remfields;   // specifies which REM field to add
 
     SCueSheet cuesheet;
     UByteVector front;
@@ -154,9 +172,8 @@ private:
     /**
      * @brief Internal function to be called by ThreadMain to build the
      *        cuesheet from database.
-     * @param[inout] cuesheet to accumulate data
      * @param[in] source database
      * @param[in] record index of the matched
      */
-    static void BuildCueSheet_(SCueSheet &cuesheet, const IReleaseDatabase &db, const int recid);
+    void BuildCueSheet_(const IReleaseDatabase &db, const int recid);
 };

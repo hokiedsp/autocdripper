@@ -18,6 +18,12 @@ class IReleaseDatabase
 public:
     virtual ~IReleaseDatabase() {}
 
+    /**
+     * @brief Return database type enum
+     * @return ReleaseDatabase enumuration value
+     */
+    virtual DatabaseType GetDatabaseType() const=0;
+
     /** If AllowQueryCD() returns true, Query() performs a new query for the CD info
      *  in the specified drive with its *  tracks specified in the supplied cuesheet
      *  and its length. Previous query outcome discarded. After disc and its tracks
@@ -53,24 +59,24 @@ public:
    */
     virtual int Search(const std::string &title, const std::string &artist, const bool autofill=false, const int timeout=-1)=0;
 
-    /** Return the discid string
-   *
-   *  @return discid string if Query was successful.
-   */
+    /** Return a unique disc/release ID
+     *
+     *  @return discid string if Query was successful.
+     */
     virtual std::string GetDiscId() const=0;
 
     /** Returns the number of matched records returned from the last Query() call.
-   *
-   *  @return    Number of matched records
-   */
+     *
+     *  @return    Number of matched records
+     */
     virtual int NumberOfMatches() const=0;
 
     /** Get album title
-   *
-   *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
-   *             is returned.
-   *  @return    Title string (empty if title not available)
-   */
+     *
+     *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+     *             is returned.
+     *  @return    Title string (empty if title not available)
+     */
     virtual std::string AlbumTitle(const int recnum=0) const=0;
 
     /** Get album artist
@@ -81,6 +87,14 @@ public:
      */
     virtual std::string AlbumArtist(const int recnum=0) const=0;
 
+    /** Get album artist
+     *
+     *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+     *             is returned.
+     *  @return    Composer/songwriter string (empty if artist not available)
+     */
+    virtual std::string AlbumComposer(const int recnum=0) const=0;
+
     /** Get genre
      *
      *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
@@ -88,6 +102,38 @@ public:
      *  @return    Genre string (empty if genre not available)
      */
     virtual std::string Genre(const int recnum=0) const=0;
+
+    /** Get release date
+     *
+     *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+     *             is returned.
+     *  @return    Date string (empty if genre not available)
+     */
+    virtual std::string Date(const int recnum=0) const=0;
+
+    /** Get release country
+     *
+     *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+     *             is returned.
+     *  @return    Countery string (empty if genre not available)
+     */
+    virtual std::string Country(const int recnum=0) const=0;
+
+    /**
+     * @brief Get disc number
+     * @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+     *            is returned.
+     * @return    Disc number or 0 if unknown
+     */
+    virtual size_t DiscNumber(const int recnum=0) const=0;
+
+    /**
+     * @brief Get total number of discs in the release
+     * @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+     *            is returned.
+     * @return    Number of discs or 0 if unknown
+     */
+    virtual int TotalDiscs(const int recnum=0) const=0;
 
     /** Get label name
      *
@@ -105,13 +151,35 @@ public:
      */
     virtual std::string AlbumUPC(const int recnum=0) const=0;
 
-    /** Get album ASIN (Amazon Standard Identification Number)
+    /** Get track title
      *
+     *  @param[in] Track number (1-99)
      *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
      *             is returned.
-     *  @return    ASIN string (empty if ASIN not available)
+     *  @return    Title string (empty if title not available)
+     *  @throw     runtime_error if track number is invalid
      */
-    virtual std::string AlbumASIN(const int recnum=0) const=0;
+    virtual std::string TrackTitle(const int tracknum, const int recnum=0) const=0;
+
+    /** Get track artist
+     *
+     *  @param[in] Track number (1-99)
+     *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+     *             is returned.
+     *  @return    Artist string (empty if artist not available)
+     *  @throw     runtime_error if track number is invalid
+     */
+    virtual std::string TrackArtist(const int tracknum, const int recnum=0) const=0;
+
+    /** Get track composer
+     *
+     *  @param[in] Track number (1-99)
+     *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+     *             is returned.
+     *  @return    Composer string (empty if artist not available)
+     *  @throw     runtime_error if track number is invalid
+     */
+    virtual std::string TrackComposer(const int tracknum, const int recnum=0) const=0;
 
     /** Returns the CD record ID associated with the specified genre. If no matching
    *  record is found, it returns -1.
