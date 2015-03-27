@@ -2,7 +2,6 @@
 
 #include <stdexcept>
 #include <string>
-#include <deque>
 #include <iostream>
 #include <iomanip>
 #include <regex>
@@ -54,7 +53,7 @@ size_t SCueTrack::StartTime(cdtimeunit_t units) const
 	size_t time;
 	
 	// look for the number
-	deque<SCueTrackIndex>::const_iterator it;
+    deque<SCueTrackIndex>::const_iterator it;
 	for (it = Indexes.begin();it!=Indexes.end() && (*it).number<1; it++);
 	
 	if (it==Indexes.end() || (*it).number!=1) time = 0;
@@ -85,7 +84,7 @@ SCueTrackIndex& SCueTrack::AddIndex(const int number, const size_t time)
 	if (number<0 || number>99)
 		throw (runtime_error("Track Index must be between 0 and 99."));
 
-	deque<SCueTrackIndex>::reverse_iterator it;
+    deque<SCueTrackIndex>::reverse_iterator it;
 
 	// look for the number from the end (more likely to append)
 	for (it = Indexes.rbegin(); it!=Indexes.rend() && (*it).number>number; it++);
@@ -117,7 +116,7 @@ void SCueTrack::DeleteIndex(const int number)
 	if (number<0 || number>99) return;
 
 	// look for the number
-	deque<SCueTrackIndex>::iterator it;
+    deque<SCueTrackIndex>::iterator it;
 	for (it = Indexes.begin(); it!=Indexes.end() && (*it).number<number; it++);
 	
 	// if found delete it
@@ -165,7 +164,7 @@ void SCueSheet::AddTracks(const size_t num_tracks, const int type)
 	Tracks.resize(num_tracks,SCueTrack(1,type));
 	
 	// Correct the track number
-	deque<SCueTrack>::iterator it = Tracks.begin();
+    deque<SCueTrack>::iterator it = Tracks.begin();
 	for (size_t t = 2; t<=num_tracks; t++) (*(++it)).number = t;;
 }
 
@@ -180,7 +179,7 @@ SCueTrack& SCueSheet::AddTrack(const int number, const int type)
 	if (number<1 || number>99)
 		throw (std::runtime_error("Track must be between 1 and 99."));
 
-	deque<SCueTrack>::reverse_iterator it;
+    deque<SCueTrack>::reverse_iterator it;
 
 	// look for the number from the end
 	for (it = Tracks.rbegin(); it!=Tracks.rend() && (*it).number>number; it++);
@@ -212,7 +211,7 @@ void SCueSheet::DeleteTrack(const int number)
 	if (number<1 || number>99) return;
 
 	// look for the number
-	deque<SCueTrack>::iterator it;
+    deque<SCueTrack>::iterator it;
 	for (it = Tracks.begin(); it!=Tracks.end() && (*it).number<number; it++);
 	
 	// if found delete it
@@ -289,11 +288,11 @@ std::ostream& operator<<(std::ostream& os, const SCueSheet& o)
 	if (!o.Performer.empty()) os << "PERFORMER " << o.Performer << endl;
 	if (!o.Songwriter.empty()) os << "SONGWRITER " << o.Songwriter << endl;
 
-	deque<string>::const_iterator itRem;
+    deque<string>::const_iterator itRem;
 	for (itRem = o.Rems.begin();	itRem!=o.Rems.end(); itRem++)
 		os << "REM " << *itRem << endl;
 
-	deque<SCueTrack>::const_iterator itTrack;
+    deque<SCueTrack>::const_iterator itTrack;
 	for (itTrack = o.Tracks.begin();	itTrack!=o.Tracks.end(); itTrack++)
 		os << (*itTrack);
 
@@ -359,7 +358,7 @@ std::ostream& operator<<(std::ostream& os, const SCueTrack& o)
 	if (!o.Songwriter.empty()) os << "    SONGWRITER " << o.Songwriter << endl;
 	if (!o.ISRC.empty() && o.CheckISRC()) os << "    ISRC " << o.ISRC << endl;
 	
-	deque<string>::const_iterator itRem;
+    deque<string>::const_iterator itRem;
 	for (itRem = o.Rems.begin();	itRem!=o.Rems.end(); itRem++)
 		os << "    REM " << *itRem << endl;
 
@@ -376,7 +375,7 @@ std::ostream& operator<<(std::ostream& os, const SCueTrack& o)
 			<< setfill('0') << setw(2) << ss << ":" << setfill('0') << setw(2) << ff << endl;
 	}
 
-	deque<SCueTrackIndex>::const_iterator itIndex;
+    deque<SCueTrackIndex>::const_iterator itIndex;
 	for (itIndex = o.Indexes.begin(); itIndex!=o.Indexes.end(); itIndex++)
 		os << (*itIndex);
 	

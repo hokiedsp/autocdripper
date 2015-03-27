@@ -7,6 +7,8 @@ using std::cout;
 using std::endl;
 
 #include "CCdRipper.h"
+#include "CCueSheetBuilder.h"
+
 #include "CSourceCdda.h"
 #include "CSinkWav.h"
 #include "CSinkWavPack.h"
@@ -24,19 +26,39 @@ int main(int argc, const char *argv[])
         CSinkWavPack wvwriter("track1s.wv"); // save to the wav file
 
         CDbFreeDb freedb;
+        CCueSheetBuilder csbuilder;
 
         freedb.SetCacheSettings("off");
-        freedb.Query(cdrom.GetDevicePath(), cdrom.GetCueSheet(), cdrom.GetLength(),true);	// auto-populate
 
-        cout << std::setfill ('0') << std::setw(8) << std::hex << freedb.GetDiscId() << std::dec << endl;
-        cout << "Found " << freedb.NumberOfMatches() << " matches found" << endl;
-        //int discnum = freedb.MatchByGenre("jazz");
-        //cout << "matched disc: " << discnum << std::endl;
+        csbuilder.SetCdInfo(cdrom);
 
-        SCueSheet* cs = freedb.Retrieve();
-        cout << *cs << endl;
-        delete cs;
-return 0;
+        csbuilder.AddDatabase(freedb);
+
+        csbuilder.AddRemField(AlbumRemFieldType::DBINFO);
+        csbuilder.AddRemField(AlbumRemFieldType::UPC);
+        csbuilder.AddRemField(AlbumRemFieldType::DISC);
+        csbuilder.AddRemField(AlbumRemFieldType::DISCS);
+        csbuilder.AddRemField(AlbumRemFieldType::GENRE);
+        csbuilder.AddRemField(AlbumRemFieldType::LABEL);
+        csbuilder.AddRemField(AlbumRemFieldType::COUNTRY);
+        csbuilder.AddRemField(AlbumRemFieldType::DATE);
+
+        csbuilder.Start();
+
+        cout << "MAIN: Starting CCueSheetBuilder thread\n";
+        csbuilder.Start();
+        cout << "MAIN: Waiting till CCueSheetBuilder thread completes its task\n";
+        csbuilder.WaitTillDone();
+
+        if (csbuilder.FoundRelease())
+        {
+            SCueSheet cs = csbuilder.GetCueSheet();
+            cout << cs << endl;
+        }
+        else
+            cout << "CD info was not found online\n";
+
+        return 0;
         //ISinkRefVector writers = {wavwriter,wvwriter};
         ISinkRefVector writers = {wavwriter};
 

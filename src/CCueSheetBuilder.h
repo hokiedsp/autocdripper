@@ -1,8 +1,9 @@
-#prgma once
+#pragma once
 
 #include "CThreadManBase.h"
 #include "IDatabase.h"
 #include "IReleaseDatabase.h"
+#include "IImageDatabase.h"
 
 #include "CSourceCdda.h"
 #include "SCueSheet.h"

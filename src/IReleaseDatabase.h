@@ -44,7 +44,7 @@ public:
      *  @param[in] MusicBrainz database object.
      *  @return    Number of matched records
      */
-    virtual int Query(const CDbMusicBrainz &mbdb)=0;
+    virtual int Query(const CDbMusicBrainz &mbdb, const std::string cdrom_upc="")=0;
 
   /** If IsSearchable() returns true, Search() performs a new album search based on
    *  album title and artist. If search is not supported or did not return any match,
@@ -57,7 +57,25 @@ public:
    *             will be reused. System default is 10.
    *  @return    Number of matched records
    */
-    virtual int Search(const std::string &title, const std::string &artist, const bool autofill=false, const int timeout=-1)=0;
+    virtual int Search(const std::string &title, const std::string &artist)=0;
+
+    /**
+     * @brief Clear all the matches from previous search
+     */
+    virtual void Clear()=0;
+
+    ////////////////////////////////////////////////////
+
+    /** Look up full disc information from CDDB server. It supports single record or
+   *  multiple records if multiple entries were found by Query(). If the computation
+   *  fails, function throws an runtime_error.
+   *
+   *  @param[in] Disc record ID (0-based index to discs). If negative, retrieves info
+   *             for all records.
+   *  @param[in] Network time out in seconds. If omitted or negative, previous value
+   *             will be reused. System default is 10.
+   */
+    virtual void Populate(const int recnum=-1)=0;
 
     /** Return a unique disc/release ID
      *
@@ -87,7 +105,7 @@ public:
      */
     virtual std::string AlbumArtist(const int recnum=0) const=0;
 
-    /** Get album artist
+    /** Get album composer
      *
      *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
      *             is returned.
@@ -123,15 +141,15 @@ public:
      * @brief Get disc number
      * @param[in] Disc record ID (0-based index). If omitted, the first record (0)
      *            is returned.
-     * @return    Disc number or 0 if unknown
+     * @return    Disc number or -1 if unknown
      */
-    virtual size_t DiscNumber(const int recnum=0) const=0;
+    virtual int DiscNumber(const int recnum=0) const=0;
 
     /**
      * @brief Get total number of discs in the release
      * @param[in] Disc record ID (0-based index). If omitted, the first record (0)
      *            is returned.
-     * @return    Number of discs or 0 if unknown
+     * @return    Number of discs or -1 if unknown
      */
     virtual int TotalDiscs(const int recnum=0) const=0;
 
@@ -181,35 +199,13 @@ public:
      */
     virtual std::string TrackComposer(const int tracknum, const int recnum=0) const=0;
 
-    /** Returns the CD record ID associated with the specified genre. If no matching
-   *  record is found, it returns -1.
-   *
-   *  @return Matching CD record ID.
-   */
-    virtual int MatchByGenre(const std::string &genre) const=0;
-
-    /** Look up full disc information from CDDB server. It supports single record or
-   *  multiple records if multiple entries were found by Query(). If the computation
-   *  fails, function throws an runtime_error.
-   *
-   *  @param[in] Disc record ID (0-based index to discs). If negative, retrieves info
-   *             for all records.
-   *  @param[in] Network time out in seconds. If omitted or negative, previous value
-   *             will be reused. System default is 10.
-   */
-    virtual void Populate(const int recnum=-1, const int timeout=-1)=0;
-
-    /** Retrieve the disc info from specified database record
-   *
-   *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
-   *             is returned.
-   *  @return    SDbrBase Pointer to newly created database record object. Caller is
-   *             responsible for deleting the object.
-   */
-    virtual SDbrBase* Retrieve(const int recnum=0) const=0;
-
-    /**
-     * @brief Clear all the matches from previous search
+    /** Get track ISRC
+     *
+     *  @param[in] Track number (1-99)
+     *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+     *             is returned.
+     *  @return    ISRC string
+     *  @throw     runtime_error if track number is invalid
      */
-    virtual void Clear()=0;
+    virtual std::string TrackISRC(const int tracknum, const int recnum=0) const=0;
 };

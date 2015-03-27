@@ -317,26 +317,95 @@ std::string CDbFreeDb::Genre(const int recnum) const
     return cddb_disc_get_genre(discs[recnum]);
 }
 
-/** Returns the CD record ID associated with the specified genre. If no matching
-	 *  record is found, it returns -1.
-	 *
-	 *  @return Matching CD record ID. -1 if no match found.
-	 */
-int CDbFreeDb::MatchByGenre(const std::string &genre) const
+/** Get release date
+ *
+ *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+ *             is returned.
+ *  @return    Date string (empty if genre not available)
+ */
+std::string CDbFreeDb::Date(const int recnum) const
 {
-	deque<cddb_disc_t*>::const_iterator it;
-	for (it=discs.begin(); it!=discs.end(); it++)
-	{
-		// compare to both textual Genre and CDDB genre category
-		if (genre.compare(cddb_disc_get_genre(*it))==0 ||
-			 genre.compare(cddb_disc_get_category_str(*it))==0)
-		{
-			return it-discs.begin();
-		}
-	}		
+    // set disc
+    if (recnum<0 || recnum>=(int)discs.size()) // all discs
+        throw(runtime_error("Invalid CD record ID."));
 
-	return -1;
+    return to_string(cddb_disc_get_year(discs[recnum]));
 }
+
+/** Get number of tracks
+ *
+ *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+ *             is returned.
+ *  @return    number of tracks
+ *  @throw     runtime_error if CD record id is invalid
+ */
+int CDbFreeDb::NumberOfTracks(const int recnum) const
+{
+    // set disc
+    if (recnum<0 || recnum>=(int)discs.size()) // all discs
+        throw(runtime_error("Invalid CD record ID."));
+
+    // grab the disc info
+    return cddb_disc_get_track_count(discs[recnum]);
+}
+
+/** Get track title
+ *
+ *  @param[in] Track number (1-99)
+ *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+ *             is returned.
+ *  @return    Title string (empty if title not available)
+ *  @throw     runtime_error if track number is invalid
+ */
+std::string CDbFreeDb::TrackTitle(const int tracknum, const int recnum) const
+{
+    // check disc
+    if (recnum<0 || recnum>=(int)discs.size()) // all discs
+        throw(runtime_error("Invalid CD record ID."));
+
+    // check track
+    if (tracknum<=0 || tracknum>=NumberOfTracks()) // all discs
+        throw(runtime_error("Invalid CD Track Number."));
+
+    // grab the first track
+    cddb_track_t * track = cddb_disc_get_track_first (discs[recnum]);
+
+    // go to the track
+    for (int i = 1; i != tracknum ; i++)
+        track = cddb_disc_get_track_next (discs[recnum]);
+
+    return cddb_track_get_title(track);
+}
+
+/** Get track artist
+ *
+ *  @param[in] Track number (1-99)
+ *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+ *             is returned.
+ *  @return    Artist string (empty if artist not available)
+ *  @throw     runtime_error if track number is invalid
+ */
+std::string CDbFreeDb::TrackArtist(const int tracknum, const int recnum) const
+{
+    // check disc
+    if (recnum<0 || recnum>=(int)discs.size()) // all discs
+        throw(runtime_error("Invalid CD record ID."));
+
+    // check track
+    if (tracknum<=0 || tracknum>=NumberOfTracks()) // all discs
+        throw(runtime_error("Invalid CD Track Number."));
+
+    // grab the first track
+    cddb_track_t * track = cddb_disc_get_track_first (discs[recnum]);
+
+    // go to the track
+    for (int i = 1; i != tracknum ; i++)
+        track = cddb_disc_get_track_next (discs[recnum]);
+
+    return cddb_track_get_artist(track);
+}
+
+
 
 /** Look up full disc information from CDDB server. It supports single record or
  *  multiple records if multiple entries were found by Query(). If the computation
@@ -347,11 +416,8 @@ int CDbFreeDb::MatchByGenre(const std::string &genre) const
  *  @param[in] Network time out in seconds. If omitted or negative, previous value
  *             will be reused. System default is 10.
  */
-void CDbFreeDb::Populate(const int recnum, const int timeout)
+void CDbFreeDb::Populate(const int recnum)
 {
-	// Set timeout if specified
-	if (timeout>0) cddb_set_timeout(conn,timeout);
-
 	// set disc
 	if (recnum<0) // all discs
 	{

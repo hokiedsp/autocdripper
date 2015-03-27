@@ -1,10 +1,10 @@
 #pragma once
 
 #include <string>
-#include <vector>
+#include <deque>
 #include <ostream>
 
-#define "enums.h"
+#include "enums.h"
 
 #define CUE_FILETYPE_BINARY   0
 #define CUE_FILETYPE_MOTOROLA 1
@@ -54,12 +54,12 @@ struct SCueTrack
 	std::string Performer;	// performer (80-char long max)
 	std::string Songwriter;	// name of songwriter (80-char max)
 	std::string ISRC;	// “International Standard Recording Code” 12 character long
-    std::vector<std::string> Rems;	// comments on track
+    std::deque<std::string> Rems;	// comments on track
 
 	size_t Pregap;    // track pregap in # of sectors (i.e., frames)
 	size_t Postgap;	// track postgap in # of sectors (i.e., frames)
 	
-    std::vector<SCueTrackIndex> Indexes;
+    std::deque<SCueTrackIndex> Indexes;
 
 	SCueTrack(const int number, const int type = CUE_TRACKTYPE_AUDIO);
 	virtual ~SCueTrack();
@@ -109,11 +109,11 @@ public:
 	std::string FileName;	// path to CD Data File
 	int FileType;           // one of CUE_FILETYPE_XXX
 	std::string Performer;	// performer (80-char long max)
-    std::vector<std::string> Rems;	// comments on the disc
+    std::deque<std::string> Rems;	// comments on the disc
 	std::string Songwriter;	// name of songwriter (80-char max)
 	std::string Title;		// album title (80-char max)
 
-    std::vector<SCueTrack> Tracks;
+    std::deque<SCueTrack> Tracks;
 
 	SCueSheet(const int type=CUE_FILETYPE_WAVE);
 	virtual ~SCueSheet();
@@ -176,4 +176,3 @@ std::ostream& operator<<(std::ostream& stdout, const SCueTrack& obj);
  *  @return     Copy of the stream object
  */
 std::ostream& operator<<(std::ostream& stdout, const SCueTrackIndex& obj);
-

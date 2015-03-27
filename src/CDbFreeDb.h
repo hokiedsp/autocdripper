@@ -55,9 +55,9 @@ public:
      *  @param[in] Client program version. If omitted or empty, no action is taken.
      */
     CDbFreeDb(const std::string &servername=std::string(), const int serverport=-1,
-            const std::string &protocol=std::string(),  const std::string &email=std::string(),
-            const std::string &cachemode=std::string(), const std::string &cachedir=std::string(),
-            const std::string &cname=std::string(),const std::string &cversion=std::string());
+              const std::string &protocol=std::string(),  const std::string &email=std::string(),
+              const std::string &cachemode=std::string(), const std::string &cachedir=std::string(),
+              const std::string &cname=std::string(),const std::string &cversion=std::string());
 
     /** Destructor
      */
@@ -142,6 +142,7 @@ public:
      */
     void SetCacheSettings(const std::string &cachemode=std::string(), const std::string &cachedir=std::string());
 
+
     /** If AllowQueryCD() returns true, Query() performs a new query for the CD info
      *  in the specified drive with its *  tracks specified in the supplied cuesheet
      *  and its length. Previous query outcome discarded. After disc and its tracks
@@ -154,7 +155,7 @@ public:
      *  @param[in] (Optional) UPC barcode
      *  @return    Number of matched records
      */
-      virtual int Query(const std::string &dev, const SCueSheet &cuesheet, const size_t len, const std::string cdrom_upc="")=0;
+    virtual int Query(const std::string &dev, const SCueSheet &cuesheet, const size_t len, const std::string cdrom_upc="");
 
     /** If MayBeLinkedFromMusicBrainz() returns true, Query() performs a new
      *  query based on the MusicBrainz query results.
@@ -162,7 +163,7 @@ public:
      *  @param[in] MusicBrainz database object.
      *  @return    Number of matched records
      */
-    int Query(const CDbMusicBrainz &mbdb) { return 0; }
+    int Query(const CDbMusicBrainz &mbdb, const std::string cdrom_upc="") { return 0; }
 
     /** Always return zero as CDDB cannot be searched for album title and artist.
      *
@@ -173,8 +174,19 @@ public:
      *             will be reused. System default is 10.
      *  @return    Number of matched records
      */
-    virtual int Search(const std::string &title, const std::string &artist, const bool autofill=false, const int timeout=-1)
+    virtual int Search(const std::string &title, const std::string &artist)
     { return 0; }
+
+    /** Look up full disc information from CDDB server. It supports single record or
+     *  multiple records if multiple entries were found by Query(). If the computation
+     *  fails, function throws an runtime_error.
+     *
+     *  @param[in] Disc record ID (0-based index to discs). If negative, retrieves info
+     *             for all records.
+     *  @param[in] Network time out in seconds. If omitted or negative, previous value
+     *             will be reused. System default is 10.
+     */
+    virtual void Populate(const int discnum=-1);
 
     /** Return the CDDB discid
      *
@@ -194,6 +206,7 @@ public:
    *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
    *             is returned.
    *  @return    Title string (empty if title not available)
+     *  @throw     runtime_error if CD record id is invalid
    */
     virtual std::string AlbumTitle(const int recnum=0) const;
 
@@ -202,16 +215,59 @@ public:
      *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
      *             is returned.
      *  @return    Artist string (empty if artist not available)
+     *  @throw     runtime_error if CD record id is invalid
      */
     virtual std::string AlbumArtist(const int recnum=0) const;
+
+    /** Get album artist
+     *
+     *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+     *             is returned.
+     *  @return    Composer/songwriter string (empty if artist not available)
+     */
+    virtual std::string AlbumComposer(const int recnum=0) const { return ""; }
 
     /** Get genre
      *
      *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
      *             is returned.
      *  @return    Genre string (empty if genre not available)
+     *  @throw     runtime_error if CD record id is invalid
      */
     virtual std::string Genre(const int recnum=0) const;
+
+    /** Get release date
+     *
+     *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+     *             is returned.
+     *  @return    Date string (empty if genre not available)
+     *  @throw     runtime_error if CD record id is invalid
+     */
+    virtual std::string Date(const int recnum=0) const;
+
+    /** Get release country
+     *
+     *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+     *             is returned.
+     *  @return    Countery string (empty if genre not available)
+     */
+    virtual std::string Country(const int recnum=0) const { return ""; }
+
+    /**
+     * @brief Get disc number
+     * @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+     *            is returned.
+     * @return    Disc number or -1 if unknown
+     */
+    virtual int DiscNumber(const int recnum=0) const { return -1; }
+
+    /**
+     * @brief Get total number of discs in the release
+     * @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+     *            is returned.
+     * @return    Number of discs or -1 if unknown
+     */
+    virtual int TotalDiscs(const int recnum=0) const { return -1; }
 
     /** Get label name
      *
@@ -229,31 +285,56 @@ public:
      */
     virtual std::string AlbumUPC(const int recnum=0) const { return ""; }
 
-    /** Get album ASIN (Amazon Standard Identification Number)
+    /** Get number of tracks
      *
      *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
      *             is returned.
-     *  @return    ASIN string (empty if ASIN not available)
+     *  @return    number of tracks
+     *  @throw     runtime_error if CD record id is invalid
      */
-    virtual std::string AlbumASIN(const int recnum=0) const { return ""; }
+    virtual int NumberOfTracks(const int recnum=0) const;
 
-    /** Returns the CD record ID associated with the specified genre. If no matching
-     *  record is found, it returns -1.
+    /** Get track title
      *
-     *  @return Matching CD record ID.
+     *  @param[in] Track number (1-99)
+     *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+     *             is returned.
+     *  @return    Title string (empty if title not available)
+     *  @throw     runtime_error if CD record id is invalid
+     *  @throw     runtime_error if track number is invalid
      */
-    virtual int MatchByGenre(const std::string &genre) const;
+    virtual std::string TrackTitle(const int tracknum, const int recnum=0) const;
 
-    /** Look up full disc information from CDDB server. It supports single record or
-     *  multiple records if multiple entries were found by Query(). If the computation
-     *  fails, function throws an runtime_error.
+    /** Get track artist
      *
-     *  @param[in] Disc record ID (0-based index to discs). If negative, retrieves info
-     *             for all records.
-     *  @param[in] Network time out in seconds. If omitted or negative, previous value
-     *             will be reused. System default is 10.
+     *  @param[in] Track number (1-99)
+     *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+     *             is returned.
+     *  @return    Artist string (empty if artist not available)
+     *  @throw     runtime_error if CD record id is invalid
+     *  @throw     runtime_error if track number is invalid
      */
-    virtual void Populate(const int discnum=-1, const int timeout=-1);
+    virtual std::string TrackArtist(const int tracknum, const int recnum=0) const;
+
+    /** Get track composer
+     *
+     *  @param[in] Track number (1-99)
+     *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+     *             is returned.
+     *  @return    Composer string (empty if artist not available)
+     *  @throw     runtime_error if track number is invalid
+     */
+    virtual std::string TrackComposer(const int tracknum, const int recnum=0) const { return ""; }
+
+    /** Get track ISRC
+     *
+     *  @param[in] Track number (1-99)
+     *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+     *             is returned.
+     *  @return    ISRC string
+     *  @throw     runtime_error if track number is invalid
+     */
+    virtual std::string TrackISRC(const int tracknum, const int recnum=0) const { return ""; }
 
     /** Retrieve the disc info from specified database record
      *

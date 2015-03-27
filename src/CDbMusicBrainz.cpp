@@ -73,22 +73,22 @@ CDbMusicBrainz::CDbMusicBrainz(const std::string &servername, const int serverpo
 CDbMusicBrainz::~CDbMusicBrainz()
 {
     // Clear disc info collection
-    ClearDiscs_();
+    Clear();
 }
 
-/** Perform a new CDDB query for the disc info given in the supplied cuesheet 
- *  and its length. Previous query outcome discarded. After disc and its tracks are initialized,
- *  CDDB disc ID is computed. If the computation fails, function
+/** If AllowQueryCD() returns true, Query() performs a new query for the CD info
+ *  in the specified drive with its *  tracks specified in the supplied cuesheet
+ *  and its length. Previous query outcome discarded. After disc and its tracks
+ *  are initialized, CDDB disc ID is computed. If the computation fails, function
  *  throws an runtime_error.
  *
- *  After successful query, disc's genre, artist, and title should be filled.
- *
+ *  @param[in] CD-ROM device path
  *  @param[in] Cuesheet with its basic data populated
- *  @param[in] Length of the CD in seconds
- *  @param[in] Network time out in seconds. CDbMusicBrainz does not use this parameter
- *  @return    Number of matches
+ *  @param[in] Length of the CD in sectors
+ *  @param[in] (Optional) UPC barcode
+ *  @return    Number of matched records
  */
-int CDbMusicBrainz::Query(const std::string &dev, const SCueSheet &cuesheet, const size_t len, const bool autofill, const int timeout)
+int CDbMusicBrainz::Query(const std::string &dev, const SCueSheet &cuesheet, const size_t len, const std::string cdrom_upc)
 {
     // redirect cerr stream during this function call
     cerr_redirect quiet_cerr;
@@ -119,11 +119,49 @@ int CDbMusicBrainz::Query(const std::string &dev, const SCueSheet &cuesheet, con
         }
     }
 
-    // Populate the records if requested
-    if (autofill) Populate(-1);
-
     // return the number of matches
     return Releases.size();
+}
+
+/** Look up full disc information from MusicBrainz server. It supports single record or
+ *  multiple records if multiple entries were found by Query(). If the computation
+ *  fails, function throws an runtime_error.
+ *
+ *  @param[in] Disc record ID (0-based index to discs). If negative, retrieves info
+ *             for all records.
+ *  @param[in] Network time out in seconds. CDbMusicBrainz does not use this parameter
+ */
+void CDbMusicBrainz::Populate(const int recnum)
+{
+    // redirect cerr stream during this function call
+    cerr_redirect quiet_cerr;
+
+    // set disc
+    if (recnum<0) // all discs
+    {
+        deque<CRelease>::iterator it;
+        for (it=Releases.begin(); it!=Releases.end(); it++)
+            (*it) = MB5.LookupRelease((*it).ID()); 	// replace the initial output with the full output
+    }
+    else if (recnum<(int)Releases.size())	// single disc
+    {
+        CRelease &r = Releases[recnum];
+        r = MB5.LookupRelease(r.ID()); 	// replace the initial output with the full output
+    }
+    else
+    {
+        throw(runtime_error("Invalid Release ID."));
+    }
+}
+
+/** Clear all the disc entries
+ */
+void CDbMusicBrainz::Clear()
+{
+    // clear the list of matched releases and their coverart info
+    Releases.clear();
+    CoverArts.clear();
+    discid.clear();
 }
 
 /** Return the CDDB discid
@@ -144,6 +182,8 @@ int CDbMusicBrainz::NumberOfMatches() const
 {
     return Releases.size();
 };
+
+/////////////////////////////////////////////////////////////////////////////////
 
 /** Get album title
  *
@@ -168,13 +208,96 @@ std::string CDbMusicBrainz::AlbumTitle(const int recnum) const
  */
 std::string CDbMusicBrainz::AlbumArtist(const int recnum) const
 {
+    string rval;
+
     // set disc
     if (recnum<0 || recnum>=(int)Releases.size()) // all discs
         throw(runtime_error("Invalid CD record ID."));
 
     CArtistCredit *credit = Releases[recnum].ArtistCredit();
-    if (credit) return GetArtistString_(*credit);
-    else return "";
+    if (credit) rval = GetArtistString_(*credit);
+
+    return rval;
+}
+
+/** Get release date
+ *
+ *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+ *             is returned.
+ *  @return    Date string (empty if genre not available)
+ */
+std::string CDbMusicBrainz::Date(const int recnum) const
+{
+    string rval;
+
+    // set disc
+    if (recnum<0 || recnum>=(int)Releases.size()) // all discs
+        throw(runtime_error("Invalid CD record ID."));
+
+    return Releases[recnum].Date();
+}
+
+/** Get release country
+ *
+ *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+ *             is returned.
+ *  @return    Countery string (empty if genre not available)
+ */
+std::string CDbMusicBrainz::Country(const int recnum) const
+{
+    // set disc
+    if (recnum<0 || recnum>=(int)Releases.size()) // all discs
+        throw(runtime_error("Invalid CD record ID."));
+
+    return Releases[recnum].Country();
+}
+
+/**
+ * @brief Get disc number
+ * @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+ *            is returned.
+ * @return    Disc number or -1 if unknown
+ */
+int CDbMusicBrainz::DiscNumber(const int recnum) const
+{
+    int rval = -1;
+
+    // set disc
+    if (recnum<0 || recnum>=(int)Releases.size()) // all discs
+        throw(runtime_error("Invalid CD record ID."));
+
+    // get cd media info
+    CMediumList media = Releases[recnum].MediaMatchingDiscID(discid); // guarantees to return non-NULL
+    CMedium *medium = media.Item(0);
+
+    // get disc# and total # of cds if multiple-cd set
+    if (medium) rval = medium->Position();
+
+    return rval;
+}
+
+/**
+ * @brief Get total number of discs in the release
+ * @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+ *            is returned.
+ * @return    Number of discs or -1 if unknown
+ */
+int CDbMusicBrainz::TotalDiscs(const int recnum) const
+{
+    int rval = -1;
+
+    // set disc
+    if (recnum<0 || recnum>=(int)Releases.size()) // all discs
+        throw(runtime_error("Invalid CD record ID."));
+
+    // get cd media info
+    CMediumList media = Releases[recnum].MediaMatchingDiscID(discid); // guarantees to return non-NULL
+
+    // get disc# and total # of cds if multiple-cd set
+    if (Releases[recnum].MediumList())
+        rval = Releases[recnum].MediumList()->NumItems();
+
+    return rval;
 }
 
 /** Get label name
@@ -185,6 +308,8 @@ std::string CDbMusicBrainz::AlbumArtist(const int recnum) const
  */
 std::string CDbMusicBrainz::AlbumLabel(const int recnum) const
 {
+    string rval;
+
     // set disc
     if (recnum<0 || recnum>=(int)Releases.size()) // all discs
         throw(runtime_error("Invalid CD record ID."));
@@ -192,8 +317,10 @@ std::string CDbMusicBrainz::AlbumLabel(const int recnum) const
     CLabelInfoList *list = Releases[recnum].LabelInfoList();
     CLabelInfo *info;
     CLabel *label;
-    if (list && list->NumItems() && (info=list->Item(0)) && (label=info->Label())) return label->Name();
-    else return "";
+    if (list && list->NumItems() && (info=list->Item(0)) && (label=info->Label()))
+        rval = label->Name();
+
+    return rval;
 }
 
 /** Get album UPC
@@ -211,51 +338,139 @@ std::string CDbMusicBrainz::AlbumUPC(const int recnum) const
     return Releases[recnum].Barcode();
 }
 
-/** Get album ASIN (Amazon Standard Identification Number)
+/** Get track title
  *
+ *  @param[in] Track number (1-99)
  *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
  *             is returned.
- *  @return    ASIN string (empty if title not available)
+ *  @return    Title string (empty if title not available)
+ *  @throw     runtime_error if track number is invalid
  */
-std::string CDbMusicBrainz::AlbumASIN(const int recnum) const
+std::string CDbMusicBrainz::TrackTitle(const int tracknum, const int recnum) const
 {
+    string rval;
+
     // set disc
     if (recnum<0 || recnum>=(int)Releases.size()) // all discs
         throw(runtime_error("Invalid CD record ID."));
 
-    return Releases[recnum].ASIN();
+    // get cd media info
+    CMediumList media = Releases[recnum].MediaMatchingDiscID(discid); // guarantees to return non-NULL
+    CMedium *medium = media.Item(0);
+
+    // initialize tracks
+    if (medium->TrackList())
+    {
+        int num_tracks = medium->TrackList()->NumItems();
+
+        if (tracknum<1 || tracknum>num_tracks)
+            throw(runtime_error("Invalid track number."));
+
+        CTrack *track = medium->TrackList()->Item(--num_tracks);
+        if (!track)
+            throw(runtime_error("Failed to retrieve track info."));
+
+        CRecording *recording = track->Recording();
+        if (!recording)
+            throw(runtime_error("Failed to retrieve track recording info."));
+
+        rval = recording->Title();
+        if (rval.empty()) rval = track->Title();
+    }
+
+    return rval;
 }
 
-/** Look up full disc information from MusicBrainz server. It supports single record or
- *  multiple records if multiple entries were found by Query(). If the computation
- *  fails, function throws an runtime_error.
+/** Get track artist
  *
- *  @param[in] Disc record ID (0-based index to discs). If negative, retrieves info
- *             for all records.
- *  @param[in] Network time out in seconds. CDbMusicBrainz does not use this parameter
+ *  @param[in] Track number (1-99)
+ *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+ *             is returned.
+ *  @return    Artist string (empty if artist not available)
+ *  @throw     runtime_error if track number is invalid
  */
-void CDbMusicBrainz::Populate(const int recnum, const int timeout)
+std::string CDbMusicBrainz::TrackArtist(const int tracknum, const int recnum) const
 {
-    // redirect cerr stream during this function call
-    cerr_redirect quiet_cerr;
+    string rval;
 
     // set disc
-    if (recnum<0) // all discs
+    if (recnum<0 || recnum>=(int)Releases.size()) // all discs
+        throw(runtime_error("Invalid CD record ID."));
+
+    // get cd media info
+    CMediumList media = Releases[recnum].MediaMatchingDiscID(discid); // guarantees to return non-NULL
+    CMedium *medium = media.Item(0);
+
+    // initialize tracks
+    if (medium->TrackList())
     {
-        deque<CRelease>::iterator it;
-        for (it=Releases.begin(); it!=Releases.end(); it++)
-            (*it) = MB5.LookupRelease((*it).ID()); 	// replace the initial output with the full output
+        int num_tracks = medium->TrackList()->NumItems();
+
+        if (tracknum<1 || tracknum>num_tracks)
+            throw(runtime_error("Invalid track number."));
+
+        CTrack *track = medium->TrackList()->Item(--num_tracks);
+        if (!track)
+            throw(runtime_error("Failed to retrieve track info."));
+
+        CRecording *recording = track->Recording();
+        if (!recording)
+            throw(runtime_error("Failed to retrieve track recording info."));
+
+        if (recording && recording->ArtistCredit())
+            rval = GetArtistString_(*recording->ArtistCredit());
+        if (rval.empty() && track->ArtistCredit())
+            rval = GetArtistString_(*track->ArtistCredit());
     }
-    else if (recnum<(int)Releases.size())	// single disc
-    {
-        CRelease &r = Releases[recnum];
-        r = MB5.LookupRelease(r.ID()); 	// replace the initial output with the full output
-    }
-    else
-    {
-        throw(runtime_error("Invalid Release ID."));
-    }
+
+    return rval;
 }
+
+/** Get track ISRC
+ *
+ *  @param[in] Track number (1-99)
+ *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+ *             is returned.
+ *  @return    ISRC string
+ *  @throw     runtime_error if track number is invalid
+ */
+std::string CDbMusicBrainz::TrackISRC(const int tracknum, const int recnum) const
+{
+    string rval;
+
+    // set disc
+    if (recnum<0 || recnum>=(int)Releases.size()) // all discs
+        throw(runtime_error("Invalid CD record ID."));
+
+    // get cd media info
+    CMediumList media = Releases[recnum].MediaMatchingDiscID(discid); // guarantees to return non-NULL
+    CMedium *medium = media.Item(0);
+
+    // initialize tracks
+    if (medium->TrackList())
+    {
+        int num_tracks = medium->TrackList()->NumItems();
+
+        if (tracknum<1 || tracknum>num_tracks)
+            throw(runtime_error("Invalid track number."));
+
+        CTrack *track = medium->TrackList()->Item(--num_tracks);
+        if (!track)
+            throw(runtime_error("Failed to retrieve track info."));
+
+        CRecording *recording = track->Recording();
+        if (!recording)
+            throw(runtime_error("Failed to retrieve track recording info."));
+
+        CISRCList *isrcs = recording->ISRCList();
+        if (isrcs && isrcs->NumItems()>0)
+            rval = isrcs->Item(0)->ID();
+    }
+
+    return rval;
+}
+
+
 
 /** Form an artist credit string 
  *
@@ -438,15 +653,6 @@ SDbrBase* CDbMusicBrainz::Retrieve(const int recnum) const
     return rec;
 }
 
-/** Clear all the disc entries
- */
-void CDbMusicBrainz::ClearDiscs_()
-{
-    // clear the list of matched releases and their coverart info
-    Releases.clear();
-    CoverArts.clear();
-}
-
 /** Initialize a new disc and fill it with disc info
  *  from the supplied cuesheet and length. Previously created disc
  *  data are discarded. After disc and its tracks are initialized,
@@ -460,7 +666,7 @@ void CDbMusicBrainz::InitDisc_(const std::string &path)
 {
 
     // Clear the discs
-    ClearDiscs_();
+    Clear();
 
     // Get discid string
     DiscId *did = discid_new();

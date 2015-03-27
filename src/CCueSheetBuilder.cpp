@@ -170,7 +170,7 @@ void CCueSheetBuilder::ThreadMain()
     {
         if (stop_request) goto cancel;
 
-        IDatabase &db = (*it).get().eg;
+        IDatabase &db = (*it).eg;
 
         if (db.AllowQueryCD())  // if queryable, query
         {
@@ -198,7 +198,7 @@ void CCueSheetBuilder::ThreadMain()
         {
             if (stop_request) goto cancel;
 
-            IDatabase &db = (*it).get().eg;
+            IDatabase &db = (*it).eg;
 
             // if previous query not succss & queriable off MBDB, query
             if (!db.NumberOfMatches() && db.MayBeLinkedFromMusicBrainz())
@@ -213,7 +213,7 @@ void CCueSheetBuilder::ThreadMain()
         {
             if (stop_request) goto cancel;
 
-            IDatabase &db = (*it).get().eg;
+            IDatabase &db = (*it).eg;
 
             if (db.NumberOfMatches() && db.IsReleaseDb())
             {
@@ -236,8 +236,8 @@ void CCueSheetBuilder::ThreadMain()
         {
             if (stop_request) goto cancel;
 
-            IDatabase &db = (*it).get().eg;
-            int &recid = (*it).get().recid;
+            IDatabase &db = (*it).eg;
+            int recid = (*it).recid;
 
             if (db.AllowSearchByUPC)
             {
@@ -273,7 +273,7 @@ void CCueSheetBuilder::ThreadMain()
     {
         if (stop_request) goto cancel;
 
-        IDatabase &db = (*it).get().eg;
+        IDatabase &db = (*it).eg;
         if (db.NumberOfMatches())
         {
             matched = true;
@@ -293,8 +293,8 @@ void CCueSheetBuilder::ThreadMain()
         {
             if (stop_request) goto cancel;
 
-            IDatabase &db = (*it).get().eg;
-            int &recid = (*it).get().recid;
+            IDatabase &db = (*it).eg;
+            int recid = (*it).recid;
 
             // if contains UPC-matched result...
             if (recid>=0)
@@ -317,8 +317,8 @@ void CCueSheetBuilder::ThreadMain()
     {
         if (stop_request) goto cancel;
 
-        IDatabase &db = (*it).get().eg;
-        int &recid = (*it).get().recid;
+        IDatabase &db = (*it).eg;
+        int recid = (*it).recid;
 
         // if contains a UPC-unmatched result, marge the data to the cuesheet
         if ((recid<0 || cdrom_upc.empty()) && db.NumberOfMatches())

@@ -2,6 +2,7 @@
 
 #include <deque>
 #include <string>
+
 #include <musicbrainz5/Query.h>
 #include <musicbrainz5/ArtistCredit.h>
 #include <coverart/CoverArt.h>
@@ -10,9 +11,6 @@
 #include "IReleaseDatabase.h"
 #include "IImageDatabase.h"
 #include "SDbrBase.h"
-
-struct SCueSheet;
-class CDbDiscogs;
 
 /** MusicBrainz CD Database Record structure - SCueSheet with DbType()
  */
@@ -64,6 +62,9 @@ public:
      */
     virtual ~CDbMusicBrainz();
 
+    /////////////////////////////////////////
+    // for IDatabase
+
     /**
      * @brief Return true if Database can be searched for a CD info
      * @return true if database can be searched for a CD release
@@ -80,68 +81,100 @@ public:
      * @brief Return database type enum
      * @return ReleaseDatabase enumuration value
      */
-    virtual ReleaseDatabase GetDatabaseType() const { return ReleaseDatabase::MUSICBRAINZ; }
+    virtual DatabaseType GetDatabaseType() const { return DatabaseType::MUSICBRAINZ; }
 
-    /** Always return true as MusicBrainz query is supported.
-     *
-     *  @return    true if query is supported
+    /**
+     * @brief Return true if database can be queried directly from CD info
+     * @return true if database can receive CD info based query
      */
-    static bool IsQueryable() const { return true; }
+    virtual bool AllowQueryCD() { return true; }
 
-    /** Always return false as MusicBrainz's search feature is not implemented.
-     *
-     *  @return    true if search is supported
+    /**
+     * @brief Return true if MusicBrainz database is known to contain
+     *        a link to this database
+     * @return true if release ID is obtainable from MusicBrainz
      */
-    static bool IsSearchable() const { return false; }
+    virtual bool MayBeLinkedFromMusicBrainz() { return false; }
 
-    /** Set a server connection protocol.
-     *
-     *  @param[in] Connection protocol ("cddbp","http", or "proxy"). If omitted
-     *             or empty, 'cddbp' is used by the default. If "proxy" is
-     *             specified, "http_proxy" system environmental variable will
-     *             be used.
+    /**
+     * @brief Return true if database supports UPC barcode search
+     * @return true if database supports UPC barcode search
      */
-    void SetProtocol(const std::string &protocol);
+    virtual bool AllowSearchByUPC() { return false; }
 
-    /** Perform a new MusicBrainz query for the disc info given in the supplied cuesheet
-     *  and its length. Previous query outcome discarded. After disc and its tracks are initialized,
-     *  CDDB disc ID is computed. If the computation fails, function
+    /**
+     * @brief Return true if database supports search by album artist and title
+     * @return true if database supports search by album artist and title
+     */
+    virtual bool AllowSearchByArtistTitle() { return false; }
+
+    /**
+     * @brief Return true if database supports search by CDDBID
+     * @return true if database supports search by CDDBID
+     */
+    virtual bool AllowSearchByCDDBID() { return false; }
+
+    /**
+     * @brief Return true if database supports search by MusicBrainz ID
+     * @return true if database supports search by MusicBrainz ID
+     */
+    virtual bool AllowSearchByMBID() { return false; }
+
+    /** If AllowQueryCD() returns true, Query() performs a new query for the CD info
+     *  in the specified drive with its *  tracks specified in the supplied cuesheet
+     *  and its length. Previous query outcome discarded. After disc and its tracks
+     *  are initialized, CDDB disc ID is computed. If the computation fails, function
      *  throws an runtime_error.
      *
-     *  After successful Query() call, NumberOfMatches() and
-     *
      *  @param[in] CD-ROM device path
-     *  @param[in] Cuesheet with its basic data populated (not used)
-     *  @param[in] Length of the CD in seconds (not used)
-     *  @param[in] If true, immediately calls Read() to populate disc records.
-     *  @param[in] Network time out in seconds. (not used)
+     *  @param[in] Cuesheet with its basic data populated
+     *  @param[in] Length of the CD in sectors
+     *  @param[in] (Optional) UPC barcode
      *  @return    Number of matched records
      */
-    virtual int Query(const std::string &dev, const SCueSheet &cuesheet, const size_t len, const bool autofill=false, const int timeout=-1);
+    virtual int Query(const std::string &dev, const SCueSheet &cuesheet, const size_t len, const std::string cdrom_upc="")=0;
 
-    /** Searching MusicBrainz database by album title and artist is not implemented. Thus, always returns 0.
+    /** If MayBeLinkedFromMusicBrainz() returns true, Query() performs a new
+     *  query based on the MusicBrainz query results.
      *
-     *  @param[in] Album title
-     *  @param[in] Album artist
-     *  @param[in] If true, immediately calls Read() to populate disc records.
-     *  @param[in] Network time out in seconds. If omitted or negative, previous value
-     *             will be reused. System default is 10.
+     *  @param[in] MusicBrainz database object.
+     *  @param[in] (Optional) UPC barcode
      *  @return    Number of matched records
      */
-    virtual int Search(const std::string &title, const std::string &artist, const bool autofill=false, const int timeout=-1)
-    { return 0; }
+    virtual int Query(const CDbMusicBrainz &mbdb, const std::string upc="") { return 0; }
 
-    /** Return the MusicBrainz discid string
-     *
-     *  @return MusicBrainz discid string if Query was successful. Otherwise "00000000".
+    /**
+     * @brief Clear all the matches from previous search
      */
+    virtual void Clear();
+
+    ///////////////////////////////////////////////////////////////////////////
+
+    /** Return the discid string
+   *
+   *  @return discid string if Query was successful.
+   */
     virtual std::string GetDiscId() const;
 
     /** Returns the number of matched records returned from the last Query() call.
-     *
-     *  @return    Number of matched records
-     */
+   *
+   *  @return    Number of matched records
+   */
     virtual int NumberOfMatches() const;
+
+    /////////////////////////////////////////
+    // for IReleaseDatabase
+
+    /** Look up full disc information from CDDB server. It supports single record or
+   *  multiple records if multiple entries were found by Query(). If the computation
+   *  fails, function throws an runtime_error.
+   *
+   *  @param[in] Disc record ID (0-based index to discs). If negative, retrieves info
+   *             for all records.
+   *  @param[in] Network time out in seconds. If omitted or negative, previous value
+   *             will be reused. System default is 10.
+   */
+    virtual void Populate(const int recnum=-1);
 
     /** Get album title
      *
@@ -149,7 +182,7 @@ public:
      *             is returned.
      *  @return    Title string (empty if title not available)
      */
-    virtual std::string AlbumTitle(const int recnum=-1) const;
+    virtual std::string AlbumTitle(const int recnum=0) const;
 
     /** Get album artist
      *
@@ -157,7 +190,15 @@ public:
      *             is returned.
      *  @return    Artist string (empty if artist not available)
      */
-    virtual std::string AlbumArtist(const int recnum=-1) const;
+    virtual std::string AlbumArtist(const int recnum=0) const;
+
+    /** Get album composer
+     *
+     *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+     *             is returned.
+     *  @return    Composer/songwriter string (empty if artist not available)
+     */
+    virtual std::string AlbumComposer(const int recnum=0) const { return ""; }
 
     /** Get genre
      *
@@ -166,6 +207,38 @@ public:
      *  @return    Empty string (MusicBrainz does not support genre)
      */
     virtual std::string Genre(const int recnum=0) const { return ""; }
+
+    /** Get release date
+     *
+     *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+     *             is returned.
+     *  @return    Date string (empty if genre not available)
+     */
+    virtual std::string Date(const int recnum=0) const;
+
+    /** Get release country
+     *
+     *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+     *             is returned.
+     *  @return    Countery string (empty if genre not available)
+     */
+    virtual std::string Country(const int recnum=0) const;
+
+    /**
+     * @brief Get disc number
+     * @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+     *            is returned.
+     * @return    Disc number or -1 if unknown
+     */
+    virtual int DiscNumber(const int recnum=0) const;
+
+    /**
+     * @brief Get total number of discs in the release
+     * @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+     *            is returned.
+     * @return    Number of discs or -1 if unknown
+     */
+    virtual int TotalDiscs(const int recnum=0) const;
 
     /** Get label name
      *
@@ -182,50 +255,55 @@ public:
      *  @return    UPC string (empty if title not available)
      */
     virtual std::string AlbumUPC(const int recnum=-1) const;
-
-    /** Get album ASIN (Amazon Standard Identification Number)
+    /** Get album artist
      *
      *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
      *             is returned.
-     *  @return    ASIN string (empty if title not available)
+     *  @return    Composer/songwriter string (empty if artist not available)
      */
-    virtual std::string AlbumASIN(const int recnum=-1) const;
 
-    /** Returns the CD record ID associated with the specified genre. If no matching
-     *  record is found, it returns -1.
+    /** Get track title
      *
-     *  @return Matching CD record ID.
-     */
-    virtual int MatchByGenre(const std::string &genre) const { return -1; }
-
-    /** Look up full disc information from MusicBrainz server. It supports single record or
-     *  multiple records if multiple entries were found by Query(). If the computation
-     *  fails, function throws an runtime_error.
-     *
-     *  @param[in] Disc record ID (0-based index to discs). If negative, retrieves info
-     *             for all records.
-     *  @param[in] Network time out in seconds. If omitted or negative, previous value
-     *             will be reused. System default is 10.
-     */
-    virtual void Populate(const int discnum=-1, const int timeout=-1);
-
-    /** Retrieve the disc info from specified database record
-     *
+     *  @param[in] Track number (1-99)
      *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
      *             is returned.
-     *  @return    SDbrBase Pointer to newly created database record object. Caller is
-     *             responsible for deleting the object.
+     *  @return    Title string (empty if title not available)
+     *  @throw     runtime_error if track number is invalid
      */
-    virtual SDbrBase* Retrieve(const int recnum=0) const;
+    virtual std::string TrackTitle(const int tracknum, const int recnum=0) const;
 
-    /** Print the retrieved disc record. If discnum is specified (i.e., valid record ID),
-     *  it displays the disc info with tracks. If discnum is omitted or negative, it lists
-     *  records with their discid, genre, artist and title.
+    /** Get track artist
      *
-     *  @param[in] Disc record ID (0-based index to discs). If negative, retrieves info
-     *             for all records.
+     *  @param[in] Track number (1-99)
+     *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+     *             is returned.
+     *  @return    Artist string (empty if artist not available)
+     *  @throw     runtime_error if track number is invalid
      */
-    void Print(const int discnum=-1) const;
+    virtual std::string TrackArtist(const int tracknum, const int recnum=0) const;
+
+    /** Get track composer
+     *
+     *  @param[in] Track number (1-99)
+     *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+     *             is returned.
+     *  @return    Composer string (empty if artist not available)
+     *  @throw     runtime_error if track number is invalid
+     */
+    virtual std::string TrackComposer(const int tracknum, const int recnum=0) const { return ""; }
+
+    /** Get track ISRC
+     *
+     *  @param[in] Track number (1-99)
+     *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+     *             is returned.
+     *  @return    ISRC string
+     *  @throw     runtime_error if track number is invalid
+     */
+    virtual std::string TrackISRC(const int tracknum, const int recnum=0) const;
+
+    /////////////////////////////////////////
+    // for IImageDatabase
 
     /** Specify the preferred coverart image width
      *
@@ -287,13 +365,35 @@ public:
      */
     virtual std::string GetReleaseId(const int recnum=0) const;
 
-    /** Spawn a Discogs Database object based on the current query results. The Discogs
-     *  object is created for every MusicBrainz queried release, which contains a link to
-     *  http://www.discogs.com/release/*
+    //////////////////////////////////////////
+    // Member functions independent of interfaces
+
+    /** Set a server connection protocol.
      *
-     *  @return Discogs databased object
+     *  @param[in] Connection protocol ("cddbp","http", or "proxy"). If omitted
+     *             or empty, 'cddbp' is used by the default. If "proxy" is
+     *             specified, "http_proxy" system environmental variable will
+     *             be used.
      */
-    //virtual CDbDiscogs SpawnDiscogs() const;
+    void SetProtocol(const std::string &protocol);
+
+    /** Retrieve the disc info from specified database record
+     *
+     *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+     *             is returned.
+     *  @return    SDbrBase Pointer to newly created database record object. Caller is
+     *             responsible for deleting the object.
+     */
+    virtual SDbrBase* Retrieve(const int recnum=0) const;
+
+    /** Print the retrieved disc record. If discnum is specified (i.e., valid record ID),
+     *  it displays the disc info with tracks. If discnum is omitted or negative, it lists
+     *  records with their discid, genre, artist and title.
+     *
+     *  @param[in] Disc record ID (0-based index to discs). If negative, retrieves info
+     *             for all records.
+     */
+    void Print(const int discnum=-1) const;
 
 private:
     /** Initialize a new disc and fill it with disc info
@@ -305,10 +405,6 @@ private:
      *  @param[in] CD-ROM device path
      */
     void InitDisc_(const std::string &dev);
-
-    /** Clear all the disc entries
-         */
-    void ClearDiscs_();
 
     /** Form an artist credit string
      *
