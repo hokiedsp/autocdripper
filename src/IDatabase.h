@@ -60,18 +60,6 @@ public:
      */
     virtual bool AllowSearchByArtistTitle()=0;
 
-    /**
-     * @brief Return true if database supports search by CDDBID
-     * @return true if database supports search by CDDBID
-     */
-    virtual bool AllowSearchByCDDBID()=0;
-
-    /**
-     * @brief Return true if database supports search by MusicBrainz ID
-     * @return true if database supports search by MusicBrainz ID
-     */
-    virtual bool AllowSearchByMBID()=0;
-
     /** If AllowQueryCD() returns true, Query() performs a new query for the CD info
      *  in the specified drive with its *  tracks specified in the supplied cuesheet
      *  and its length. Previous query outcome discarded. After disc and its tracks
@@ -95,6 +83,27 @@ public:
      */
       virtual int Query(const CDbMusicBrainz &mbdb, const std::string upc="")=0;
 
+    /** If AllowSearchByArtistTitle() returns true, Search() performs a new album search based on
+     *  album title and artist. If search is not supported or did not return any match,
+     *  Search() returns zero.
+     *
+     *  @param[in] Album title
+     *  @param[in] Album artist
+     *  @param[in] true to narrowdown existing records; false for new search
+     *  @return    Number of matched records
+     */
+      virtual int Search(const std::string &title, const std::string &artist,bool narrowdown=false)=0;
+
+    /** If AllowSearchByUPC() returns true, Search() performs a new album search based on
+     *  album title and artist. If search is not supported or did not return any match,
+     *  Search() returns zero.
+     *
+     *  @param[in] UPC string
+     *  @param[in] true to narrowdown existing records; false for new search
+     *  @return    Number of matched records
+     */
+      virtual int Search(const std::string &upc, bool narrowdown=false)=0;
+
     /**
      * @brief Clear all the matches from previous search
      */
@@ -102,16 +111,16 @@ public:
 
     ///////////////////////////////////////////////////////////////////////////
 
-    /** Return the discid string
-   *
-   *  @return discid string if Query was successful.
-   */
+    /** Return a unique disc ID if AllowQueryCD()=true
+     *
+     *  @return discid string
+     */
     virtual std::string GetDiscId() const=0;
 
     /** Returns the number of matched records returned from the last Query() call.
-   *
-   *  @return    Number of matched records
-   */
+     *
+     *  @return    Number of matched records
+     */
     virtual int NumberOfMatches() const=0;
 
 };

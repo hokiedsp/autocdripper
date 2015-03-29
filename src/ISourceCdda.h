@@ -26,7 +26,7 @@ public:
      * @brief Get read buffer size (read-only)
      * @return Number of samples returned by ReadNextSector()
      */
-    virtual size_t GetSectorSize()=0;
+    virtual size_t GetSectorSize() const=0;
 
     /**
      * @brief ReadNextSector
@@ -46,12 +46,12 @@ public:
      *  @param[in] Output time units (default: sectors)
      *  @return    Length of the CD in specified time unit
      */
-    virtual size_t GetLength(cdtimeunit_t units=CDTIMEUNIT_SECTORS)=0;
+    virtual size_t GetLength(cdtimeunit_t units=CDTIMEUNIT_SECTORS) const=0;
 
     /**
      * @brief Get a cuesheet object populated with the CD track info
      * @return SCueSheet instance with fully populated track information.
      */
-    virtual SCueSheet GetCueSheet()=0;
+    virtual SCueSheet GetCueSheet() const=0;
 
 };

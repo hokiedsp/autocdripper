@@ -2,6 +2,7 @@
 
 #include <string>
 #include <deque>
+#include <vector>
 #include <ostream>
 
 #include "enums.h"
@@ -54,7 +55,7 @@ struct SCueTrack
 	std::string Performer;	// performer (80-char long max)
 	std::string Songwriter;	// name of songwriter (80-char max)
 	std::string ISRC;	// “International Standard Recording Code” 12 character long
-    std::deque<std::string> Rems;	// comments on track
+    std::vector<std::string> Rems;	// comments on track
 
 	size_t Pregap;    // track pregap in # of sectors (i.e., frames)
 	size_t Postgap;	// track postgap in # of sectors (i.e., frames)
@@ -109,7 +110,7 @@ public:
 	std::string FileName;	// path to CD Data File
 	int FileType;           // one of CUE_FILETYPE_XXX
 	std::string Performer;	// performer (80-char long max)
-    std::deque<std::string> Rems;	// comments on the disc
+    std::vector<std::string> Rems;	// comments on the disc
 	std::string Songwriter;	// name of songwriter (80-char max)
 	std::string Title;		// album title (80-char max)
 

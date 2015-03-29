@@ -108,18 +108,6 @@ public:
      */
     virtual bool AllowSearchByArtistTitle() { return false; }
 
-    /**
-     * @brief Return true if database supports search by CDDBID
-     * @return true if database supports search by CDDBID
-     */
-    virtual bool AllowSearchByCDDBID() { return false; }
-
-    /**
-     * @brief Return true if database supports search by MusicBrainz ID
-     * @return true if database supports search by MusicBrainz ID
-     */
-    virtual bool AllowSearchByMBID() { return false; }
-
     /** If AllowQueryCD() returns true, Query() performs a new query for the CD info
      *  in the specified drive with its *  tracks specified in the supplied cuesheet
      *  and its length. Previous query outcome discarded. After disc and its tracks
@@ -132,7 +120,7 @@ public:
      *  @param[in] (Optional) UPC barcode
      *  @return    Number of matched records
      */
-    virtual int Query(const std::string &dev, const SCueSheet &cuesheet, const size_t len, const std::string cdrom_upc="")=0;
+    virtual int Query(const std::string &dev, const SCueSheet &cuesheet, const size_t len, const std::string cdrom_upc="");
 
     /** If MayBeLinkedFromMusicBrainz() returns true, Query() performs a new
      *  query based on the MusicBrainz query results.
@@ -143,6 +131,27 @@ public:
      */
     virtual int Query(const CDbMusicBrainz &mbdb, const std::string upc="") { return 0; }
 
+    /** If AllowSearchByArtistTitle() returns true, Search() performs a new album search based on
+     *  album title and artist. If search is not supported or did not return any match,
+     *  Search() returns zero.
+     *
+     *  @param[in] Album title
+     *  @param[in] Album artist
+     *  @param[in] true to narrowdown existing records; false for new search
+     *  @return    Number of matched records
+     */
+      virtual int Search(const std::string &title, const std::string &artist, bool narrowdown=false) { return 0; }
+
+    /** If AllowSearchByUPC() returns true, Search() performs a new album search based on
+     *  album title and artist. If search is not supported or did not return any match,
+     *  Search() returns zero.
+     *
+     *  @param[in] UPC string
+     *  @param[in] true to narrowdown existing records; false for new search
+     *  @return    Number of matched records
+     */
+      virtual int Search(const std::string &upc, bool narrowdown=false) { return 0; }
+
     /**
      * @brief Clear all the matches from previous search
      */
@@ -152,7 +161,7 @@ public:
 
     /** Return the discid string
    *
-   *  @return discid string if Query was successful.
+   *  @return discid string.
    */
     virtual std::string GetDiscId() const;
 
@@ -175,6 +184,14 @@ public:
    *             will be reused. System default is 10.
    */
     virtual void Populate(const int recnum=-1);
+
+    /** Return a unique release ID string
+     *
+     *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+     *             is returned.
+     *  @return id string if Query was successful.
+     */
+    virtual std::string ReleaseId(const int recnum=0) const;
 
     /** Get album title
      *
@@ -270,7 +287,7 @@ public:
      *  @return    Title string (empty if title not available)
      *  @throw     runtime_error if track number is invalid
      */
-    virtual std::string TrackTitle(const int tracknum, const int recnum=0) const;
+    virtual std::string TrackTitle(int tracknum, const int recnum=0) const;
 
     /** Get track artist
      *
@@ -280,7 +297,7 @@ public:
      *  @return    Artist string (empty if artist not available)
      *  @throw     runtime_error if track number is invalid
      */
-    virtual std::string TrackArtist(const int tracknum, const int recnum=0) const;
+    virtual std::string TrackArtist(int tracknum, const int recnum=0) const;
 
     /** Get track composer
      *
@@ -290,7 +307,7 @@ public:
      *  @return    Composer string (empty if artist not available)
      *  @throw     runtime_error if track number is invalid
      */
-    virtual std::string TrackComposer(const int tracknum, const int recnum=0) const { return ""; }
+    virtual std::string TrackComposer(int tracknum, const int recnum=0) const { return ""; }
 
     /** Get track ISRC
      *
@@ -300,7 +317,7 @@ public:
      *  @return    ISRC string
      *  @throw     runtime_error if track number is invalid
      */
-    virtual std::string TrackISRC(const int tracknum, const int recnum=0) const;
+    virtual std::string TrackISRC(int tracknum, const int recnum=0) const;
 
     /////////////////////////////////////////
     // for IImageDatabase
@@ -359,14 +376,16 @@ public:
      */
     virtual std::string BackURL(const int recnum=0) const;
 
-    /** Return the MusicBrainz release ID string
-     *
-     *  @return MusicBrainz release ID string if Query was successful. Otherwise "".
-     */
-    virtual std::string GetReleaseId(const int recnum=0) const;
-
     //////////////////////////////////////////
     // Member functions independent of interfaces
+
+    /**
+     * @brief Get a related URL.
+     * @param[in]  Relationship type (e.g., "discogs", "amazon asin")
+     * @param[in]  Record index (default=0)
+     * @return URL string or empty if requestd URL type not in the URL
+     */
+    virtual std::string RelationUrl(const std::string &type, const int recnum=0) const;
 
     /** Set a server connection protocol.
      *

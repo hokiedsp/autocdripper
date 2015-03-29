@@ -14,24 +14,25 @@ using std::endl;
 #include "CSinkWavPack.h"
 
 #include "CDbFreeDb.h"
+#include "CDbMusicBrainz.h"
 
 using std::exception;
 
 int main(int argc, const char *argv[])
 {
-	try
-	{
-		CSourceCdda cdrom; // auto-detect CD-ROM drive with a audio CD
-        CSinkWav wavwriter("track1s.wav"); // save to the wav file
-        CSinkWavPack wvwriter("track1s.wv"); // save to the wav file
-
+    try
+    {
         CDbFreeDb freedb;
+        CDbMusicBrainz mbdb;
         CCueSheetBuilder csbuilder;
 
         freedb.SetCacheSettings("off");
 
+        CSourceCdda cdrom; // auto-detect CD-ROM drive with a audio CD
+
         csbuilder.SetCdInfo(cdrom);
 
+        csbuilder.AddDatabase(mbdb);
         csbuilder.AddDatabase(freedb);
 
         csbuilder.AddRemField(AlbumRemFieldType::DBINFO);
@@ -43,22 +44,23 @@ int main(int argc, const char *argv[])
         csbuilder.AddRemField(AlbumRemFieldType::COUNTRY);
         csbuilder.AddRemField(AlbumRemFieldType::DATE);
 
+        cout << "[MAIN] Starting CCueSheetBuilder thread\n";
         csbuilder.Start();
-
-        cout << "MAIN: Starting CCueSheetBuilder thread\n";
-        csbuilder.Start();
-        cout << "MAIN: Waiting till CCueSheetBuilder thread completes its task\n";
+        cout << "[MAIN] Waiting till CCueSheetBuilder thread completes its task\n";
         csbuilder.WaitTillDone();
 
         if (csbuilder.FoundRelease())
         {
+            cout << "[MAIN] Retrieving the populated cuesheet...\n";
             SCueSheet cs = csbuilder.GetCueSheet();
             cout << cs << endl;
         }
         else
-            cout << "CD info was not found online\n";
+            cout << "[MAIN] CD info was not found online\n";
 
-        return 0;
+        /*
+        CSinkWav wavwriter("track1s.wav"); // save to the wav file
+        CSinkWavPack wvwriter("track1s.wv"); // save to the wav file
         //ISinkRefVector writers = {wavwriter,wvwriter};
         ISinkRefVector writers = {wavwriter};
 
@@ -94,12 +96,13 @@ int main(int argc, const char *argv[])
             }
         }
         cout << "MAIN: All completed\n";
+        */
     }
-	catch (exception& e)
-	{
-		printf("%s\n",e.what());
-		return 1;
-	}
+    catch (exception& e)
+    {
+        printf("%s\n",e.what());
+        return 1;
+    }
 
-	return 0;
+    return 0;
 }

@@ -1,15 +1,19 @@
 #include "CCueSheetBuilder.h"
 
 #include <stdexcept>
+#include <algorithm>
 
 #include "CDbMusicBrainz.h"
+
+#include <iostream>
+using std::cout;
 
 struct DatabaseElem
 {
     IDatabase& eg;
     int recid;
 
-    DatabaseElem(const IDatabase& db) : eg(db), recid(-1) {}
+    DatabaseElem(IDatabase& db) : eg(db), recid(-1) {}
 };
 
 
@@ -62,7 +66,7 @@ void CCueSheetBuilder::AddRemField(const AlbumRemFieldType field)
  */
 void CCueSheetBuilder::AddRemFields(const AlbumRemFieldVector &fields)
 {
-    const AlbumRemFieldVector::iterator it;
+    AlbumRemFieldVector::const_iterator it;
     for (it=fields.begin(); it!=remfields.end(); it++)
         AddRemField((*it));
 }
@@ -88,7 +92,7 @@ void CCueSheetBuilder::AddDatabases(const IDatabaseRefVector &dbs)
 {
     if (Running()) throw(std::runtime_error("CCueSheetBuilder thread is already running."));
 
-    for (IDatabaseRefVector::iterator it=dbs.begin();it!=dbs.end();it++)
+    for (IDatabaseRefVector::const_iterator it=dbs.begin();it!=dbs.end();it++)
         databases.emplace_back(*it);
 }
 
@@ -125,7 +129,7 @@ bool CCueSheetBuilder::FoundFrontCover() const
  * @brief Return true if back cover image was found
  * @return true if back cover image was found
  */
-bool FoundBackCover() const
+bool CCueSheetBuilder::FoundBackCover() const
 {
     // database match found & process completed
     return ~(Running() || canceled) && back.size();
@@ -156,6 +160,8 @@ const UByteVector CCueSheetBuilder::GetBackCover() const
  */
 void CCueSheetBuilder::ThreadMain()
 {
+    cout << "[CCueSheetBuilder thread] started\n";
+
     bool check_link_in_mb = false;
     std::string upc(cdrom_upc);
 
@@ -166,6 +172,7 @@ void CCueSheetBuilder::ThreadMain()
     matched = false;
 
     // Step 1: Query based on CD info alone
+    cout << "[CCueSheetBuilder thread] step 1\n";
     for (it=databases.begin(); it!=databases.end(); it++)
     {
         if (stop_request) goto cancel;
@@ -180,18 +187,22 @@ void CCueSheetBuilder::ThreadMain()
 
             // run query
             db.Query(cdrom_path, cuesheet, cdrom_len, cdrom_upc);
-        }
-    }
-    else // if not queryable, check if it can use MusicBrainz
-    {
-        // clear the previous match
-        db.Clear();
 
-        // check if MusicBrainz may return a link to it
-        check_link_in_mb = check_link_in_mb || db.MayBeLinkedFromMusicBrainz();
+            cout << "[CCueSheetBuilder thread] Found " << db.NumberOfMatches()
+                 << " matches in " << to_string(db.GetDatabaseType()) << "\n";
+        }
+        else // if not queryable, check if it can use MusicBrainz
+        {
+            // clear the previous match
+            db.Clear();
+
+            // check if MusicBrainz may return a link to it
+            check_link_in_mb = check_link_in_mb || db.MayBeLinkedFromMusicBrainz();
+        }
     }
 
     // Step 2: Query based off of MusicBrainz search if possible
+    cout << "[CCueSheetBuilder thread] step 2\n";
     if (mbdb && check_link_in_mb) // MusicBrainz DB is included
     {
         for (it=databases.begin(); it!=databases.end(); it++)
@@ -207,6 +218,7 @@ void CCueSheetBuilder::ThreadMain()
     }
 
     // Step 3: If UPC is not known, use the UPC of the first entry with the UPC
+    cout << "[CCueSheetBuilder thread] step 3\n";
     if (upc.empty())
     {
         for (it=databases.begin(); it!=databases.end() && upc.empty(); it++)
@@ -217,7 +229,7 @@ void CCueSheetBuilder::ThreadMain()
 
             if (db.NumberOfMatches() && db.IsReleaseDb())
             {
-                IReleaseDatabase &rdb = static_cast<IReleaseDatabase>(db);
+                IReleaseDatabase &rdb = dynamic_cast<IReleaseDatabase&>(db);
 
                 for (int rid=0;rid<db.NumberOfMatches() && upc.empty();rid++)
                 {
@@ -230,6 +242,7 @@ void CCueSheetBuilder::ThreadMain()
     }
 
     // Step 4: Go over databases again to find the records with matching UPC
+    cout << "[CCueSheetBuilder thread] step 4\n";
     if (upc.size()) // upc is resolved (either given or from earlier database results)
     {
         for (it=databases.begin(); it!=databases.end() && upc.empty(); it++)
@@ -239,25 +252,17 @@ void CCueSheetBuilder::ThreadMain()
             IDatabase &db = (*it).eg;
             int recid = (*it).recid;
 
-            if (db.AllowSearchByUPC)
+            if (db.AllowSearchByUPC())
             {
-                if (db.NumberOfMatches()) // already returned results
-                {
-                    // narrow-down the results if possible
-                    if (db.SearchByUPC(upc,true)) recid = 0;
-                }
-                else // none found previously
-                {
-                    // new search
-                    if (db.SearchByUPC(upc,false)) recid = 0;
-                }
+                // narrow-down the results if possible
+                if (db.Search(upc,db.NumberOfMatches())) recid = 0;
             }
             else if (db.NumberOfMatches() && db.IsReleaseDb())
             {
                 // if db cannot be searched for UPC, still check if
                 // the matching UPC was found
 
-                IReleaseDatabase &rdb = static_cast<IReleaseDatabase>(db);
+                IReleaseDatabase &rdb = dynamic_cast<IReleaseDatabase&>(db);
 
                 for (int rid=0; rid<db.NumberOfMatches() && recid<0; rid++)
                 {
@@ -269,6 +274,7 @@ void CCueSheetBuilder::ThreadMain()
     }
 
     // Step 5: check if a match exists, if exists, fully populate the record
+    cout << "[CCueSheetBuilder thread] step 5\n";
     for (it=databases.begin(); it!=databases.end(); it++)
     {
         if (stop_request) goto cancel;
@@ -278,15 +284,17 @@ void CCueSheetBuilder::ThreadMain()
         {
             matched = true;
             if (db.IsReleaseDb())
-                static_cast<IReleaseDatabase>(db).Populate((*it).get().recid);
+                dynamic_cast<IReleaseDatabase&>(db).Populate((*it).recid);
         }
     }
     if (!matched) return; // if no match found, exit
 
     // Step 6: initialize cuesheet's REM fields
-    for (int i=0; i<remfields.size(); i++) cuesheet.Rems.emplace_back("");
+    cout << "[CCueSheetBuilder thread] step 6\n";
+    for (size_t i=0; i<remfields.size(); i++) cuesheet.Rems.emplace_back("");
 
     // Step 7: Populate the cuesheet, first with the UPC-matched databases (only if UPC given)
+    cout << "[CCueSheetBuilder thread] step 7\n";
     if (cdrom_upc.size())
     {
         for (it=databases.begin(); it!=databases.end(); it++)
@@ -300,11 +308,11 @@ void CCueSheetBuilder::ThreadMain()
             if (recid>=0)
             {
                 if (db.IsReleaseDb()) // marge the data to the cuesheet
-                    BuildCueSheet_(cuesheet,static_cast<IReleaseDatabase>(db),recid);
+                    BuildCueSheet_(dynamic_cast<IReleaseDatabase&>(db),recid);
 
                 if (db.IsImageDb()) // grab the cover image if available
                 {
-                    IImageDatabase idb = static_cast<IImageDatabase>(db);
+                    IImageDatabase &idb = dynamic_cast<IImageDatabase&>(db);
                     if (front.empty() && idb.Front()) front = idb.FrontData(recid);
                     if (back.empty() && idb.Back()) back = idb.BackData(recid);
                 }
@@ -324,16 +332,23 @@ void CCueSheetBuilder::ThreadMain()
         if ((recid<0 || cdrom_upc.empty()) && db.NumberOfMatches())
         {
             if (db.IsReleaseDb()) // marge the data to the cuesheet
-                BuildCueSheet_(cuesheet,static_cast<IReleaseDatabase>(db),0);
+                BuildCueSheet_(dynamic_cast<IReleaseDatabase&>(db),0);
 
             if (db.IsImageDb()) // grab the cover image if available
             {
-                IImageDatabase idb = static_cast<IImageDatabase>(db);
+                IImageDatabase &idb = dynamic_cast<IImageDatabase&>(db);
                 if (front.empty() && idb.Front()) front = idb.FrontData(0);
                 if (back.empty() && idb.Back()) back = idb.BackData(0);
             }
         }
     }
+
+    // Step 9: Removed unpopulated REMs
+    cout << "[CCueSheetBuilder thread] step 9\n";
+    cuesheet.Rems.erase(std::remove_if(cuesheet.Rems.begin(),
+                                       cuesheet.Rems.end(),
+                                       [](const std::string& s) { return s.empty(); }),
+                        cuesheet.Rems.end());
 
     // all completed
     return;
@@ -352,8 +367,6 @@ cancel:
  */
 void CCueSheetBuilder::BuildCueSheet_(const IReleaseDatabase &db, const int recid)
 {
-    std::string strval;
-
     // get primary album data
     if (cuesheet.Performer.empty())
         cuesheet.Performer = db.AlbumArtist(recid);
@@ -365,7 +378,7 @@ void CCueSheetBuilder::BuildCueSheet_(const IReleaseDatabase &db, const int reci
         cuesheet.Title = db.AlbumTitle(recid);
 
     // get track data
-    for (int i=0; i<cuesheet.Tracks.size();)
+    for (size_t i=0; i<cuesheet.Tracks.size();)
     {
         SCueTrack &track = cuesheet.Tracks[i++];
 
@@ -380,79 +393,56 @@ void CCueSheetBuilder::BuildCueSheet_(const IReleaseDatabase &db, const int reci
     }
 
     // get additional album data
-    for (int i=0; i<remfields.size();i++)
+    for (size_t i=0; i<remfields.size();i++)
     {
         std::string &rem = cuesheet.Rems[i];
         if (rem.empty())
         {
             switch (remfields[i])
             {
-            case DBINFO:
-                rem = to_string(db.GetDatabaseType()) + " " + db.GetDiscId(recid);
+            case AlbumRemFieldType::DBINFO:
+                rem = "DBINFO " + to_string(db.GetDatabaseType()) + " " + db.ReleaseId(recid);
                 break;
-            case GENRE:
+            case AlbumRemFieldType::GENRE:
                 rem = db.Genre(recid);
+                if (rem.size()) rem.insert(0,"GENRE ");
                 break;
-            case DATE:
+            case AlbumRemFieldType::DATE:
                 rem = db.Date(recid);
+                if (rem.size()) rem.insert(0,"DATE ");
                 break;
-            case COUNTRY:
+            case AlbumRemFieldType::COUNTRY:
                 rem = db.Country(recid);
+                if (rem.size()) rem.insert(0,"COUNTRY ");
                 break;
-            case UPC:
+            case AlbumRemFieldType::UPC:
                 rem = db.AlbumUPC(recid);
+                if (rem.size()) rem.insert(0,"UPC ");
                 break;
-            case LABEL:
+            case AlbumRemFieldType::LABEL:
                 rem = db.AlbumLabel(recid);
+                if (rem.size()) rem.insert(0,"LABEL ");
                 break;
-            case DISC:
+            case AlbumRemFieldType::DISC:
                 if (db.TotalDiscs()>1)
                 {
-                    size_t no = db.DiscNumber();
-                    if (no>0) rem = to_string(no);
+                    int no = db.DiscNumber();
+                    if (no>0)
+                    {
+                        rem = std::to_string(no);
+                        if (rem.size()) rem.insert(0,"DISC ");
+                    }
                 }
                 break;
-            case DISCS:
-                size_t no = db.TotalDiscs();
-                if (no>1) rem = to_string(no);
+            case AlbumRemFieldType::DISCS:
+                int no = db.TotalDiscs();
+                if (no>1)
+                {
+                    rem = std::to_string(no);
+                    if (rem.size()) rem.insert(0,"DISCS ");
+                }
                 break;
             }
         }
-    }
-}
-
-/**
- * @brief Internal function to be called by ThreadMain to build the
- *        cuesheet from database.
- * @param[in] source database with at least one match
- * @param[in] record index of the matched
- */
-void CCueSheetBuilder::BuildCueSheet_(const IReleaseDatabase &db, const int recid)
-{
-    std::string strval;
-    AlbumRemFieldVector::iterator rem;
-    for (rem=remfields.begin(); rem!=remfields.end(); rem++)
-    {
-        switch (*rem)
-        {
-        case DBINFO:
-            strval = db.GetDiscId(recid);
-            break;
-        case GENRE:
-            break;
-        case DATE:
-            break;
-        case COUNTRY:
-            break;
-        case UPC:
-            break;
-        case LABEL:
-            break;
-        case DISC:
-            break;
-        case DISCS:
-            break;
-        }
-
     }
 }

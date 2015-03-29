@@ -272,6 +272,21 @@ int CDbFreeDb::NumberOfMatches() const
 	return discs.size();
 };
 
+/** Return a unique release ID string
+ *
+ *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+ *             is returned.
+ *  @return id string if Query was successful.
+ */
+std::string CDbFreeDb::ReleaseId(const int recnum) const
+{
+    // set disc
+    if (recnum<0 || recnum>=(int)discs.size()) // all discs
+        throw(runtime_error("Invalid CD record ID."));
+
+    return GetDiscId();
+}
+
 /** Get album title
 *
 *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
@@ -357,14 +372,14 @@ int CDbFreeDb::NumberOfTracks(const int recnum) const
  *  @return    Title string (empty if title not available)
  *  @throw     runtime_error if track number is invalid
  */
-std::string CDbFreeDb::TrackTitle(const int tracknum, const int recnum) const
+std::string CDbFreeDb::TrackTitle(int tracknum, const int recnum) const
 {
     // check disc
     if (recnum<0 || recnum>=(int)discs.size()) // all discs
         throw(runtime_error("Invalid CD record ID."));
 
     // check track
-    if (tracknum<=0 || tracknum>=NumberOfTracks()) // all discs
+    if (tracknum<=0 || tracknum>NumberOfTracks()) // all discs
         throw(runtime_error("Invalid CD Track Number."));
 
     // grab the first track
@@ -385,14 +400,14 @@ std::string CDbFreeDb::TrackTitle(const int tracknum, const int recnum) const
  *  @return    Artist string (empty if artist not available)
  *  @throw     runtime_error if track number is invalid
  */
-std::string CDbFreeDb::TrackArtist(const int tracknum, const int recnum) const
+std::string CDbFreeDb::TrackArtist(int tracknum, const int recnum) const
 {
     // check disc
     if (recnum<0 || recnum>=(int)discs.size()) // all discs
         throw(runtime_error("Invalid CD record ID."));
 
     // check track
-    if (tracknum<=0 || tracknum>=NumberOfTracks()) // all discs
+    if (tracknum<=0 || tracknum>NumberOfTracks()) // all discs
         throw(runtime_error("Invalid CD Track Number."));
 
     // grab the first track

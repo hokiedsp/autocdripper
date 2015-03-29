@@ -42,24 +42,6 @@ std::string to_string(const DatabaseType db)
 }
 
 /**
- * @brief Convert ImageDatabaseType value to string
- * @param[in] ImageDatabaseType value
- * @return a string with the representation of db
- * @throw std::runtime_error if associated string is not given for db
- */
-std::string to_string(const ImageDatabaseType db)
-{
-    switch (db)
-    {
-    case ImageDatabaseType::MUSICBRAINZ: return "musicbrainz";
-    case ImageDatabaseType::LASTFM: return "lastfm";
-    default: throw(runtime_error("Unsupported database. Update std::string to_string(const ImageDatabaseType db)"));
-    }
-
-    return "";
-}
-
-/**
  * @brief Convert string to OutputFileFormat
  * @param[in] String object with the representation of OutputFileFormat value
  * @param[in] Pointer to an object of type size_t, whose value is set by the function to position
@@ -86,7 +68,7 @@ OutputFileFormat sttooff(const std::string& str)
  * @return On success, the function returns the converted value of DatabaseType type
  * @throw std::invalid_argument if no conversion could be performed
  */
-DatabaseType sttordb(const std::string& str)
+DatabaseType sttodb(const std::string& str)
 {
     if (str.compare(0,7,"discogs")==0)
         return DatabaseType::DISCOGS;
@@ -96,25 +78,6 @@ DatabaseType sttordb(const std::string& str)
         return DatabaseType::FREEDB;
     else if (str.compare(0,6,"lastfm")==0)
         return DatabaseType::LASTFM;
-
-    throw(runtime_error("Unsupported database name."));
-}
-
-/**
- * @brief Convert string to ImageDatabaseType
- * @param[in] String object with the representation of ImageDatabaseType value
- * @param[in] Pointer to an object of type size_t, whose value is set by the function to position
- *            of the next character in str after the ImageDatabaseType value. This parameter can also
- *            be a null pointer, in which case it is not used.
- * @return On success, the function returns the converted value of ImageDatabaseType type
- * @throw std::invalid_argument if no conversion could be performed
- */
-ImageDatabaseType sttoidb(const std::string& str, size_t* idx)
-{
-    if (str.compare(0,11,"musicbrainz")==0)
-        return ImageDatabaseType::MUSICBRAINZ;
-    else if (str.compare(0,6,"lastfm")==0)
-        return ImageDatabaseType::LASTFM;
 
     throw(runtime_error("Unsupported database name."));
 }

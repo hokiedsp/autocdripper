@@ -18,6 +18,7 @@
 using std::string;
 using std::runtime_error;
 using std::deque;
+using std::vector;
 using std::distance;
 using std::begin;
 using std::end;
@@ -288,8 +289,8 @@ std::ostream& operator<<(std::ostream& os, const SCueSheet& o)
 	if (!o.Performer.empty()) os << "PERFORMER " << o.Performer << endl;
 	if (!o.Songwriter.empty()) os << "SONGWRITER " << o.Songwriter << endl;
 
-    deque<string>::const_iterator itRem;
-	for (itRem = o.Rems.begin();	itRem!=o.Rems.end(); itRem++)
+    vector<string>::const_iterator itRem;
+    for (itRem = o.Rems.begin(); itRem!=o.Rems.end(); itRem++)
 		os << "REM " << *itRem << endl;
 
     deque<SCueTrack>::const_iterator itTrack;
@@ -358,7 +359,7 @@ std::ostream& operator<<(std::ostream& os, const SCueTrack& o)
 	if (!o.Songwriter.empty()) os << "    SONGWRITER " << o.Songwriter << endl;
 	if (!o.ISRC.empty() && o.CheckISRC()) os << "    ISRC " << o.ISRC << endl;
 	
-    deque<string>::const_iterator itRem;
+    vector<string>::const_iterator itRem;
 	for (itRem = o.Rems.begin();	itRem!=o.Rems.end(); itRem++)
 		os << "    REM " << *itRem << endl;
 

@@ -116,7 +116,7 @@ std::string CSourceCdda::GetDevicePath() const
  *  @param[in] Output time units (default: sectors)
  *  @return    Length of the CD in specified time unit
  */
-size_t CSourceCdda::GetLength(cdtimeunit_t units)
+size_t CSourceCdda::GetLength(cdtimeunit_t units) const
 {
    /* Now all we still have to do, is calculate the length of the
        disc in requested time units.  We use the LEADOUT_TRACK for this. */
@@ -144,7 +144,7 @@ void CSourceCdda::InitParanoia_()
     Rewind();
 }
 	
-size_t CSourceCdda::GetSectorSize()
+size_t CSourceCdda::GetSectorSize() const
 {
 	return CDIO_CD_FRAMESIZE_RAW/2;
 }
@@ -167,14 +167,14 @@ const int16_t* CSourceCdda::ReadNextSector()
 void CSourceCdda::Rewind()
 {
 	/* Set reading mode for full paranoia, but allow skipping sectors. */
-    lsn_t lsn = paranoia_seek(p, 0, SEEK_SET);
+    paranoia_seek(p, 0, SEEK_SET);
 	i_curr_lsn = 0;
 }
 
 /** /brief Fill track info on SCueSheet Cd object
  * 
  */
-SCueSheet CSourceCdda::GetCueSheet() /* populates CueSheet */
+SCueSheet CSourceCdda::GetCueSheet() const /* populates CueSheet */
 {
     SCueSheet CueSheet;
 
@@ -185,8 +185,6 @@ SCueSheet CSourceCdda::GetCueSheet() /* populates CueSheet */
 	// create the first track on the cuesheet and set its a pregap index
 	if (cdda_track_lastsector(d,0)>=0)
         CueSheet.Tracks[0].AddIndex(0,cdda_track_firstsector(d,0));
-	else
-		CueSheet.Tracks[0].AddIndex(0,0);
 
 	bool mmc_valid = true;
 

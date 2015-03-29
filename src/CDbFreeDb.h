@@ -101,18 +101,6 @@ public:
     bool AllowSearchByArtistTitle() { return false; }
 
     /**
-     * @brief Return true if database supports search by CDDBID
-     * @return true if database supports search by CDDBID
-     */
-    bool AllowSearchByCDDBID() { return false; }
-
-    /**
-     * @brief Return true if database supports search by MusicBrainz ID
-     * @return true if database supports search by MusicBrainz ID
-     */
-    bool AllowSearchByMBID() { return false; }
-
-    /**
      * @brief Return database type enum
      * @return ReleaseDatabase enumuration value
      */
@@ -165,17 +153,26 @@ public:
      */
     int Query(const CDbMusicBrainz &mbdb, const std::string cdrom_upc="") { return 0; }
 
-    /** Always return zero as CDDB cannot be searched for album title and artist.
+    /** If AllowSearchByArtistTitle() returns true, Search() performs a new album search based on
+     *  album title and artist. If search is not supported or did not return any match,
+     *  Search() returns zero.
      *
      *  @param[in] Album title
      *  @param[in] Album artist
-     *  @param[in] If true, immediately calls Read() to populate disc records.
-     *  @param[in] Network time out in seconds. If omitted or negative, previous value
-     *             will be reused. System default is 10.
+     *  @param[in] true to narrowdown existing records; false for new search
      *  @return    Number of matched records
      */
-    virtual int Search(const std::string &title, const std::string &artist)
-    { return 0; }
+      virtual int Search(const std::string &title, const std::string &artist, bool narrowdown=false) { return 0; }
+
+    /** If AllowSearchByUPC() returns true, Search() performs a new album search based on
+     *  album title and artist. If search is not supported or did not return any match,
+     *  Search() returns zero.
+     *
+     *  @param[in] UPC string
+     *  @param[in] true to narrowdown existing records; false for new search
+     *  @return    Number of matched records
+     */
+      virtual int Search(const std::string &upc, bool narrowdown=false) { return 0; }
 
     /** Look up full disc information from CDDB server. It supports single record or
      *  multiple records if multiple entries were found by Query(). If the computation
@@ -200,6 +197,14 @@ public:
      *  @return    Number of matched records
      */
     virtual int NumberOfMatches() const;
+
+    /** Return a unique release ID string
+     *
+     *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+     *             is returned.
+     *  @return id string if Query was successful.
+     */
+    virtual std::string ReleaseId(const int recnum=0) const;
 
     /** Get album title
    *
@@ -303,7 +308,7 @@ public:
      *  @throw     runtime_error if CD record id is invalid
      *  @throw     runtime_error if track number is invalid
      */
-    virtual std::string TrackTitle(const int tracknum, const int recnum=0) const;
+    virtual std::string TrackTitle(int tracknum, const int recnum=0) const;
 
     /** Get track artist
      *
@@ -314,7 +319,7 @@ public:
      *  @throw     runtime_error if CD record id is invalid
      *  @throw     runtime_error if track number is invalid
      */
-    virtual std::string TrackArtist(const int tracknum, const int recnum=0) const;
+    virtual std::string TrackArtist(int tracknum, const int recnum=0) const;
 
     /** Get track composer
      *
@@ -324,7 +329,7 @@ public:
      *  @return    Composer string (empty if artist not available)
      *  @throw     runtime_error if track number is invalid
      */
-    virtual std::string TrackComposer(const int tracknum, const int recnum=0) const { return ""; }
+    virtual std::string TrackComposer(int tracknum, const int recnum=0) const { return ""; }
 
     /** Get track ISRC
      *

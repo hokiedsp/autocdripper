@@ -23,6 +23,10 @@
 #include <musicbrainz5/Label.h>
 #include <musicbrainz5/LabelInfo.h>
 #include <musicbrainz5/ISRC.h>
+#include <musicbrainz5/HTTPFetch.h>
+#include <musicbrainz5/RelationListList.h>
+#include <musicbrainz5/RelationList.h>
+#include <musicbrainz5/Relation.h>
 
 #include <musicbrainz5/TextRepresentation.h>
 #include <musicbrainz5/ArtistCredit.h>
@@ -35,7 +39,6 @@
 #include <coverart/Thumbnails.h>
 
 #include <discid/discid.h>
-
 
 using std::cout;
 using std::endl;
@@ -93,31 +96,43 @@ int CDbMusicBrainz::Query(const std::string &dev, const SCueSheet &cuesheet, con
     // redirect cerr stream during this function call
     cerr_redirect quiet_cerr;
 
+    cout << "[CDbMusicBrainz::Query] 1\n";
+
     // must build disc based on cuesheet (throws error if fails to compute discid)
     InitDisc_(dev);
 
+    cout << "[CDbMusicBrainz::Query] 2 discid: " << discid << endl;
+
     // Run the query
-    CReleaseList list = MB5.LookupDiscID(discid);
-
-    // Add all the matched releases to Releases deque
-    for (int i=0;i<list.NumItems();i++)
+    try
     {
-        CRelease *r = list.Item(i);
-        if (r->MediaMatchingDiscID (discid).NumItems())
-        {
-            Releases.emplace_back(*r);
+        CReleaseList list = MB5.LookupDiscID(discid);
 
-            // also look for the coverart
-            try
+        cout << "[CDbMusicBrainz::Query] 3: " << list.NumItems() << " matches\n";
+
+        // Add all the matched releases to Releases deque
+        for (int i=0;i<list.NumItems();i++)
+        {
+            CRelease *r = list.Item(i);
+            if (r->MediaMatchingDiscID (discid).NumItems())
             {
-                CoverArts.emplace_back(CAA.ReleaseInfo(r->ID()));
+                Releases.emplace_back(*r);
+
+                // also look for the coverart
+                try
+                {
+                    CoverArts.emplace_back(CAA.ReleaseInfo(r->ID()));
+                }
+                catch (CoverArtArchive::CResourceNotFoundError &e)
+                {
+                    CoverArts.emplace_back(); // not found, enque empty info
+                }
             }
-            catch (CResourceNotFoundError err)
-            {
-                CoverArts.emplace_back(); // not found, enque empty info
-            }
+
+            cout << "[CDbMusicBrainz::Query] 4:" << i << endl;
         }
     }
+    catch (MusicBrainz5::CResourceNotFoundError &e) { cout << "Exception caught\n"; } // no match found, just return
 
     // return the number of matches
     return Releases.size();
@@ -184,6 +199,21 @@ int CDbMusicBrainz::NumberOfMatches() const
 };
 
 /////////////////////////////////////////////////////////////////////////////////
+
+/** Return a unique release ID string
+ *
+ *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+ *             is returned.
+ *  @return id string if Query was successful.
+ */
+std::string CDbMusicBrainz::ReleaseId(const int recnum) const
+{
+    // set disc
+    if (recnum<0 || recnum>=(int)Releases.size()) // all discs
+        throw(runtime_error("Invalid CD record ID."));
+
+    return Releases[recnum].ID();
+}
 
 /** Get album title
  *
@@ -290,9 +320,6 @@ int CDbMusicBrainz::TotalDiscs(const int recnum) const
     if (recnum<0 || recnum>=(int)Releases.size()) // all discs
         throw(runtime_error("Invalid CD record ID."));
 
-    // get cd media info
-    CMediumList media = Releases[recnum].MediaMatchingDiscID(discid); // guarantees to return non-NULL
-
     // get disc# and total # of cds if multiple-cd set
     if (Releases[recnum].MediumList())
         rval = Releases[recnum].MediumList()->NumItems();
@@ -346,7 +373,7 @@ std::string CDbMusicBrainz::AlbumUPC(const int recnum) const
  *  @return    Title string (empty if title not available)
  *  @throw     runtime_error if track number is invalid
  */
-std::string CDbMusicBrainz::TrackTitle(const int tracknum, const int recnum) const
+std::string CDbMusicBrainz::TrackTitle(int tracknum, const int recnum) const
 {
     string rval;
 
@@ -366,7 +393,7 @@ std::string CDbMusicBrainz::TrackTitle(const int tracknum, const int recnum) con
         if (tracknum<1 || tracknum>num_tracks)
             throw(runtime_error("Invalid track number."));
 
-        CTrack *track = medium->TrackList()->Item(--num_tracks);
+        CTrack *track = medium->TrackList()->Item(--tracknum);
         if (!track)
             throw(runtime_error("Failed to retrieve track info."));
 
@@ -389,7 +416,7 @@ std::string CDbMusicBrainz::TrackTitle(const int tracknum, const int recnum) con
  *  @return    Artist string (empty if artist not available)
  *  @throw     runtime_error if track number is invalid
  */
-std::string CDbMusicBrainz::TrackArtist(const int tracknum, const int recnum) const
+std::string CDbMusicBrainz::TrackArtist(int tracknum, const int recnum) const
 {
     string rval;
 
@@ -409,7 +436,7 @@ std::string CDbMusicBrainz::TrackArtist(const int tracknum, const int recnum) co
         if (tracknum<1 || tracknum>num_tracks)
             throw(runtime_error("Invalid track number."));
 
-        CTrack *track = medium->TrackList()->Item(--num_tracks);
+        CTrack *track = medium->TrackList()->Item(--tracknum);
         if (!track)
             throw(runtime_error("Failed to retrieve track info."));
 
@@ -434,7 +461,7 @@ std::string CDbMusicBrainz::TrackArtist(const int tracknum, const int recnum) co
  *  @return    ISRC string
  *  @throw     runtime_error if track number is invalid
  */
-std::string CDbMusicBrainz::TrackISRC(const int tracknum, const int recnum) const
+std::string CDbMusicBrainz::TrackISRC(int tracknum, const int recnum) const
 {
     string rval;
 
@@ -454,7 +481,7 @@ std::string CDbMusicBrainz::TrackISRC(const int tracknum, const int recnum) cons
         if (tracknum<1 || tracknum>num_tracks)
             throw(runtime_error("Invalid track number."));
 
-        CTrack *track = medium->TrackList()->Item(--num_tracks);
+        CTrack *track = medium->TrackList()->Item(--tracknum);
         if (!track)
             throw(runtime_error("Failed to retrieve track info."));
 
@@ -981,23 +1008,63 @@ std::string CDbMusicBrainz::FrontURL(const int recnum) const
  */
 std::string CDbMusicBrainz::BackURL(const int recnum) const
 {
+    string rval;
+
     if (recnum<0||recnum>(int)CoverArts.size())
         throw(runtime_error("Invalid Record Index requested."));
 
     const CImageList *info = CoverArts[recnum].ImageList();
-    if (!info) return ""; // coverart not found
-
-    for (int i=0;i<info->NumItems();i++)
+    if (info)// only if coverart found
     {
-        const CImage *image = info->Item(i);
-        if (image->Back())  // back cover found,look for request image size
+        for (int i=0;i<info->NumItems()&&rval.size();i++)
         {
-            string url;
-            const CThumbnails *tn = image->Thumbnails();
-            if (CoverArtSize==2 && !(url=tn->Small()).empty()) return url;
-            else if (CoverArtSize>0 && !(url=tn->Large()).empty()) return url;
-            else return image->Image();
+            const CImage *image = info->Item(i);
+            if (image->Back())  // back cover found,look for request image size
+            {
+                string url;
+                const CThumbnails *tn = image->Thumbnails();
+                if (CoverArtSize==2 && !(url=tn->Small()).empty()) rval = url;
+                else if (CoverArtSize>0 && !(url=tn->Large()).empty()) rval = url;
+                else rval = image->Image();
+            }
         }
     }
     return "";
+}
+
+/**
+ * @brief Get a related URL.
+ * @param[in]  Relationship type (e.g., "discogs", "amazon asin")
+ * @param[in]  Record index (default=0)
+ * @return URL string or empty if requestd URL type not in the URL
+ */
+std::string CDbMusicBrainz::RelationUrl(const std::string &type, const int recnum) const
+{
+    string rval;
+
+    if (recnum<0 || recnum>=(int)Releases.size()) // all discs
+        throw(runtime_error("Invalid CD record ID."));
+
+    MusicBrainz5::CRelationListList *relslist = Releases[recnum].RelationListList();
+    if (relslist) // only if not null
+    {
+        MusicBrainz5::CRelationList *urls = NULL;
+        for (int i = 0; !urls && i<relslist->NumItems(); i++)   // look for URL list
+        {
+            MusicBrainz5::CRelationList *rels = relslist->Item(i);
+            if (rels && rels->TargetType().compare("url")==0)
+            {
+                urls = rels;
+                for (int j = 0; rval.empty() && j<urls->NumItems(); j++)
+                {
+                    MusicBrainz5::CRelation *url = urls->Item(j);
+                    if (url->Type().compare(type)==0)
+                        rval = url->Target();
+                }
+            }
+        }
+    }
+
+    return rval;
+
 }

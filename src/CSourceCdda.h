@@ -30,14 +30,14 @@ public:
 	 */
     std::string GetDevicePath() const;
 
-	size_t GetSectorSize(); /* number of samples returned by ReadNextSector*/
+    size_t GetSectorSize() const; /* number of samples returned by ReadNextSector*/
 
 	/** Get the length of the CD in specified units
 	 *  
 	 *  @param[in] Output time units (default: sectors)
 	 *  @return    Length of the CD in specified time unit
 	 */
-	size_t GetLength(cdtimeunit_t units=CDTIMEUNIT_SECTORS); 
+    size_t GetLength(cdtimeunit_t units=CDTIMEUNIT_SECTORS) const;
 	
 	const int16_t* ReadNextSector(); /* returns non-NULL until end of CD */
 	void Rewind(); /* rewind to the first sector of the disc*/
@@ -46,7 +46,7 @@ public:
      * @brief Get a cuesheet object populated with the CD track info
      * @return SCueSheet instance with fully populated track information.
      */
-    virtual SCueSheet GetCueSheet();
+    virtual SCueSheet GetCueSheet() const;
 	
 private:
 	cdrom_drive_t *d; 	/* Place to store handle given by cd-paranoia. */

@@ -25,6 +25,31 @@ public:
      */
     virtual DatabaseType GetDatabaseType() const=0;
 
+    /**
+     * @brief Return true if database can be queried directly from CD info
+     * @return true if database can receive CD info based query
+     */
+    virtual bool AllowQueryCD()=0;
+
+    /**
+     * @brief Return true if MusicBrainz database is known to contain
+     *        a link to this database
+     * @return true if release ID is obtainable from MusicBrainz
+     */
+    virtual bool MayBeLinkedFromMusicBrainz()=0;
+
+    /**
+     * @brief Return true if database supports UPC barcode search
+     * @return true if database supports UPC barcode search
+     */
+    virtual bool AllowSearchByUPC()=0;
+
+    /**
+     * @brief Return true if database supports search by album artist and title
+     * @return true if database supports search by album artist and title
+     */
+    virtual bool AllowSearchByArtistTitle()=0;
+
     /** If AllowQueryCD() returns true, Query() performs a new query for the CD info
      *  in the specified drive with its *  tracks specified in the supplied cuesheet
      *  and its length. Previous query outcome discarded. After disc and its tracks
@@ -47,18 +72,26 @@ public:
      */
     virtual int Query(const CDbMusicBrainz &mbdb, const std::string cdrom_upc="")=0;
 
-    /** If IsSearchable() returns true, Search() performs a new album search based on
+    /** If AllowSearchByArtistTitle() returns true, Search() performs a new album search based on
      *  album title and artist. If search is not supported or did not return any match,
      *  Search() returns zero.
      *
      *  @param[in] Album title
      *  @param[in] Album artist
-     *  @param[in] If true, immediately calls Read() to populate disc records.
-     *  @param[in] Network time out in seconds. If omitted or negative, previous value
-     *             will be reused. System default is 10.
+     *  @param[in] true to narrowdown existing records; false for new search
      *  @return    Number of matched records
      */
-    virtual int Search(const std::string &title, const std::string &artist)=0;
+      virtual int Search(const std::string &title, const std::string &artist,bool narrowdown=false)=0;
+
+    /** If AllowSearchByUPC() returns true, Search() performs a new album search based on
+     *  album title and artist. If search is not supported or did not return any match,
+     *  Search() returns zero.
+     *
+     *  @param[in] UPC string
+     *  @param[in] true to narrowdown existing records; false for new search
+     *  @return    Number of matched records
+     */
+      virtual int Search(const std::string &upc, bool narrowdown=false)=0;
 
     /**
      * @brief Clear all the matches from previous search
