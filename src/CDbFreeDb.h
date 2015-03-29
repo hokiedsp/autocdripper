@@ -1,6 +1,6 @@
 #pragma once
 
-#include <deque>
+#include <vector>
 #include <string>
 #include <cddb/cddb.h>
 
@@ -67,38 +67,38 @@ public:
      * @brief Return true if Database can be searched for a CD info
      * @return true if database can be searched for a CD release
      */
-    bool IsReleaseDb() { return true; }
+    bool IsReleaseDb() const { return true; }
 
     /**
      * @brief Return true if Database can be searched for a CD cover art
      * @return true if database can be searched for a CD cover art
      */
-    bool IsImageDb() { return false; }
+    bool IsImageDb() const { return false; }
 
     /**
      * @brief Return true if database can be queried directly from CD info
      * @return true if database can receive CD info based query
      */
-    bool AllowQueryCD() { return true; }
+    bool AllowQueryCD() const { return true; }
 
     /**
      * @brief Return true if MusicBrainz database is known to contain
      *        a link to this database
      * @return true if release ID is obtainable from MusicBrainz
      */
-    bool MayBeLinkedFromMusicBrainz() { return false; }
+    bool MayBeLinkedFromMusicBrainz() const { return false; }
 
     /**
      * @brief Return true if database supports UPC barcode search
      * @return true if database supports UPC barcode search
      */
-    bool AllowSearchByUPC()  { return false; }
+    bool AllowSearchByUPC() const  { return false; }
 
     /**
      * @brief Return true if database supports search by album artist and title
      * @return true if database supports search by album artist and title
      */
-    bool AllowSearchByArtistTitle() { return false; }
+    bool AllowSearchByArtistTitle() const { return false; }
 
     /**
      * @brief Return database type enum
@@ -149,9 +149,10 @@ public:
      *  query based on the MusicBrainz query results.
      *
      *  @param[in] MusicBrainz database object.
+     *  @param[in] (Optional) UPC barcode
      *  @return    Number of matched records
      */
-    int Query(const CDbMusicBrainz &mbdb, const std::string cdrom_upc="") { return 0; }
+    virtual int Query(const CDbMusicBrainz &mbdb, const std::string upc="")  { return 0; }
 
     /** If AllowSearchByArtistTitle() returns true, Search() performs a new album search based on
      *  album title and artist. If search is not supported or did not return any match,
@@ -372,7 +373,7 @@ private:
     void InitDisc_(const SCueSheet &cuesheet, const size_t len);
 
     cddb_conn_t *conn;   /* libcddb connection structure */
-    std::deque<cddb_disc_t*> discs;   /* collection of libcddb disc structure */
+    std::vector<cddb_disc_t*> discs;   /* collection of libcddb disc structure */
 
     static int num_instances;	// keep up with # of active instances
 };

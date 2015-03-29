@@ -31,6 +31,7 @@ int main(int argc, const char *argv[])
         CSourceCdda cdrom; // auto-detect CD-ROM drive with a audio CD
 
         csbuilder.SetCdInfo(cdrom);
+        //csbuilder.SetCdInfo(cdrom,"731452547224"); // jobim songbook
 
         csbuilder.AddDatabase(mbdb);
         csbuilder.AddDatabase(freedb);
@@ -43,6 +44,9 @@ int main(int argc, const char *argv[])
         csbuilder.AddRemField(AlbumRemFieldType::LABEL);
         csbuilder.AddRemField(AlbumRemFieldType::COUNTRY);
         csbuilder.AddRemField(AlbumRemFieldType::DATE);
+
+        csbuilder.RequireUpcMatch(false);
+        csbuilder.AllowCombinig(true, false);
 
         cout << "[MAIN] Starting CCueSheetBuilder thread\n";
         csbuilder.Start();

@@ -15,7 +15,7 @@ using std::endl;
 #define PREGAP_OFFSET 2*75 // in sectors
 
 using std::ostringstream;
-using std::deque;
+using std::vector;
 using std::string;
 using std::runtime_error;
 using std::to_string;
@@ -231,6 +231,7 @@ int CDbFreeDb::Query(const std::string &dev, const SCueSheet &cuesheet, const si
 	if (matches<0) throw(runtime_error(cddb_error_str(cddb_errno(conn))));
 
 	// store all the matches 
+    discs.reserve(matches);
 	for (int i=1;i<matches;i++)
 	{
 		// create a new disc object
@@ -240,7 +241,7 @@ int CDbFreeDb::Query(const std::string &dev, const SCueSheet &cuesheet, const si
 		if (!cddb_query_next(conn, disc))
 			throw(runtime_error(cddb_error_str(cddb_errno(conn))));
 
-		// store it in the deque
+        // store it in the vector
 		discs.push_back(disc);
 	}
 	
@@ -436,7 +437,7 @@ void CDbFreeDb::Populate(const int recnum)
 	// set disc
 	if (recnum<0) // all discs
 	{
-		deque<cddb_disc_t*>::iterator it;
+        vector<cddb_disc_t*>::iterator it;
 		for (it=discs.begin(); it!=discs.end(); it++)
 		{
 			if (cddb_read(conn,*it)!=1)
@@ -529,7 +530,7 @@ SDbrBase* CDbFreeDb::Retrieve(const int recnum) const
 void CDbFreeDb::Clear()
 {
 	// destroy the discs
-	deque<cddb_disc_t*>::iterator it;
+    vector<cddb_disc_t*>::iterator it;
 	for (it=discs.begin();it!=discs.end();it++) cddb_disc_destroy(*it);
 	
 	// clear the collection
@@ -552,13 +553,13 @@ void CDbFreeDb::InitDisc_(const SCueSheet &cuesheet, const size_t len)
 
 	// Create a disc
 	cddb_disc_t* disc = cddb_disc_new();
-	discs.push_front(disc);	// store the new disc
+    discs.push_back(disc);	// store the new disc
 	
 	// Set the disc length in seconds
 	cddb_disc_set_length(disc, len/FRAMES_PER_SECOND);
 
 	// Create its tracks
-	deque<SCueTrack>::const_iterator it;
+    SCueTrackDeque::const_iterator it;
 	for (it=cuesheet.Tracks.begin(); it!=cuesheet.Tracks.end(); it++)
 	{
 		// create a new track
@@ -584,7 +585,7 @@ void CDbFreeDb::Print(const int recnum) const
 	if (recnum<0) // all discs
 	{
 		cout << "Found " << discs.size() << " matches:" << endl;
-		deque<cddb_disc_t*>::const_iterator it;
+        vector<cddb_disc_t*>::const_iterator it;
 		for (it=discs.begin(); it!=discs.end(); it++)
 		{
 			cddb_disc_t* disc = *it;

@@ -2,7 +2,6 @@
 
 #include <string>
 #include <iostream>
-#include <deque>
 
 #include <jansson.h>
 
@@ -10,39 +9,35 @@
 
 /** Abstract base Database class with CD info stored in JSON format
  */
-class CDbJsonBase
+class CDbElemJsonBase
 {
 public:
     /** Constructor.
      */
-    CDbJsonBase();
+    CDbElemJsonBase(const std::string &data);
 
     /** Destructor
      */
-    virtual ~CDbJsonBase();
-
-    /** Returns the number of matched records returned from the last Query() call.
-     *
-     *  @return    Number of matched records
-     */
-    virtual int NumberOfMatches() const { return Releases.size(); }
+    virtual ~CDbElemJsonBase();
 
     /** Debug function. Prints full-struct of JSON object for a release
      *
      *  @param[in] Record index to print'
      *  @param[in] Output stream to print the object (default: cout)
      */
-    virtual void PrintJSON(const int recnum, std::ostream &os=std::cout) const;
+    virtual void PrintJSON(std::ostream &os=std::cout) const;
 
 protected:
-    std::deque<json_t*> Releases;
-    std::deque<json_error_t> errors;
+    json_t data;
+    json_error_t errors;
 
     /**
-     * @brief ClearReleases_ empties Releases deque
+     * @brief AppendRelease_
+     * @param data
+     * @return
      */
-    void ClearReleases_();
-    json_t* AppendRelease_(const std::string &data);
+    json_t* NewData_();
+    void DeleteData_(jsont_t* data);
 
     // helper functions to get value of a requested key
     static bool FindBool_(const json_t* obj, const std::string &key, bool &val);
@@ -65,6 +60,8 @@ protected:
     static int CompareString_(const json_t* obj, const std::string &key, const std::string &str);
 
 private:
+    std::vector<json_t*> Data;  // keep it private
+
     static void PrintJSON_(std::ostream &os, const char *key, json_t *value, const std::string pre);
     static void PrintJSON_value_(std::ostream &os, json_t *value, const std::string pre);
 

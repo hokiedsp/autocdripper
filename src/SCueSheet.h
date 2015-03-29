@@ -45,6 +45,8 @@ struct SCueTrackIndex
 	friend std::ostream& operator<<(std::ostream& stdout, const SCueTrackIndex& obj);
 };
 
+typedef std::deque<SCueTrackIndex>SCueTrackIndexDeque;
+
 struct SCueTrack
 {
 	int number;   // - Track number (1-99)
@@ -60,7 +62,7 @@ struct SCueTrack
 	size_t Pregap;    // track pregap in # of sectors (i.e., frames)
 	size_t Postgap;	// track postgap in # of sectors (i.e., frames)
 	
-    std::deque<SCueTrackIndex> Indexes;
+    SCueTrackIndexDeque Indexes;
 
 	SCueTrack(const int number, const int type = CUE_TRACKTYPE_AUDIO);
 	virtual ~SCueTrack();
@@ -102,6 +104,8 @@ struct SCueTrack
 
 };
 
+typedef std::deque<SCueTrack> SCueTrackDeque;
+
 struct SCueSheet
 {
 public:
@@ -114,7 +118,7 @@ public:
 	std::string Songwriter;	// name of songwriter (80-char max)
 	std::string Title;		// album title (80-char max)
 
-    std::deque<SCueTrack> Tracks;
+    SCueTrackDeque Tracks;
 
 	SCueSheet(const int type=CUE_FILETYPE_WAVE);
 	virtual ~SCueSheet();

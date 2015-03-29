@@ -1,6 +1,6 @@
 #pragma once
 
-#include <deque>
+#include <vector>
 #include <string>
 
 #include <musicbrainz5/Query.h>
@@ -69,13 +69,13 @@ public:
      * @brief Return true if Database can be searched for a CD info
      * @return true if database can be searched for a CD release
      */
-    bool IsReleaseDb() { return true; }
+    bool IsReleaseDb() const { return true; }
 
     /**
      * @brief Return true if Database can be searched for a CD cover art
      * @return true if database can be searched for a CD cover art
      */
-    bool IsImageDb() { return true; }
+    bool IsImageDb() const { return true; }
 
     /**
      * @brief Return database type enum
@@ -87,26 +87,26 @@ public:
      * @brief Return true if database can be queried directly from CD info
      * @return true if database can receive CD info based query
      */
-    virtual bool AllowQueryCD() { return true; }
+    virtual bool AllowQueryCD() const { return true; }
 
     /**
      * @brief Return true if MusicBrainz database is known to contain
      *        a link to this database
      * @return true if release ID is obtainable from MusicBrainz
      */
-    virtual bool MayBeLinkedFromMusicBrainz() { return false; }
+    virtual bool MayBeLinkedFromMusicBrainz() const { return false; }
 
     /**
      * @brief Return true if database supports UPC barcode search
      * @return true if database supports UPC barcode search
      */
-    virtual bool AllowSearchByUPC() { return false; }
+    virtual bool AllowSearchByUPC() const { return false; }
 
     /**
      * @brief Return true if database supports search by album artist and title
      * @return true if database supports search by album artist and title
      */
-    virtual bool AllowSearchByArtistTitle() { return false; }
+    virtual bool AllowSearchByArtistTitle() const { return false; }
 
     /** If AllowQueryCD() returns true, Query() performs a new query for the CD info
      *  in the specified drive with its *  tracks specified in the supplied cuesheet
@@ -120,7 +120,8 @@ public:
      *  @param[in] (Optional) UPC barcode
      *  @return    Number of matched records
      */
-    virtual int Query(const std::string &dev, const SCueSheet &cuesheet, const size_t len, const std::string cdrom_upc="");
+    virtual int Query(const std::string &dev, const SCueSheet &cuesheet,
+                      const size_t len, const std::string cdrom_upc="");
 
     /** If MayBeLinkedFromMusicBrainz() returns true, Query() performs a new
      *  query based on the MusicBrainz query results.
@@ -385,7 +386,7 @@ public:
      * @param[in]  Record index (default=0)
      * @return URL string or empty if requestd URL type not in the URL
      */
-    virtual std::string RelationUrl(const std::string &type, const int recnum=0) const;
+    virtual std::string RelationUrl(const std::string &type, const int recnum=0);
 
     /** Set a server connection protocol.
      *
@@ -434,11 +435,20 @@ private:
      */
     std::string GetArtistString_(const MusicBrainz5::CArtistCredit &credit, const bool sortfirst=false) const;
 
+    /**
+     * @brief Helper function to RelationUrl
+     * @param A pointer to MB5 meta (must be non-null)
+     * @param[in]  Relationship type (e.g., "discogs", "amazon asin")
+     * @return URL string or empty if requestd URL type not in the URL
+     */
+    std::string MB5RelationUrl_(MusicBrainz5::CRelationListList *relslist,
+                               const std::string &type) const;
+
     std::string discid;
     MusicBrainz5::CQuery MB5;
     CoverArtArchive::CCoverArt CAA;
-    std::deque<MusicBrainz5::CRelease> Releases;
-    std::deque<CoverArtArchive::CReleaseInfo> CoverArts;
+    std::vector<MusicBrainz5::CRelease> Releases;
+    std::vector<CoverArtArchive::CReleaseInfo> CoverArts;
 
     int CoverArtSize; // 0-full, 1-large thumbnail (500px), 2-small thumbnail (250px)
 };

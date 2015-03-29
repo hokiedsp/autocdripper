@@ -25,7 +25,8 @@ struct DatabaseElem;
  * functions:
  *
  * SetCdInfo() - Gathers the CD info (device path, track info, and
- *               length) from a CSourceCdda object.
+ *               length) from a CSourceCdda object as well as the user-supplied
+ *               UPC.
  *
  * AddDatabase()  - Appends the databases to search. Each database
  * AddDatabases()   object must be configured externally and must
@@ -39,6 +40,9 @@ struct DatabaseElem;
  * AddRemField()  - Registers album REM fields to be included in the cue
  * AddRemFields()   sheet. The regiestered REM fields appear in the cue
  *                  sheet in the order added.
+ *
+ * RequireUpcMatch() - If UPC is given, only accept results with the matching UPC
+ * AllowCombining()  - Combine results from multiple databases
  *
  * Once CD info and databases are set, call Start() to begin gathering
  * the information. WaitTillDone() maybe called by the calling thread
@@ -72,12 +76,8 @@ public:
      */
     virtual ~CCueSheetBuilder();
 
-    /**
-     * @brief Returns the status of last thread run
-     * @return true if its thread was externally stopped prematurely during
-     *         its last run.
-     */
-    bool Canceled() const { return canceled; }
+    //-----------------------------------------------------
+    // PRE-THREAD functions
 
     /**
      * @brief Set CD information prior to Start()
@@ -112,6 +112,42 @@ public:
      * @throw runtime_error if thread is already running
      */
     void AddDatabases(const IDatabaseRefVector &dbs);
+
+    /**
+     * @brief Allow combinig of results from multiple databases
+     * @param[in] true to allow combining, false to pick a result
+     *            from most preferred database
+     * @param[in] true to allow combining of database results with common UPC.
+     *
+     * Turning off this feature makes CCueSheetBuilder to fill all the cuesheet fields
+     * from the first database with a result. Conversely, turning on this feature
+     * (which is on by the default) makes CCueSheetBuilder to fill each field of the
+     * cuesheet with the first non-empty result from the databases. Setting the second
+     * argument to true limits the combining to the databases with matched UPC.
+     *
+     * This is useful feature when using a combination of MusicBrainz and FreeDb services
+     * as MusicBrainz returns more detailed information but lacks genre while FreeDb
+     * lacks information but returns a genre.
+     *
+     * Implementation-wise, this function sets db_marge_method private variable
+     */
+    void AllowCombinig(const bool do_combine, const bool upc_bound);
+
+    /**
+     * @brief Set UPC-Matching Requirement
+     * @param[in] true to require UPC match (if UPC is given)
+     */
+    void RequireUpcMatch(const bool reqmatch);
+
+    //-----------------------------------------------------
+    // POST-THREAD functions
+
+    /**
+     * @brief Returns the status of last thread run
+     * @return true if its thread was externally stopped prematurely during
+     *         its last run.
+     */
+    bool Canceled() const { return canceled; }
 
     /**
      * @brief Returns true if any cuesheet info was found
@@ -156,15 +192,18 @@ protected:
     virtual void ThreadMain();
 
 private:
-    bool canceled;
-    bool matched;
-
     std::string cdrom_path;
     size_t cdrom_len;
     std::string cdrom_upc;
 
     std::vector<DatabaseElem> databases;
     AlbumRemFieldVector remfields;   // specifies which REM field to add
+
+    bool upc_match; // true to only accept matched UPC records (if UPC given)
+    int db_marge_method; // 0-single db, 1-multiple db, 2-multiple db with UPC constraint
+
+    bool canceled;  // if true after thread is stopped, thread was externally canceled
+    bool matched;   // if true after thread is stopped, cuesheet was successfully populated
 
     SCueSheet cuesheet;
     UByteVector front;
@@ -176,5 +215,5 @@ private:
      * @param[in] source database
      * @param[in] record index of the matched
      */
-    void BuildCueSheet_(const IReleaseDatabase &db, const int recid);
+    void ProcessDatabase_(IDatabase &db, const int recid);
 };

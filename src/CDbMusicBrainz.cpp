@@ -12,6 +12,7 @@
 #include "SCueSheet.h"
 #include "credirect.h" // to redirect std::cerr stream
 
+#include <musicbrainz5/Metadata.h>
 #include <musicbrainz5/Release.h>
 #include <musicbrainz5/Medium.h>
 #include <musicbrainz5/MediumList.h>
@@ -44,7 +45,7 @@ using std::cout;
 using std::endl;
 
 using std::ostringstream;
-using std::deque;
+using std::vector;
 using std::string;
 using std::runtime_error;
 using std::to_string;
@@ -107,10 +108,17 @@ int CDbMusicBrainz::Query(const std::string &dev, const SCueSheet &cuesheet, con
     try
     {
         CReleaseList list = MB5.LookupDiscID(discid);
+        //        CMetadata Metadata=Query("discid",DiscID);
+        //        CDisc *Disc=Metadata.Disc();
+        //        if (Disc && Disc->ReleaseList())
+        //            ReleaseList=*Disc->ReleaseList();
 
         cout << "[CDbMusicBrainz::Query] 3: " << list.NumItems() << " matches\n";
 
         // Add all the matched releases to Releases deque
+        Releases.reserve(list.NumItems());
+        CoverArts.reserve(list.NumItems());
+
         for (int i=0;i<list.NumItems();i++)
         {
             CRelease *r = list.Item(i);
@@ -154,7 +162,7 @@ void CDbMusicBrainz::Populate(const int recnum)
     // set disc
     if (recnum<0) // all discs
     {
-        deque<CRelease>::iterator it;
+        vector<CRelease>::iterator it;
         for (it=Releases.begin(); it!=Releases.end(); it++)
             (*it) = MB5.LookupRelease((*it).ID()); 	// replace the initial output with the full output
     }
@@ -162,6 +170,12 @@ void CDbMusicBrainz::Populate(const int recnum)
     {
         CRelease &r = Releases[recnum];
         r = MB5.LookupRelease(r.ID()); 	// replace the initial output with the full output
+//        MusicBrainz5::CRelease Release;
+//        tParamMap Params;
+//        Params["inc"]="artists labels recordings release-groups url-rels discids artist-credits";
+//        CMetadata Metadata=Query("release",ReleaseID,"",Params);
+//        if (Metadata.Release())
+//            Release=*Metadata.Release();
     }
     else
     {
@@ -716,7 +730,7 @@ void CDbMusicBrainz::Print(const int recnum) const
     if (recnum<0) // all discs
     {
         cout << "Found " << Releases.size() << " matches:" << endl;
-        deque<CRelease>::const_iterator it;
+        vector<CRelease>::const_iterator it;
         for (it=Releases.begin(); it!=Releases.end(); it++)
         {
             const CRelease &r = *it;
@@ -1038,33 +1052,86 @@ std::string CDbMusicBrainz::BackURL(const int recnum) const
  * @param[in]  Record index (default=0)
  * @return URL string or empty if requestd URL type not in the URL
  */
-std::string CDbMusicBrainz::RelationUrl(const std::string &type, const int recnum) const
+std::string CDbMusicBrainz::RelationUrl(const std::string &type, const int recnum)
 {
+    // redirect cerr stream during this function call
+    cerr_redirect quiet_cerr;
+
     string rval;
+    MusicBrainz5::CRelationListList *relslist = NULL;
+    CMetadata data;
 
     if (recnum<0 || recnum>=(int)Releases.size()) // all discs
         throw(runtime_error("Invalid CD record ID."));
 
-    MusicBrainz5::CRelationListList *relslist = Releases[recnum].RelationListList();
-    if (relslist) // only if not null
+    // First check the RelationListList in the Release
+    relslist = Releases[recnum].RelationListList();
+    if (!relslist)
     {
-        MusicBrainz5::CRelationList *urls = NULL;
-        for (int i = 0; !urls && i<relslist->NumItems(); i++)   // look for URL list
+        CQuery::tParamMap params;
+        params["inc"] = "url-rels";
+        try
         {
-            MusicBrainz5::CRelationList *rels = relslist->Item(i);
-            if (rels && rels->TargetType().compare("url")==0)
+            data = MB5.Query("release", Releases[recnum].ID(), "", params);
+            relslist = data.Release()->RelationListList();
+        }
+        catch (MusicBrainz5::CResourceNotFoundError &e) {} // no match found, just return
+    }
+    if (relslist) rval = MB5RelationUrl_(relslist,type);
+
+    if (rval.empty()) // if none found in Release, check ReleaseGroup
+    {
+        CReleaseGroup *rg = Releases[recnum].ReleaseGroup();
+        if (rg)
+        {
+            relslist = rg->RelationListList();
+            if (!relslist)
             {
-                urls = rels;
-                for (int j = 0; rval.empty() && j<urls->NumItems(); j++)
+                CQuery::tParamMap params;
+                params["inc"] = "url-rels";
+                try
                 {
-                    MusicBrainz5::CRelation *url = urls->Item(j);
-                    if (url->Type().compare(type)==0)
-                        rval = url->Target();
+                    data = MB5.Query("release-group", rg->ID(), "", params);
+
+                    // if releasegroup returned, get its relation lists
+                    if ((rg = data.ReleaseGroup()))
+                        relslist = rg->RelationListList();
                 }
+                catch (MusicBrainz5::CResourceNotFoundError &e) {} // just continue
+            }
+
+            if (relslist) rval = MB5RelationUrl_(relslist, type);
+        }
+    }
+
+    return rval;
+}
+
+/**
+ * @brief Helper function to RelationUrl
+ * @param A pointer to MB5 meta (must be non-null)
+ * @param[in]  Relationship type (e.g., "discogs", "amazon asin")
+ * @return URL string or empty if requestd URL type not in the URL
+ */
+std::string CDbMusicBrainz::MB5RelationUrl_(MusicBrainz5::CRelationListList *relslist,
+                                            const std::string &type) const
+{
+    string rval;
+
+    MusicBrainz5::CRelationList *urls = NULL;
+    for (int i = 0; !urls && i<relslist->NumItems(); i++)   // look for URL list
+    {
+        MusicBrainz5::CRelationList *rels = relslist->Item(i);
+        if (rels && rels->TargetType().compare("url")==0)
+        {
+            urls = rels;
+            for (int j = 0; rval.empty() && j<urls->NumItems(); j++)
+            {
+                MusicBrainz5::CRelation *url = urls->Item(j);
+                if (url->Type().compare(type)==0) rval = url->Target();
             }
         }
     }
 
     return rval;
-
 }

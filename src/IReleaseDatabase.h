@@ -28,26 +28,26 @@ public:
      * @brief Return true if database can be queried directly from CD info
      * @return true if database can receive CD info based query
      */
-    virtual bool AllowQueryCD()=0;
+    virtual bool AllowQueryCD() const=0;
 
     /**
      * @brief Return true if MusicBrainz database is known to contain
      *        a link to this database
      * @return true if release ID is obtainable from MusicBrainz
      */
-    virtual bool MayBeLinkedFromMusicBrainz()=0;
+    virtual bool MayBeLinkedFromMusicBrainz() const=0;
 
     /**
      * @brief Return true if database supports UPC barcode search
      * @return true if database supports UPC barcode search
      */
-    virtual bool AllowSearchByUPC()=0;
+    virtual bool AllowSearchByUPC() const=0;
 
     /**
      * @brief Return true if database supports search by album artist and title
      * @return true if database supports search by album artist and title
      */
-    virtual bool AllowSearchByArtistTitle()=0;
+    virtual bool AllowSearchByArtistTitle() const=0;
 
     /** If AllowQueryCD() returns true, Query() performs a new query for the CD info
      *  in the specified drive with its *  tracks specified in the supplied cuesheet
@@ -61,15 +61,16 @@ public:
      *  @param[in] (Optional) UPC barcode
      *  @return    Number of matched records
      */
-      virtual int Query(const std::string &dev, const SCueSheet &cuesheet, const size_t len, const std::string cdrom_upc="")=0;
+    virtual int Query(const std::string &dev, const SCueSheet &cuesheet, const size_t len, const std::string cdrom_upc="")=0;
 
     /** If MayBeLinkedFromMusicBrainz() returns true, Query() performs a new
      *  query based on the MusicBrainz query results.
      *
      *  @param[in] MusicBrainz database object.
+     *  @param[in] (Optional) UPC barcode
      *  @return    Number of matched records
      */
-    virtual int Query(const CDbMusicBrainz &mbdb, const std::string cdrom_upc="")=0;
+    virtual int Query(const CDbMusicBrainz &mbdb, const std::string upc="")=0;
 
     /** If AllowSearchByArtistTitle() returns true, Search() performs a new album search based on
      *  album title and artist. If search is not supported or did not return any match,

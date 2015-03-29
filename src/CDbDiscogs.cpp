@@ -9,6 +9,7 @@
 #include <iostream>
 #include <iomanip>
 
+#include "CDbMusicBrainz.h"
 #include "SCueSheet.h"
 #include "credirect.h" // to redirect std::cerr stream
 
@@ -23,6 +24,14 @@ using std::to_string;
 
 const std::string CDbDiscogs::base_url("https://api.discogs.com/");
 
+class CDiscogsElem
+{
+    json_t *data;
+    int disc; // in the case of multi-disc set, indicate the disc # (zero-based)
+};
+
+// ---------------------------------------------------------------
+
 /** Constructor.
  *
  *  @param[in] Client program name. If omitted or empty, uses "autorip"
@@ -34,31 +43,54 @@ CDbDiscogs::CDbDiscogs(const std::string &cname,const std::string &cversion)
     Authorize_();
 }
 
-/** Constructor.
- *
- *  @param[in] Client program name. If omitted or empty, uses "autorip"
- *  @param[in] Client program version. If omitted or empty, uses "alpha"
- */
-CDbDiscogs::CDbDiscogs(const CDbMusicBrainz &mb, const std::string &cname,const std::string &cversion)
-    : CDbHttpBase(cname,cversion), CDbJsonBase()
-{
-    // for each discogs release URL
-
-}
-
 CDbDiscogs::~CDbDiscogs() {}
 
-/** Perform a new Discogs query given a list of its release IDs
- *
- *  @param[in] collection of release IDs
- *  @return    Number of valid records
+// ---------------------------------------------------------------
+
+/**
+ * @brief Clear all the matches from previous search
  */
-int CDbDiscogs::Query(const std::deque<std::string> &list)
+void CDbDiscogs::Clear()
 {
+    Releases.clear();
+}
+
+/** If MayBeLinkedFromMusicBrainz() returns true, Query() performs a new
+ *  query based on the MusicBrainz query results.
+ *
+ *  @param[in] MusicBrainz database object.
+ *  @param[in] (Optional) UPC barcode
+ *  @return    Number of matched records
+ */
+int CDbDiscogs::Query(const CDbMusicBrainz &mbdb, const std::string upc)
+{
+    // Clear previous results
+    Clear();
+
+    // For each MB match,look for discogs link
+
+    for (int i=0;i<mbdb.NumberOfMatches();i++)
+    {
+        // get the relation URL
+        std::string url = mbdb.RelationUrl("discogs",i);
+        if (url.size())
+        {
+
+
+            // If non-empty, parse the URL string
+            // examples:
+            //  http://www.discogs.com/release/2449413 // jobim songbook
+            //
+
+        }
+    }
+
+
+
     // if empty deque given, do nothing
     if (list.empty()) return 0;
 
-    ClearReleases_();
+    Clear();
 
     // look up all releases
     deque<string>::const_iterator it;
@@ -78,9 +110,29 @@ int CDbDiscogs::Query(const std::deque<std::string> &list)
  *  @param[in] collection of release IDs
  *  @return    Number of valid records
  */
-int CDbDiscogs::Query(const std::string &id, const int disc)
+int CDbDiscogs::QueryRelease_(const std::string &id, const int disc)
 {
-    ClearReleases_();
+    Clear();
+
+    // look up all releases
+    PerformHttpTransfer_(base_url+"releases/"+id);
+    AppendRelease_(data);
+
+    discnos.push_back(disc);
+
+    // return the number of matches
+    return Releases.size();
+}
+
+/**
+ * @brief Return the oldest CD release w/in a master release
+ * @param id
+ * @param disc
+ * @return
+ */
+int CDbDiscogs::QueryMasterRelease_(const std::string &id, const int disc)
+{
+    Clear();
 
     // look up all releases
     PerformHttpTransfer_(base_url+"releases/"+id);

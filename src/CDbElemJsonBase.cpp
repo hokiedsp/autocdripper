@@ -14,18 +14,18 @@ CDbJsonBase::CDbJsonBase() {}
 CDbJsonBase::~CDbJsonBase()
 {
     // clear all stored JSON objects
-    std::deque<json_t*>::iterator it;
-    for (it=Releases.begin();it!=Releases.end();it++) json_object_clear(*it);
+    std::vector<json_t*>::iterator it;
+    for (it=Data.begin();it!=Data.end();it++) json_object_clear(*it);
 }
 
-void CDbJsonBase::ClearReleases_()
+void CDbJsonBase::ClearData_()
 {
     // clear all stored JSON objects
-    std::deque<json_t*>::iterator it;
-    for (it=Releases.begin();it!=Releases.end();it++) json_object_clear(*it);
+    std::vector<json_t*>::iterator it;
+    for (it=Data.begin();it!=Data.end();it++) json_object_clear(*it);
 
-    // then empty the Releases deque
-    Releases.clear();
+    // then empty the Data vector
+    Data.clear();
     errors.clear();
 }
 
@@ -42,8 +42,8 @@ json_t* CDbJsonBase::AppendRelease_(const std::string &data)
         root = json_loadb(data.c_str(), data.size(), 0, &errors.back());
         if(!root) throw(std::runtime_error(errors.back().text));
 
-        // push the new release record onto the deque
-        Releases.push_back(root);
+        // push the new release record onto the vector
+        Data.push_back(root);
     }
     catch (...)
     {
@@ -127,11 +127,11 @@ bool CDbJsonBase::FindArray_(const json_t* obj, const std::string &key, json_t* 
 void CDbJsonBase::PrintJSON(const int recnum, std::ostream &os) const
 {
     // if invalid record number, do nothing
-    if (recnum<0 || recnum>=(int)Releases.size()) return;
+    if (recnum<0 || recnum>=(int)Data.size()) return;
 
     const char *key;
     json_t *value;
-    json_object_foreach(Releases[recnum], key, value)
+    json_object_foreach(Data[recnum], key, value)
     {
         PrintJSON_(os, key, value, "");
     }
@@ -196,4 +196,3 @@ void CDbJsonBase::PrintJSON_value_(std::ostream &os, json_t *value, const std::s
         os << ": " << "UNKNOWN" << endl;
     }
 }
-
