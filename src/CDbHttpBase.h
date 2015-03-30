@@ -38,7 +38,7 @@ public:
 
 protected:
     CURL *curl; // pointer to the curl session
-    std::string data; // received data buffer
+    std::string rawdata; // received data buffer
 
     /** Invoke this function to perform the HTTP transfer. Upon completion of the call,
      *  data member variable contains the received data. The previous content of data will

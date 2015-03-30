@@ -9,6 +9,8 @@
 #include <iostream>
 #include <iomanip>
 
+#include "CDbDiscogsElem.h"
+#include "CDbElemJsonBase.h"
 #include "CDbMusicBrainz.h"
 #include "SCueSheet.h"
 #include "credirect.h" // to redirect std::cerr stream
@@ -24,12 +26,6 @@ using std::to_string;
 
 const std::string CDbDiscogs::base_url("https://api.discogs.com/");
 
-class CDiscogsElem
-{
-    json_t *data;
-    int disc; // in the case of multi-disc set, indicate the disc # (zero-based)
-};
-
 // ---------------------------------------------------------------
 
 /** Constructor.
@@ -38,7 +34,7 @@ class CDiscogsElem
  *  @param[in] Client program version. If omitted or empty, uses "alpha"
  */
 CDbDiscogs::CDbDiscogs(const std::string &cname,const std::string &cversion)
-    : CDbHttpBase(cname,cversion), CDbJsonBase()
+    : CDbHttpBase(cname,cversion)
 {
     Authorize_();
 }
@@ -62,63 +58,49 @@ void CDbDiscogs::Clear()
  *  @param[in] (Optional) UPC barcode
  *  @return    Number of matched records
  */
-int CDbDiscogs::Query(const CDbMusicBrainz &mbdb, const std::string upc)
+int CDbDiscogs::Query(CDbMusicBrainz &mbdb, const std::string upc)
 {
     // Clear previous results
     Clear();
 
-    // For each MB match,look for discogs link
+    int lastmaster=0;
 
+    // For each MB match,look for discogs link
+    Releases.reserve(mbdb.NumberOfMatches());
     for (int i=0;i<mbdb.NumberOfMatches();i++)
     {
+        // get the disc#
+        int discno = mbdb.DiscNumber(i);
+
         // get the relation URL
         std::string url = mbdb.RelationUrl("discogs",i);
         if (url.size())
         {
-
-
             // If non-empty, parse the URL string
             // examples:
             //  http://www.discogs.com/release/2449413 // jobim songbook
-            //
+            //  http://www.discogs.com/master/251798   // bill evans moon beams
+
+            // convert the given URL with base_url for API query URL
+            const std::string mb_base_url("http://www.discogs.com/");
+            url.replace(0,mb_base_url.length(),base_url);
+
+            // If a link to master release is given, find its oldest CD release
+            if (url.compare(base_url.length(),6,"master")==0)
+            {
+                int id = QueryMaster_(url, lastmaster);
+                if (url.empty()) continue; // duplicate master, go to next record
+                lastmaster = id; // update
+            }
+
+            // Get release data
+            PerformHttpTransfer_(url); // received data is stored in rawdata
+            Releases.emplace_back(rawdata,discno);
+
+            // check for the uniqueness
 
         }
     }
-
-
-
-    // if empty deque given, do nothing
-    if (list.empty()) return 0;
-
-    Clear();
-
-    // look up all releases
-    deque<string>::const_iterator it;
-    for (it=list.begin();it!=list.end();it++)
-    {
-        PerformHttpTransfer_(base_url+"releases/"+*it);
-        AppendRelease_(data);
-        discnos.push_back(1);
-    }
-
-    // return the number of matches
-    return Releases.size();
-}
-
-/** Perform a new Discogs query given a list of its release IDs
- *
- *  @param[in] collection of release IDs
- *  @return    Number of valid records
- */
-int CDbDiscogs::QueryRelease_(const std::string &id, const int disc)
-{
-    Clear();
-
-    // look up all releases
-    PerformHttpTransfer_(base_url+"releases/"+id);
-    AppendRelease_(data);
-
-    discnos.push_back(disc);
 
     // return the number of matches
     return Releases.size();
@@ -126,49 +108,56 @@ int CDbDiscogs::QueryRelease_(const std::string &id, const int disc)
 
 /**
  * @brief Return the oldest CD release w/in a master release
- * @param id
- * @param disc
- * @return
+ * @param[inout] discogs API url to a master release then returns a URL to a release
+ * @return true if failed to retrieve URL to a release
+ * @throw runtime_error if URL does not resolve to a valid master record
  */
-int CDbDiscogs::QueryMasterRelease_(const std::string &id, const int disc)
+int CDbDiscogs::QueryMaster_(std::string &url, const int last_id)
 {
-    Clear();
+    int id=0;
 
-    // look up all releases
-    PerformHttpTransfer_(base_url+"releases/"+id);
-    AppendRelease_(data);
+    PerformHttpTransfer_(url); // received data is stored in rawdata
+//    CDbElemJsonBase master(rawdata);
+//    master.PrintJSON();
 
-    discnos.push_back(disc);
+//    FindInt_(master,"id",id);
+//    if (id==last_id)
+//    {
+        url.clear();
+//    }
+//    else
+//    {
+//        url.clear(); // for now
+//        // sort through data
+//    }
 
-    // return the number of matches
+    return id; // for now
+}
+
+/** Returns the number of matched records returned from the last Query() call.
+ *
+ *  @return    Number of matched records
+ */
+int CDbDiscogs::NumberOfMatches() const
+{
     return Releases.size();
 }
 
-/** If IsSearchable() returns true, Search() performs a new album search based on
- *  album title and artist. If search is not supported or did not return any match,
- *  Search() returns zero.
+/** Return a unique release ID string
  *
- *  @param[in] Album title
- *  @param[in] Album artist
- *  @param[in] If true, immediately calls Read() to populate disc records.
- *  @param[in] Network time out in seconds. If omitted or negative, previous value
- *             will be reused. System default is 10.
- *  @return    Number of matched records
+ *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+ *             is returned.
+ *  @return id string if Query was successful.
  */
-int CDbDiscogs::Search(const std::string &title, const std::string &artist, const bool autofill, const int timeout)
+std::string CDbDiscogs::ReleaseId(const int recnum) const
 {
-    return 0;
+    // set record
+    if (recnum<0 || recnum>=(int)Releases.size()) // all discs
+        throw(runtime_error("Invalid Release record ID."));
+
+    return Releases[recnum].ReleaseId();
 }
 
-/** Returns the CD record ID associated with the specified genre. If no matching
- *  record is found, it returns -1.
- *
- *  @return Matching CD record ID.
- */
-int CDbDiscogs::MatchByGenre(const std::string &genre) const
-{
-    return -1;
-}
 
 /** Get album title
  *
@@ -182,14 +171,7 @@ std::string CDbDiscogs::AlbumTitle(const int recnum) const
     if (recnum<0 || recnum>=(int)Releases.size()) // all discs
         throw(runtime_error("Invalid Release record ID."));
 
-    return Title_(Releases[recnum]);
-}
-
-std::string CDbDiscogs::Title_(const json_t* json)
-{
-    string titlestr;
-    if (FindString_(json,"title",titlestr)) return titlestr;
-    return "";
+    return Releases[recnum].AlbumTitle();
 }
 
 /** Get album artist
@@ -204,7 +186,18 @@ std::string CDbDiscogs::AlbumArtist(const int recnum) const
     if (recnum<0 || recnum>=(int)Releases.size()) // all discs
         throw(runtime_error("Invalid CD record ID."));
 
-    return Artist_(Releases[recnum]);
+    return Releases[recnum].AlbumArtist();
+}
+
+/** Get album composer
+ *
+ *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+ *             is returned.
+ *  @return    Composer/songwriter string (empty if artist not available)
+ */
+std::string CDbDiscogs::AlbumComposer(const int recnum) const
+{
+    return "";
 }
 
 /** Get genre
@@ -219,130 +212,53 @@ std::string CDbDiscogs::Genre(const int recnum) const
     if (recnum<0 || recnum>=(int)Releases.size()) // all discs
         throw(runtime_error("Invalid CD record ID."));
 
-    return Genre_(Releases[recnum]);
+    return Releases[recnum].Genre();
 }
 
-std::string CDbDiscogs::Genre_(const json_t* release)
-{
-    json_t *genres;
-    if (!FindArray_(release,"genres",genres)) return "";
-    return json_string_value(json_array_get(genres,0));
-}
-
-/**
- * @brief Returns number of tracks on the CD
- * @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+/** Get release date
+ *
+ *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
  *             is returned.
- * @return Number of tracks
+ *  @return    Date string (empty if genre not available)
  */
-int CDbDiscogs::NumberOfTracks(const int recnum) const
+std::string CDbDiscogs::Date(const int recnum) const
 {
     // set disc
     if (recnum<0 || recnum>=(int)Releases.size()) // all discs
         throw(runtime_error("Invalid CD record ID."));
 
-    return json_array_size(TrackList (Releases[recnum], discnos[recnum]));
+    return Releases[recnum].Date();
 }
 
-
-std::string CDbDiscogs::Artist_(const json_t* json)
+/** Get release country
+ *
+ *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+ *             is returned.
+ *  @return    Countery string (empty if genre not available)
+ */
+std::string CDbDiscogs::Country(const int recnum) const
 {
-    string astr, joinstr, str;
-    bool more = true; // if true, more artist names are expected
-    size_t index;
-    json_t *artists, *value;
+    // set disc
+    if (recnum<0 || recnum>=(int)Releases.size()) // all discs
+        throw(runtime_error("Invalid CD record ID."));
 
-    // Look for artist entries
-    if (FindArray_(json,"artists",artists))
-    {
-        json_array_foreach(artists, index, value)
-        {
-            // look for the name string
-            if (!FindString_(value,"name",str) || str.empty()) break;
-            astr += str;
-
-            // look for the join string and append it to the artist string
-            more = FindString_(value,"join", joinstr);
-            if (more && joinstr.size())
-            {
-                if (joinstr.substr(0,1).find_first_of(" ,;:./\\])>|")==string::npos) astr += ' ';
-                astr += joinstr;
-                if (joinstr.substr(joinstr.size()-1,1).find_first_of(" /\\[(<|")==string::npos) astr += ' ';
-            }
-            else
-            {
-                more = false;
-                break;
-            }
-        }
-    }
-
-    // If none found or more expected, also check extraartists entries
-    if (more && FindArray_(json,"extraartists",artists))
-    {
-        json_array_foreach(artists, index, value)
-        {
-            // look for the name string
-            if (!FindString_(value,"name",str) || str.empty()) break;
-            astr += str;
-
-            // look for the join string and append it to the artist string
-            if (!FindString_(value,"join", joinstr) || joinstr.empty()) break;
-            if (joinstr.substr(0,1).find_first_of(" ,;:./\\])>|")==string::npos) astr += ' ';
-            astr += joinstr;
-            if (joinstr.substr(joinstr.size()-1,1).find_first_of(" /\\[(<|")==string::npos) astr += ' ';
-        }
-    }
-
-    return astr;
+    return Releases[recnum].Country();
 }
 
-std::string CDbDiscogs::Label_(const json_t* release)
+/**
+ * @brief Get disc number
+ * @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+ *            is returned.
+ * @return    Disc number or -1 if unknown
+ */
+int CDbDiscogs::DiscNumber(const int recnum) const
 {
-    json_t *labels;
-    string labelstr;
+    // set disc
+    if (recnum<0 || recnum>=(int)Releases.size()) // all discs
+        throw(runtime_error("Invalid CD record ID."));
 
-    if (!FindArray_(release,"labels",labels)) return "";
-    labels = json_array_get(labels,0); // get the first label entry
-    if (FindString_(labels,"name",labelstr)) return labelstr;
-    return "";
-}
-
-std::string CDbDiscogs::Date_(const json_t* release)
-{
-    json_int_t yr;
-    string str;
-    if (FindString_(release,"released",str)) return str;
-    else if (FindInt_(release,"year",yr)) return to_string(yr);
-    else return"";
-}
-
-std::string CDbDiscogs::Country_(const json_t* release)
-{
-    string str;
-    if (FindString_(release,"country",str)) return str;
-    else return "";
-}
-
-std::string CDbDiscogs::Identifier_(const json_t* release, const std::string type)
-{
-    size_t index;
-    json_t *idarray, *id;
-    string str;
-
-    if (!FindArray_(release,"identifiers",idarray)) return "";
-
-    // Look for the entry with requested type
-    json_array_foreach(idarray, index, id)
-    {
-        // if Identifier type does not match, go to next
-        if (CompareString_(id, "type", type)) continue;
-
-        if (FindString_(id,"value",str)) return str;
-    }
-
-    // if reaches here, Sought Identifier is not present in the record
-    return "";
+    // if somehow reaches here, data is likely corrupted or severely incomplete
+    return Releases[recnum].DiscNumber();
 }
 
 /**
@@ -351,78 +267,14 @@ std::string CDbDiscogs::Identifier_(const json_t* release, const std::string typ
  *        is returned.
  * @return Number of discs in the release
  */
-int CDbDiscogs::NumberOfDiscs(const int recnum) const
+int CDbDiscogs::TotalDiscs(const int recnum) const
 {
     // set disc
     if (recnum<0 || recnum>=(int)Releases.size()) // all discs
         throw(runtime_error("Invalid CD record ID."));
 
-    return NumberOfDiscs_(Releases[recnum]);
-}
-
-int CDbDiscogs::NumberOfDiscs_(const json_t *release)
-{
-    json_t *array, *elem;
-    size_t index;
-    string str;
-
-    // look for format_quantity
-    json_int_t nodiscs;
-    if (FindInt_(release,"format_quantity",nodiscs))
-        return (int)nodiscs;
-
-    // look for qty entry under formats
-    if (FindArray_(release,"formats",array))
-    {
-
-        // Look for format entries
-        json_array_foreach(array, index, elem)
-        {
-            if (CompareString_(elem,"name","CD") && FindString_(elem,"qty",str))
-            {
-                try
-                {
-                    return std::stoi(str); // if qty given as a number, return it
-                }
-                catch(...)
-                {}
-            }
-        }
-    }
-
-    // if for some reason, formats/qty is not found, check for existence of sub track field
-    {
-        if (FindArray_(release,"tracklist",array))
-        {
-            // If all tracks contain sub_tracks, assume multi-CD release, else single-cd release
-            json_array_foreach(array, index, elem)
-            {
-                if (!FindArray_(elem,"sub_tracks",elem)) return 1;
-            }
-
-            // If reached here, all tracks contains sub_tracks -> multi-cd release
-            return json_array_size(array); // return # of tracks as the # of cds
-        }
-    }
-
     // if somehow reaches here, data is likely corrupted or severely incomplete
-    return 0;
-}
-
-json_t* CDbDiscogs::TrackList (const json_t *release, const int discno)
-{
-    json_t *tracks;
-
-    if (!FindArray_(release,"tracklist",tracks))
-        throw(runtime_error("Tracklist not found."));
-
-    // if multi-disc set
-    if (NumberOfDiscs_(release)>1)
-    {
-        FindArray_(json_array_get(tracks,discno-1),"sub_tracks",tracks);
-    }
-
-    return tracks;
+    return Releases[recnum].TotalDiscs();
 }
 
 /** Get label name
@@ -437,7 +289,7 @@ std::string CDbDiscogs::AlbumLabel(const int recnum) const
     if (recnum<0 || recnum>=(int)Releases.size()) // all discs
         throw(runtime_error("Invalid CD record ID."));
 
-    return Label_(Releases[recnum]);
+    return Releases[recnum].AlbumLabel();
 }
 
 /** Get album UPC (barcode)
@@ -452,94 +304,91 @@ std::string CDbDiscogs::AlbumUPC(const int recnum) const
     if (recnum<0 || recnum>=(int)Releases.size()) // all discs
         throw(runtime_error("Invalid CD record ID."));
 
-    return Identifier_(Releases[recnum],"Barcode");
+    return Releases[recnum].AlbumUPC();
 }
 
-/** Retrieve the disc info from specified database record
- *
- *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+/**
+ * @brief Returns number of tracks on the CD
+ * @param[in] Disc record ID (0-based index). If omitted, the first record (0)
  *             is returned.
- *  @return    SDbrBase Pointer to newly created database record object. Caller is
- *             responsible for deleting the object.
+ * @return Number of tracks
  */
-SDbrBase* CDbDiscogs::Retrieve(const int recnum) const
+int CDbDiscogs::NumberOfTracks(const int recnum) const
 {
-    json_t *tracks;
-    int num_tracks;
-    string str;
-    json_int_t val;
-
-    // instantiate new DBR object
-    SDbrDiscogs * rec = new SDbrDiscogs;
-
     // set disc
     if (recnum<0 || recnum>=(int)Releases.size()) // all discs
-        throw(runtime_error("Invalid Release record ID."));
+        throw(runtime_error("Invalid CD record ID."));
 
-    // Grab the specified release info
-    const json_t *r = Releases[recnum];
-
-    rec->Title = Title_(r);
-    rec->Performer = Artist_(r);
-
-    rec->Rems.emplace_back("DBSRC Discogs");
-    if (FindInt_(r,"id",val))
-        rec->Rems.emplace_back("ID "+to_string(val));	// comments on the disc
-
-    str = Genre_(r);
-    if (str.size()) rec->Rems.emplace_back("GENRE "+str);
-
-    str = Date_(r);
-    if (str.size())
-        rec->Rems.emplace_back("DATE "+str);
-
-    str = Country_(r);
-    if (str.size())
-        rec->Rems.emplace_back("COUNTRY "+str);
-
-    str = Identifier_(r,"Barcode");
-    if (str.size())
-        rec->Rems.emplace_back("UPC "+str);
-
-    str = Identifier_(r,"ASIN");
-    if (str.size())
-        rec->Rems.emplace_back("ASIN "+str);
-
-    str = Label_(r);
-    if (str.size())
-        rec->Rems.emplace_back("LABEL "+str);
-
-    // get disc# and total # of cds if multiple-cd set
-    val = NumberOfDiscs_(r);
-    if (val>1)
-    {
-        rec->Rems.emplace_back("DISC "+to_string(discnos[recnum]));
-        rec->Rems.emplace_back("DISCS "+to_string(val));
-    }
-
-    // initialize tracks
-    tracks = TrackList (r, discnos[recnum]);
-    num_tracks = json_array_size(tracks);
-    rec->AddTracks(num_tracks); // adds Tracks 1 to num_tracks
-
-    for (int i=0;i<num_tracks;i++)
-    {
-        json_t *track = json_array_get(tracks,i);
-
-        // get the track object
-        SCueTrack &rectrack = rec->Tracks[i];
-
-        rectrack.Title = Title_(track);
-        rectrack.Performer = Artist_(track);
-
-        //CISRCList *isrcs = recording->ISRCList();
-        //if (isrcs && isrcs->NumItems()>0)
-        //    rectrack.ISRC = isrcs->Item(0)->ID();
-    }
-
-    return rec;
+    return Releases[recnum].NumberOfTracks();
 }
 
+/** Get track title
+ *
+ *  @param[in] Track number (1-99)
+ *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+ *             is returned.
+ *  @return    Title string (empty if title not available)
+ *  @throw     runtime_error if track number is invalid
+ */
+std::string CDbDiscogs::TrackTitle(int tracknum, const int recnum) const
+{
+    // set disc
+    if (recnum<0 || recnum>=(int)Releases.size()) // all discs
+        throw(runtime_error("Invalid CD record ID."));
+
+    return Releases[recnum].TrackTitle(tracknum);
+}
+
+/** Get track artist
+ *
+ *  @param[in] Track number (1-99)
+ *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+ *             is returned.
+ *  @return    Artist string (empty if artist not available)
+ *  @throw     runtime_error if track number is invalid
+ */
+std::string CDbDiscogs::TrackArtist(int tracknum, const int recnum) const
+{
+    // set disc
+    if (recnum<0 || recnum>=(int)Releases.size()) // all discs
+        throw(runtime_error("Invalid CD record ID."));
+
+    return Releases[recnum].TrackArtist(tracknum);
+}
+
+/** Get track composer
+ *
+ *  @param[in] Track number (1-99)
+ *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+ *             is returned.
+ *  @return    Composer string (empty if artist not available)
+ *  @throw     runtime_error if track number is invalid
+ */
+std::string CDbDiscogs::TrackComposer(int tracknum, const int recnum) const
+{
+    // set disc
+    if (recnum<0 || recnum>=(int)Releases.size()) // all discs
+        throw(runtime_error("Invalid CD record ID."));
+
+    return Releases[recnum].TrackComposer(tracknum);
+}
+
+/** Get track ISRC
+ *
+ *  @param[in] Track number (1-99)
+ *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+ *             is returned.
+ *  @return    ISRC string
+ *  @throw     runtime_error if track number is invalid
+ */
+std::string CDbDiscogs::TrackISRC(int tracknum, const int recnum) const
+{
+    // set disc
+    if (recnum<0 || recnum>=(int)Releases.size()) // all discs
+        throw(runtime_error("Invalid CD record ID."));
+
+    return Releases[recnum].TrackISRC(tracknum);
+}
 
 void CDbDiscogs::Authorize_()
 {
@@ -549,3 +398,88 @@ void CDbDiscogs::Authorize_()
     //        exit(1);
     //    }
 }
+
+/** Retrieve the disc info from specified database record
+ *
+ *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+ *             is returned.
+ *  @return    SDbrBase Pointer to newly created database record object. Caller is
+ *             responsible for deleting the object.
+ */
+//SDbrBase* CDbDiscogs::Retrieve(const int recnum) const
+//{
+//    json_t *tracks;
+//    int num_tracks;
+//    string str;
+//    json_int_t val;
+
+//    // instantiate new DBR object
+//    SDbrDiscogs * rec = new SDbrDiscogs;
+
+//    // set disc
+//    if (recnum<0 || recnum>=(int)Releases.size()) // all discs
+//        throw(runtime_error("Invalid Release record ID."));
+
+//    // Grab the specified release info
+//    const json_t *r = Releases[recnum];
+
+//    rec->Title = Title_(r);
+//    rec->Performer = Artist_(r);
+
+//    rec->Rems.emplace_back("DBSRC Discogs");
+//    if (FindInt_(r,"id",val))
+//        rec->Rems.emplace_back("ID "+to_string(val));	// comments on the disc
+
+//    str = Genre_(r);
+//    if (str.size()) rec->Rems.emplace_back("GENRE "+str);
+
+//    str = Date_(r);
+//    if (str.size())
+//        rec->Rems.emplace_back("DATE "+str);
+
+//    str = Country_(r);
+//    if (str.size())
+//        rec->Rems.emplace_back("COUNTRY "+str);
+
+//    str = Identifier_(r,"Barcode");
+//    if (str.size())
+//        rec->Rems.emplace_back("UPC "+str);
+
+//    str = Identifier_(r,"ASIN");
+//    if (str.size())
+//        rec->Rems.emplace_back("ASIN "+str);
+
+//    str = Label_(r);
+//    if (str.size())
+//        rec->Rems.emplace_back("LABEL "+str);
+
+//    // get disc# and total # of cds if multiple-cd set
+//    val = NumberOfDiscs_(r);
+//    if (val>1)
+//    {
+//        rec->Rems.emplace_back("DISC "+to_string(discnos[recnum]));
+//        rec->Rems.emplace_back("DISCS "+to_string(val));
+//    }
+
+//    // initialize tracks
+//    tracks = TrackList_(r, discnos[recnum]);
+//    num_tracks = json_array_size(tracks);
+//    rec->AddTracks(num_tracks); // adds Tracks 1 to num_tracks
+
+//    for (int i=0;i<num_tracks;i++)
+//    {
+//        json_t *track = json_array_get(tracks,i);
+
+//        // get the track object
+//        SCueTrack &rectrack = rec->Tracks[i];
+
+//        rectrack.Title = Title_(track);
+//        rectrack.Performer = Artist_(track);
+
+//        //CISRCList *isrcs = recording->ISRCList();
+//        //if (isrcs && isrcs->NumItems()>0)
+//        //    rectrack.ISRC = isrcs->Item(0)->ID();
+//    }
+
+//    return rec;
+//}

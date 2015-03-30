@@ -3,19 +3,16 @@
 #include <string>
 #include <vector>
 #include <curl/curl.h>
-#include <jansson.h>
 
 #include "IDatabase.h"
 #include "IReleaseDatabase.h"
 #include "IImageDatabase.h"
-#include "CDbBase.h"
 #include "CDbHttpBase.h"
-#include "CDbJsonBase.h"
 #include "SDbrBase.h"
 
 class CDbMusicBrainz;
-class CDiscogsElem;
-typedef std::vector<CDiscogsElem> CDiscogsElemVector;
+class CDbDiscogsElem;
+typedef std::vector<CDbDiscogsElem> CDiscogsElemVector;
 
 struct SCueSheet;
 
@@ -50,7 +47,7 @@ class CDbMusicBrainz;
  */
 class CDbDiscogs :
         public IDatabase, public IReleaseDatabase, public IImageDatabase,
-        public CDbHttpBase, public CDbJsonBase
+        public CDbHttpBase
 {
 public:
     /** Constructor.
@@ -124,7 +121,7 @@ public:
      *  @param[in] (Optional) UPC barcode
      *  @return    Number of matched records
      */
-    virtual int Query(const CDbMusicBrainz &mbdb, const std::string upc="");
+    virtual int Query(CDbMusicBrainz &mbdb, const std::string upc="");
 
     /** If AllowSearchByArtistTitle() returns true, Search() performs a new album search based on
      *  album title and artist. If search is not supported or did not return any match,
@@ -163,7 +160,7 @@ public:
       *  @param[in] Network time out in seconds. If omitted or negative, previous value
       *             will be reused. System default is 10.
       */
-    virtual void Populate(const int recnum=-1)=0;
+    virtual void Populate(const int recnum=-1) {}
 
     // -----------------------------------------------------------------------
 
@@ -171,13 +168,13 @@ public:
      *
      *  @return discid string
      */
-    virtual std::string GetDiscId() const=0;
+    virtual std::string GetDiscId() const { return ""; }
 
     /** Returns the number of matched records returned from the last Query() call.
      *
      *  @return    Number of matched records
      */
-    virtual int NumberOfMatches() const=0;
+    virtual int NumberOfMatches() const;
 
     /** Get album UPC
      *
@@ -193,7 +190,7 @@ public:
      *             is returned.
      *  @return id string if Query was successful.
      */
-    virtual std::string ReleaseId(const int recnum=0) const=0;
+    virtual std::string ReleaseId(const int recnum=0) const;
 
     /** Get album title
      *
@@ -217,7 +214,7 @@ public:
      *             is returned.
      *  @return    Composer/songwriter string (empty if artist not available)
      */
-    virtual std::string AlbumComposer(const int recnum=0) const=0;
+    virtual std::string AlbumComposer(const int recnum=0) const;
 
     /** Get genre
      *
@@ -227,14 +224,13 @@ public:
      */
     virtual std::string Genre(const int recnum=0) const;
 
-
     /** Get release date
      *
      *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
      *             is returned.
      *  @return    Date string (empty if genre not available)
      */
-    virtual std::string Date(const int recnum=0) const=0;
+    virtual std::string Date(const int recnum=0) const;
 
     /** Get release country
      *
@@ -242,7 +238,7 @@ public:
      *             is returned.
      *  @return    Countery string (empty if genre not available)
      */
-    virtual std::string Country(const int recnum=0) const=0;
+    virtual std::string Country(const int recnum=0) const;
 
     /**
      * @brief Get disc number
@@ -250,7 +246,7 @@ public:
      *            is returned.
      * @return    Disc number or -1 if unknown
      */
-    virtual int DiscNumber(const int recnum=0) const=0;
+    virtual int DiscNumber(const int recnum=0) const;
 
     /**
      * @brief Get total number of discs in the release
@@ -258,7 +254,7 @@ public:
      *            is returned.
      * @return    Number of discs or -1 if unknown
      */
-    virtual int TotalDiscs(const int recnum=0) const=0;
+    virtual int TotalDiscs(const int recnum=0) const;
 
     /** Get label name
      *
@@ -266,7 +262,16 @@ public:
      *             is returned.
      *  @return    Label string (empty if label not available)
      */
-    virtual std::string AlbumLabel(const int recnum=0) const=0;
+    virtual std::string AlbumLabel(const int recnum=0) const;
+
+    /** Get number of tracks
+     *
+     *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+     *             is returned.
+     *  @return    number of tracks
+     *  @throw     runtime_error if CD record id is invalid
+     */
+    virtual int NumberOfTracks(const int recnum=0) const;
 
     /** Get track title
      *
@@ -276,7 +281,7 @@ public:
      *  @return    Title string (empty if title not available)
      *  @throw     runtime_error if track number is invalid
      */
-    virtual std::string TrackTitle(int tracknum, const int recnum=0) const=0;
+    virtual std::string TrackTitle(int tracknum, const int recnum=0) const;
 
     /** Get track artist
      *
@@ -286,7 +291,7 @@ public:
      *  @return    Artist string (empty if artist not available)
      *  @throw     runtime_error if track number is invalid
      */
-    virtual std::string TrackArtist(int tracknum, const int recnum=0) const=0;
+    virtual std::string TrackArtist(int tracknum, const int recnum=0) const;
 
     /** Get track composer
      *
@@ -296,7 +301,7 @@ public:
      *  @return    Composer string (empty if artist not available)
      *  @throw     runtime_error if track number is invalid
      */
-    virtual std::string TrackComposer(int tracknum, const int recnum=0) const=0;
+    virtual std::string TrackComposer(int tracknum, const int recnum=0) const;
 
     /** Get track ISRC
      *
@@ -306,7 +311,7 @@ public:
      *  @return    ISRC string
      *  @throw     runtime_error if track number is invalid
      */
-    virtual std::string TrackISRC(int tracknum, const int recnum=0) const=0;
+    virtual std::string TrackISRC(int tracknum, const int recnum=0) const;
 
     // -----------------------------------------------------------------------------
 
@@ -314,55 +319,55 @@ public:
      *
      *  @param[in] Preferred width of the image
      */
-    virtual void SetPreferredWidth(const size_t &width);
+    virtual void SetPreferredWidth(const size_t &width) {}
 
     /** Specify the preferred coverart image height
      *
      *  @param[in] Preferred height of the image
      */
-    virtual void SetPreferredHeight(const size_t &height);
+    virtual void SetPreferredHeight(const size_t &height) {}
 
     /** Check if the query returned a front cover
      *
      *  @param[in]  record index (default=0)
      *  @return     true if front cover is found.
      */
-    virtual bool Front(const int recnum=0) const;
+    virtual bool Front(const int recnum=0) const { return false; }
 
     /** Check if the query returned a back cover
      *
      *  @param[in]  record index (default=0)
      *  @return     true if back cover is found.
      */
-    virtual bool Back(const int recnum=0) const;
+    virtual bool Back(const int recnum=0) const { return false; }
 
     /** Retrieve the front cover data.
      *
      *  @param[out] image data buffer.
      *  @param[in]  record index (default=0)
      */
-    virtual UByteVector FrontData(const int recnum=0) const;
+    virtual UByteVector FrontData(const int recnum=0) const { UByteVector rval; return rval; }
 
     /** Check if the query returned a front cover
      *
      *  @param[out] image data buffer.
      *  @param[in]  record index (default=0)
      */
-    virtual UByteVector BackData(const int recnum=0) const;
+    virtual UByteVector BackData(const int recnum=0) const { UByteVector rval; return rval; }
 
     /** Get the URL of the front cover image
      *
      *  @param[in]  Record index (default=0)
      *  @return     URL string
      */
-    virtual std::string FrontURL(const int recnum=0) const;
+    virtual std::string FrontURL(const int recnum=0) const { return ""; }
 
     /** Get the URL of the back cover image
      *
      *  @param[in]  Record index (default=0)
      *  @return     URL string
      */
-    virtual std::string BackURL(const int recnum=0) const;
+    virtual std::string BackURL(const int recnum=0) const { return ""; }
 
     // -----------------------------------------------------------
 
@@ -373,7 +378,7 @@ public:
          *  @return    SDbrBase Pointer to newly created database record object. Caller is
          *             responsible for deleting the object.
          */
-    virtual SDbrBase* Retrieve(const int recnum=0) const;
+//    virtual SDbrBase* Retrieve(const int recnum=0) const;
 
 private:
     static const std::string base_url;
@@ -386,13 +391,14 @@ private:
      */
     void Authorize_();
 
-    static std::string Title_(const json_t* data); // maybe release or track json_t
-    static std::string Artist_(const json_t* data); // maybe release or track json_t
-    static std::string Genre_(const json_t* release);
-    static std::string Label_(const json_t* release);
-    static std::string Date_(const json_t* release);
-    static std::string Country_(const json_t* release);
-    static std::string Identifier_(const json_t* release, const std::string type);
-    static int NumberOfDiscs_(const json_t *release);
-    static json_t* TrackList (const json_t *release, const int discno);
+    /**
+     * @brief Query helper function to analyze master release record
+     * @param[inout] receives a url to a master release record and
+     *               returns a url to its oldest CD release record.
+     *               If the master ID is the same as the previous,
+     *               returns empty string.
+     * @param[in] ID of the last master record queried (0 if none prior).
+     * @return ID of the new record
+     */
+    int QueryMaster_(std::string &url, const int last_id);
 };

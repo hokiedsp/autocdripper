@@ -152,7 +152,7 @@ public:
      *  @param[in] (Optional) UPC barcode
      *  @return    Number of matched records
      */
-    virtual int Query(const CDbMusicBrainz &mbdb, const std::string upc="")  { return 0; }
+    virtual int Query(CDbMusicBrainz &mbdb, const std::string upc="")  { return 0; }
 
     /** If AllowSearchByArtistTitle() returns true, Search() performs a new album search based on
      *  album title and artist. If search is not supported or did not return any match,

@@ -28,11 +28,11 @@ CDbHttpBase::CDbHttpBase(const std::string &cname,const std::string &cversion)
     if (!curl) throw(runtime_error("Failed to start a libcurl session."));
 
     // reserve large enough data buffer
-    data.reserve(CURL_MAX_WRITE_SIZE);    // reserve memory for receive buffer
+    rawdata.reserve(CURL_MAX_WRITE_SIZE);    // reserve memory for receive buffer
 
     // use static write_callback as the default write callback function
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, CDbHttpBase::write_callback);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &data);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &rawdata);
 
     // set user agent
     curl_easy_setopt(curl, CURLOPT_USERAGENT, (cname+"/"+cversion).c_str());
@@ -61,7 +61,7 @@ CDbHttpBase::~CDbHttpBase()
 void CDbHttpBase::PerformHttpTransfer_(const std::string &url)
 {
     // empty the buffer
-    data.clear();
+    rawdata.clear();
 
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
     CURLcode res = curl_easy_perform(curl);

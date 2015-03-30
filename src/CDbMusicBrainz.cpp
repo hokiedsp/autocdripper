@@ -379,6 +379,35 @@ std::string CDbMusicBrainz::AlbumUPC(const int recnum) const
     return Releases[recnum].Barcode();
 }
 
+
+/** Get number of tracks
+ *
+ *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+ *             is returned.
+ *  @return    number of tracks
+ *  @throw     runtime_error if CD record id is invalid
+ */
+int CDbMusicBrainz::NumberOfTracks(const int recnum) const
+{
+    int rval;
+
+    // set disc
+    if (recnum<0 || recnum>=(int)Releases.size()) // all discs
+        throw(runtime_error("Invalid CD record ID."));
+
+    // get cd media info
+    CMediumList media = Releases[recnum].MediaMatchingDiscID(discid); // guarantees to return non-NULL
+    CMedium *medium = media.Item(0);
+
+    // initialize tracks
+    if (medium->TrackList())
+        rval = medium->TrackList()->NumItems();
+    else
+        throw(runtime_error("Could not find the number of tracks."));
+
+    return rval;
+}
+
 /** Get track title
  *
  *  @param[in] Track number (1-99)

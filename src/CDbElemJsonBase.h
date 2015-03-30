@@ -28,16 +28,8 @@ public:
     virtual void PrintJSON(std::ostream &os=std::cout) const;
 
 protected:
-    json_t data;
-    json_error_t errors;
-
-    /**
-     * @brief AppendRelease_
-     * @param data
-     * @return
-     */
-    json_t* NewData_();
-    void DeleteData_(jsont_t* data);
+    json_t *data;
+    json_error_t error;
 
     // helper functions to get value of a requested key
     static bool FindBool_(const json_t* obj, const std::string &key, bool &val);
@@ -60,9 +52,6 @@ protected:
     static int CompareString_(const json_t* obj, const std::string &key, const std::string &str);
 
 private:
-    std::vector<json_t*> Data;  // keep it private
-
     static void PrintJSON_(std::ostream &os, const char *key, json_t *value, const std::string pre);
     static void PrintJSON_value_(std::ostream &os, json_t *value, const std::string pre);
-
 };

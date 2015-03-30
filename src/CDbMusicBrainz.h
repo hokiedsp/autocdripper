@@ -130,7 +130,7 @@ public:
      *  @param[in] (Optional) UPC barcode
      *  @return    Number of matched records
      */
-    virtual int Query(const CDbMusicBrainz &mbdb, const std::string upc="") { return 0; }
+    virtual int Query(CDbMusicBrainz &mbdb, const std::string upc="") { return 0; }
 
     /** If AllowSearchByArtistTitle() returns true, Search() performs a new album search based on
      *  album title and artist. If search is not supported or did not return any match,
@@ -279,6 +279,15 @@ public:
      *             is returned.
      *  @return    Composer/songwriter string (empty if artist not available)
      */
+
+    /** Get number of tracks
+     *
+     *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+     *             is returned.
+     *  @return    number of tracks
+     *  @throw     runtime_error if CD record id is invalid
+     */
+    virtual int NumberOfTracks(const int recnum=0) const;
 
     /** Get track title
      *
