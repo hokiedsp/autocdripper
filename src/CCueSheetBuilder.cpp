@@ -240,10 +240,6 @@ void CCueSheetBuilder::ThreadMain()
     cout << "[CCueSheetBuilder thread] step 2\n";
     if (mbdb) // MusicBrainz DB is included
     {
-        cout << "MusicBrainz database found\n";
-        for (int i=0;i<mbdb->NumberOfMatches();i++)
-            cout << " discogs link: " << mbdb->RelationUrl("discogs",i) << std::endl;
-
         for (it=databases.begin(); it!=databases.end(); it++)
         {
             if (stop_request) goto cancel;

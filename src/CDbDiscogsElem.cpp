@@ -1,7 +1,7 @@
 #include "CDbDiscogsElem.h"
 
 CDbDiscogsElem::CDbDiscogsElem(const std::string &data, const int d)
-    : CDbElemJsonBase(data), disc(d)
+    : CUtilJson(data), disc(d)
 {}
 
 /** Return a unique release ID string
@@ -13,7 +13,7 @@ std::string CDbDiscogsElem::ReleaseId() const
     std::string rval;
     json_int_t rvalint;
 
-    if (FindInt_(data,"id",rvalint))
+    if (FindInt(data,"id",rvalint))
         rval = std::to_string(rvalint);
 
     return rval;
@@ -54,7 +54,7 @@ std::string CDbDiscogsElem::AlbumComposer() const
 std::string CDbDiscogsElem::Genre() const
 {
     json_t *genres;
-    if (!FindArray_(data,"genres",genres)) return "";
+    if (!FindArray(data,"genres",genres)) return "";
     return json_string_value(json_array_get(genres,0));
 
 }
@@ -68,8 +68,8 @@ std::string CDbDiscogsElem::Date() const
     json_int_t yr;
     std::string str;
 
-    if (!FindString_(data,"released",str)
-            && FindInt_(data,"year",yr))
+    if (!FindString(data,"released",str)
+            && FindInt(data,"year",yr))
         str = std::to_string(yr);
 
     return str;
@@ -82,7 +82,7 @@ std::string CDbDiscogsElem::Date() const
 std::string CDbDiscogsElem::Country() const
 {
     std::string str;
-    FindString_(data,"country",str);
+    FindString(data,"country",str);
     return str;
 }
 
@@ -108,19 +108,19 @@ int CDbDiscogsElem::TotalDiscs() const
 
     // look for format_quantity
     json_int_t nodiscs;
-    if (FindInt_(data,"format_quantity",nodiscs))
+    if (FindInt("format_quantity", nodiscs))
     {
         rval = (int)nodiscs;
     }
     else
     {
         // look for qty entry under formats
-        if (FindArray_(data,"formats",array))
+        if (FindArray("formats",array))
         {
             // Look for format entries
             json_array_foreach(array, index, elem)
             {
-                if (CompareString_(elem,"name","CD") && FindString_(elem,"qty",str))
+                if (CompareString(elem,"name","CD") && FindString(elem,"qty",str))
                 {
                     try
                     {
@@ -135,12 +135,12 @@ int CDbDiscogsElem::TotalDiscs() const
 
         // if for some reason, formats/qty is not found, check for existence of sub track field
         {
-            if (FindArray_(data,"tracklist",array))
+            if (FindArray("tracklist",array))
             {
                 // If all tracks contain sub_tracks, assume multi-CD release, else single-cd release
                 json_array_foreach(array, index, elem)
                 {
-                    if (!FindArray_(elem,"sub_tracks",elem))
+                    if (!FindArray(elem,"sub_tracks",elem))
                     {
                         rval = 1;
                         break;
@@ -165,10 +165,10 @@ std::string CDbDiscogsElem::AlbumLabel() const
     json_t *labels;
     std::string labelstr;
 
-    if (FindArray_(data,"labels",labels))
+    if (FindArray("labels",labels))
     {
         labels = json_array_get(labels,0); // get the first label entry
-        FindString_(labels,"name",labelstr);
+        FindString(labels,"name",labelstr);
     }
 
     return labelstr;
@@ -267,15 +267,15 @@ std::string CDbDiscogsElem::Identifier(const std::string type) const
     json_t *idarray, *id;
     std::string str;
 
-    if (!FindArray_(data,"identifiers",idarray)) return "";
+    if (!FindArray("identifiers",idarray)) return "";
 
     // Look for the entry with requested type
     json_array_foreach(idarray, index, id)
     {
         // if Identifier type does not match, go to next
-        if (CompareString_(id, "type", type)) continue;
+        if (CompareString(id, "type", type)) continue;
 
-        if (FindString_(id,"value",str)) return str;
+        if (FindString(id,"value",str)) return str;
     }
 
     // if reaches here, Sought Identifier is not present in the record
@@ -286,12 +286,12 @@ json_t* CDbDiscogsElem::TrackList_() const
 {
     json_t *tracks;
 
-    if (!FindArray_(data, "tracklist", tracks))
+    if (!FindArray("tracklist", tracks))
         throw(std::runtime_error("Tracklist not found."));
 
     // if multi-disc set
     if (TotalDiscs()>1)
-        FindArray_(json_array_get(tracks,disc-1),"sub_tracks",tracks);
+        FindArray(json_array_get(tracks,disc-1),"sub_tracks",tracks);
 
     return tracks;
 }
@@ -299,7 +299,7 @@ json_t* CDbDiscogsElem::TrackList_() const
 std::string CDbDiscogsElem::Title_(const json_t* data) // maybe release or track json_t
 {
     std::string titlestr;
-    FindString_(data, "title", titlestr);
+    FindString(data, "title", titlestr);
     return titlestr;
 }
 
@@ -311,16 +311,16 @@ std::string CDbDiscogsElem::Artist_(const json_t* data, const int artisttype) //
     json_t *artists, *value;
 
     // Look for artist entries
-    if (FindArray_(data,"artists",artists))
+    if (FindArray(data, "artists",artists))
     {
         json_array_foreach(artists, index, value)
         {
             // look for the name string
-            if (!FindString_(value,"name",str) || str.empty()) break;
+            if (!FindString(value,"name",str) || str.empty()) break;
             astr += str;
 
             // look for the join string and append it to the artist string
-            more = FindString_(value,"join", joinstr);
+            more = FindString(value,"join", joinstr);
             if (more && joinstr.size())
             {
                 if (joinstr.substr(0,1).find_first_of(" ,;:./\\])>|")==std::string::npos) astr += ' ';
@@ -336,16 +336,16 @@ std::string CDbDiscogsElem::Artist_(const json_t* data, const int artisttype) //
     }
 
     // If none found or more expected, also check extraartists entries
-    if (more && FindArray_(data,"extraartists",artists))
+    if (more && FindArray(data, "extraartists",artists))
     {
         json_array_foreach(artists, index, value)
         {
             // look for the name string
-            if (!FindString_(value,"name",str) || str.empty()) break;
+            if (!FindString(value,"name",str) || str.empty()) break;
             astr += str;
 
             // look for the join string and append it to the artist string
-            if (!FindString_(value,"join", joinstr) || joinstr.empty()) break;
+            if (!FindString(value,"join", joinstr) || joinstr.empty()) break;
             if (joinstr.substr(0,1).find_first_of(" ,;:./\\])>|")==std::string::npos) astr += ' ';
             astr += joinstr;
             if (joinstr.substr(joinstr.size()-1,1).find_first_of(" /\\[(<|")==std::string::npos) astr += ' ';

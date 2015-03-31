@@ -1,8 +1,8 @@
 #pragma once
 
-#include "CDbElemJsonBase.h"
+#include "CUtilJson.h"
 
-class CDbDiscogsElem : public CDbElemJsonBase
+class CDbDiscogsElem : protected CUtilJson
 {
 public:
     CDbDiscogsElem(const std::string &data, const int disc=1);

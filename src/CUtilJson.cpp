@@ -1,4 +1,4 @@
-#include "CDbElemJsonBase.h"
+#include "CUtilJson.h"
 
 #include <stdexcept>
 
@@ -7,7 +7,7 @@ using std::runtime_error;
 
 /** Constructor.
  */
-CDbElemJsonBase::CDbElemJsonBase(const std::string &rawdata)
+CUtilJson::CUtilJson(const std::string &rawdata)
 {
     // now load the data onto json object
     try
@@ -23,13 +23,13 @@ CDbElemJsonBase::CDbElemJsonBase(const std::string &rawdata)
 
 /** Destructor
  */
-CDbElemJsonBase::~CDbElemJsonBase()
+CUtilJson::~CUtilJson()
 {
     json_object_clear(data);
 }
 
 // helper functions to get value of a requested key
-bool CDbElemJsonBase::FindBool_(const json_t* obj, const std::string &key, bool &val)
+bool CUtilJson::FindBool(const json_t* obj, const std::string &key, bool &val)
 {
     json_t * value = json_object_get(obj, key.c_str());
 
@@ -43,7 +43,7 @@ bool CDbElemJsonBase::FindBool_(const json_t* obj, const std::string &key, bool 
     return rval;
 }
 
-bool CDbElemJsonBase::FindInt_(const json_t* obj, const std::string &key, json_int_t &val)
+bool CUtilJson::FindInt(const json_t* obj, const std::string &key, json_int_t &val)
 {
     json_t * value = json_object_get(obj, key.c_str());
     bool rval = value; // key found
@@ -55,7 +55,7 @@ bool CDbElemJsonBase::FindInt_(const json_t* obj, const std::string &key, json_i
     return rval;
 }
 
-bool CDbElemJsonBase::FindDouble_(const json_t* obj, const std::string &key, double &val)
+bool CUtilJson::FindDouble(const json_t* obj, const std::string &key, double &val)
 {
     json_t * value = json_object_get(obj, key.c_str());
     bool rval = value;
@@ -68,7 +68,7 @@ bool CDbElemJsonBase::FindDouble_(const json_t* obj, const std::string &key, dou
     return rval;
 }
 
-bool CDbElemJsonBase::FindString_(const json_t* obj, const std::string &key, std::string &val)
+bool CUtilJson::FindString(const json_t* obj, const std::string &key, std::string &val)
 {
     json_t * value = json_object_get(obj, key.c_str());
     bool rval = value;
@@ -91,7 +91,7 @@ bool CDbElemJsonBase::FindString_(const json_t* obj, const std::string &key, std
  *             the compared string, or >0 if first key string is shorter than the
  *             compared string
  */
-int CDbElemJsonBase::CompareString_(const json_t* obj, const std::string &key, const std::string &str)
+int CUtilJson::CompareString(const json_t* obj, const std::string &key, const std::string &str)
 {
     int rval = -1; // if remained, key doesn't exist or its value is not a string
 
@@ -101,29 +101,29 @@ int CDbElemJsonBase::CompareString_(const json_t* obj, const std::string &key, c
     return rval;
 }
 
-bool CDbElemJsonBase::FindObject_(const json_t* obj, const std::string &key, json_t* & val)
+bool CUtilJson::FindObject(const json_t* obj, const std::string &key, json_t* & val)
 {
     val = json_object_get(obj, key.c_str());
     return val!=NULL && json_is_object(val);
 }
 
-bool CDbElemJsonBase::FindArray_(const json_t* obj, const std::string &key, json_t* & val)
+bool CUtilJson::FindArray(const json_t* obj, const std::string &key, json_t* & val)
 {
     val = json_object_get(obj, key.c_str());
     return val!=NULL && json_is_array(val);
 }
 
-void CDbElemJsonBase::PrintJSON(std::ostream &os) const
+void CUtilJson::PrintJSON(const json_t* obj, std::ostream &os)
 {
     const char *key;
     json_t *value;
-    json_object_foreach(data, key, value)
+    json_object_foreach(const_cast<json_t*>(obj), key, value)
     {
         PrintJSON_(os, key, value, "");
     }
 }
 
-void CDbElemJsonBase::PrintJSON_(std::ostream &os, const char *key, json_t *value, std::string pre)
+void CUtilJson::PrintJSON_(std::ostream &os, const char *key, json_t *value, std::string pre)
 {
     /* block of code that uses key and value */
     if (json_typeof(value)==JSON_ARRAY)
@@ -143,7 +143,7 @@ void CDbElemJsonBase::PrintJSON_(std::ostream &os, const char *key, json_t *valu
     }
 }
 
-void CDbElemJsonBase::PrintJSON_value_(std::ostream &os, json_t *value, const std::string pre)
+void CUtilJson::PrintJSON_value_(std::ostream &os, json_t *value, const std::string pre)
 {
     switch (json_typeof(value))
     {

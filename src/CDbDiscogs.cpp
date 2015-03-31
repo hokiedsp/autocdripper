@@ -10,7 +10,6 @@
 #include <iomanip>
 
 #include "CDbDiscogsElem.h"
-#include "CDbElemJsonBase.h"
 #include "CDbMusicBrainz.h"
 #include "SCueSheet.h"
 #include "credirect.h" // to redirect std::cerr stream
@@ -74,6 +73,9 @@ int CDbDiscogs::Query(CDbMusicBrainz &mbdb, const std::string upc)
 
         // get the relation URL
         std::string url = mbdb.RelationUrl("discogs",i);
+
+        cout << " MB link: " << url << std::endl;
+
         if (url.size())
         {
             // If non-empty, parse the URL string
@@ -81,16 +83,21 @@ int CDbDiscogs::Query(CDbMusicBrainz &mbdb, const std::string upc)
             //  http://www.discogs.com/release/2449413 // jobim songbook
             //  http://www.discogs.com/master/251798   // bill evans moon beams
 
-            // convert the given URL with base_url for API query URL
-            const std::string mb_base_url("http://www.discogs.com/");
-            url.replace(0,mb_base_url.length(),base_url);
+            cout << url << std::endl;
 
             // If a link to master release is given, find its oldest CD release
-            if (url.compare(base_url.length(),6,"master")==0)
+            if (url.find("master",22)==string::npos)
             {
-                int id = QueryMaster_(url, lastmaster);
-                if (url.empty()) continue; // duplicate master, go to next record
+                // convert the given URL with base_url for API query URL
+                const std::string mb_base_url("http://www.discogs.com/release");
+                url.replace(0,mb_base_url.length(),base_url+"releases");
+            }
+            else
+            {
+                // master release link given
+                int id = QueryMaster_(url, upc, lastmaster);
                 lastmaster = id; // update
+                if (url.empty()) continue; // duplicate master, go to next record
             }
 
             // Get release data
@@ -112,26 +119,86 @@ int CDbDiscogs::Query(CDbMusicBrainz &mbdb, const std::string upc)
  * @return true if failed to retrieve URL to a release
  * @throw runtime_error if URL does not resolve to a valid master record
  */
-int CDbDiscogs::QueryMaster_(std::string &url, const int last_id)
+int CDbDiscogs::QueryMaster_(std::string &url, const std::string upc, const int last_id)
 {
     int id=0;
+    int date=0;
 
-    PerformHttpTransfer_(url); // received data is stored in rawdata
-//    CDbElemJsonBase master(rawdata);
-//    master.PrintJSON();
+    const std::string mb_base_url("http://www.discogs.com/master");
 
-//    FindInt_(master,"id",id);
-//    if (id==last_id)
-//    {
+    // Check the master release id
+    id = std::stoi(url.substr(mb_base_url.size()+1));
+    if (id!=last_id)
+    {
+        // convert the given URL with base_url for API query URL
+        url.replace(0,mb_base_url.length(),base_url+"masters");
+        cout << url << std::endl;
+
+        // retrieve the master data
+        PerformHttpTransfer_(url); // received data is stored in rawdata
+        CUtilJson master(rawdata);
+
+        // get the URL link to its versions
+        CUtilJson::FindString(master.data,"versions_url",url);
+        cout << url << std::endl;
+
+        // retrieve the versions data
+        PerformHttpTransfer_(url); // received data is stored in rawdata
+        CUtilJson versions(rawdata);
+
+        // Get the number of pages
+        json_int_t pages;
+        json_t *pageinfo;
+        versions.FindObject("pagination", pageinfo);
+        CUtilJson::FindInt(pageinfo, "pages", pages);
+
+        ParseMasterVersions_(versions, upc);
+
+        for (json_int_t p = 2; p<=pages; p++)
+        {
+            PerformHttpTransfer_(url+"?page="+std::to_string(p)); // received data is stored in rawdata
+            CUtilJson versions(rawdata);
+
+            ParseMasterVersions_(versions, upc);
+        }
         url.clear();
-//    }
-//    else
-//    {
-//        url.clear(); // for now
-//        // sort through data
-//    }
+    }
+    else
+    {
+        url.clear();
+    }
+    //    }
+    //    else
+    //    {
+    //        url.clear(); // for now
+    //        // sort through data
+    //    }
 
     return id; // for now
+}
+
+int CDbDiscogs::ParseMasterVersions_(const CUtilJson &versions, const std::string &upc)
+{
+
+    // get the version list
+    json_t *list;
+    CUtilJson::FindArray(versions.data, "versions", list);
+
+    // traverse the array and look for the
+    size_t index;
+    json_t *version;
+    std::string fmt;
+
+    json_array_foreach(list, index, version)
+    {
+        // look for the format string and if it does not contain CD, skip
+        if (CUtilJson::FindString(version, "format", fmt) && fmt.compare(0, 2, "CD")!=0)
+            continue;
+
+        CUtilJson::PrintJSON(version);
+
+    }
+    return 0;
 }
 
 /** Returns the number of matched records returned from the last Query() call.

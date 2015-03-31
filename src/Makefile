@@ -4,7 +4,7 @@ CFLAGS = -Wall -std=c++11 -I/usr/include/glib-2.0 -I/usr/lib/x86_64-linux-gnu/gl
 MAIN = autocdripper
 SRCS = autocdripper.cpp CCdRipper.cpp CSourceCdda.cpp CSinkBase.cpp CSinkWav.cpp\
        CSinkWavPack.cpp CTagsGeneric.cpp CTagsAPEv2.cpp SCueSheet.cpp CDbFreeDb.cpp\
-       CDbMusicBrainz.cpp CCueSheetBuilder.cpp enums.cpp CDbDiscogs.cpp CDbElemJsonBase.cpp\
+       CDbMusicBrainz.cpp CCueSheetBuilder.cpp enums.cpp CDbDiscogs.cpp CUtilJson.cpp\
        CDbDiscogsElem.cpp CDbHttpBase.cpp
 LIBS = -lwavpack -lcdio -lcdio_cdda -lcdio_paranoia -lcddb -lmusicbrainz5 -ldiscid -lcoverart\
        -lcurl -ljansson

@@ -15,6 +15,7 @@ using std::endl;
 
 #include "CDbFreeDb.h"
 #include "CDbMusicBrainz.h"
+#include "CDbDiscogs.h"
 
 using std::exception;
 
@@ -24,6 +25,7 @@ int main(int argc, const char *argv[])
     {
         CDbFreeDb freedb;
         CDbMusicBrainz mbdb;
+        CDbDiscogs discogs;
         CCueSheetBuilder csbuilder;
 
         freedb.SetCacheSettings("off");
@@ -33,8 +35,9 @@ int main(int argc, const char *argv[])
         csbuilder.SetCdInfo(cdrom);
         //csbuilder.SetCdInfo(cdrom,"731452547224"); // jobim songbook
 
+        csbuilder.AddDatabase(discogs);
         csbuilder.AddDatabase(mbdb);
-        csbuilder.AddDatabase(freedb);
+        //csbuilder.AddDatabase(freedb);
 
         csbuilder.AddRemField(AlbumRemFieldType::DBINFO);
         csbuilder.AddRemField(AlbumRemFieldType::UPC);

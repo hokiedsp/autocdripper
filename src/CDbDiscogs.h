@@ -9,6 +9,7 @@
 #include "IImageDatabase.h"
 #include "CDbHttpBase.h"
 #include "SDbrBase.h"
+#include "CUtilJson.h"
 
 class CDbMusicBrainz;
 class CDbDiscogsElem;
@@ -97,6 +98,12 @@ public:
      * @return true if database supports search by album artist and title
      */
     virtual bool AllowSearchByArtistTitle() const { return false; }
+
+    /**
+     * @brief Return database type enum
+     * @return ReleaseDatabase enumuration value
+     */
+    virtual DatabaseType GetDatabaseType() const { return DatabaseType::DISCOGS  ; }
 
     /** If AllowQueryCD() returns true, Query() performs a new query for the CD info
      *  in the specified drive with its *  tracks specified in the supplied cuesheet
@@ -371,17 +378,15 @@ public:
 
     // -----------------------------------------------------------
 
-    /** Retrieve the disc info from specified database record
-         *
-         *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
-         *             is returned.
-         *  @return    SDbrBase Pointer to newly created database record object. Caller is
-         *             responsible for deleting the object.
-         */
-//    virtual SDbrBase* Retrieve(const int recnum=0) const;
+    /**
+     * @brief Set Country Preference
+     * @param[in] country_code
+     */
+    void SetCountryPreference(const std::string country_code);
 
 private:
     static const std::string base_url;
+    std::string preferred_country;
 
     CDiscogsElemVector Releases;
 
@@ -397,8 +402,10 @@ private:
      *               returns a url to its oldest CD release record.
      *               If the master ID is the same as the previous,
      *               returns empty string.
+     * @param[in] UPC barcode. Empty if not given
      * @param[in] ID of the last master record queried (0 if none prior).
      * @return ID of the new record
      */
-    int QueryMaster_(std::string &url, const int last_id);
+    int QueryMaster_(std::string &url, const std::string upc, const int last_id);
+    int ParseMasterVersions_(const CUtilJson &versions, const std::string &upc);
 };
