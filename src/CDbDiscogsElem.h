@@ -4,9 +4,16 @@
 
 class CDbDiscogsElem : protected CUtilJson
 {
+    friend class CDbDiscogs;
 public:
     CDbDiscogsElem(const std::string &data, const int disc=1);
     virtual ~CDbDiscogsElem() {}
+
+    /**
+     * @brief Exchanges the content with another CDbDiscogsElem object
+     * @param Another CDbDiscogsElem object
+     */
+    void Swap(CDbDiscogsElem &other);
 
     /** Return a unique release ID string
      *

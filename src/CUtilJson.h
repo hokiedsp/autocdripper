@@ -14,7 +14,7 @@ class CUtilJson
 public:
     /** Constructor.
      */
-    CUtilJson(const std::string &data);
+    CUtilJson(const std::string &data="");
 
     /** Destructor
      */

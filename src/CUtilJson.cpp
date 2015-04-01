@@ -9,15 +9,22 @@ using std::runtime_error;
  */
 CUtilJson::CUtilJson(const std::string &rawdata)
 {
-    // now load the data onto json object
-    try
+    if (rawdata.size())
     {
-        data = json_loadb(rawdata.c_str(), rawdata.size(), 0, &error);
-        if(!data) throw(std::runtime_error(error.text));
+        // now load the data onto json object
+        try
+        {
+            data = json_loadb(rawdata.c_str(), rawdata.size(), 0, &error);
+            if(!data) throw(std::runtime_error(error.text));
+        }
+        catch (...)
+        {
+            throw; // rethrow the exception
+        }
     }
-    catch (...)
+    else
     {
-        throw; // rethrow the exception
+        data = NULL;
     }
 }
 

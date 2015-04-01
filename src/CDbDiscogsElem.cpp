@@ -4,6 +4,21 @@ CDbDiscogsElem::CDbDiscogsElem(const std::string &data, const int d)
     : CUtilJson(data), disc(d)
 {}
 
+/**
+ * @brief Exchanges the content with another CDbDiscogsElem object
+ * @param Another CDbDiscogsElem object
+ */
+void CDbDiscogsElem::Swap(CDbDiscogsElem &other)
+{
+    json_t *tempdata = data;
+    data = other.data;
+    other.data = tempdata;
+
+    int tempdisc = disc;
+    disc = other.disc;
+    other.disc = tempdisc;
+}
+
 /** Return a unique release ID string
  *
  *  @return id string if Query was successful.

@@ -382,7 +382,7 @@ public:
      * @brief Set Country Preference
      * @param[in] country_code
      */
-    void SetCountryPreference(const std::string country_code);
+    void SetCountryPreference(const std::string country_code) { preferred_country = country_code; }
 
 private:
     static const std::string base_url;
@@ -398,14 +398,26 @@ private:
 
     /**
      * @brief Query helper function to analyze master release record
-     * @param[inout] receives a url to a master release record and
-     *               returns a url to its oldest CD release record.
-     *               If the master ID is the same as the previous,
-     *               returns empty string.
+     * @param[in] receives a url to a master release record and returns a url to its oldest CD release
+     *            record.
      * @param[in] UPC barcode. Empty if not given
      * @param[in] ID of the last master record queried (0 if none prior).
-     * @return ID of the new record
+     * @return ID of the queried master record
      */
     int QueryMaster_(std::string &url, const std::string upc, const int last_id);
-    int ParseMasterVersions_(const CUtilJson &versions, const std::string &upc);
+
+    /**
+     * @brief Select a release from releases listed under a master release
+     *
+     * The selection is based on the UPC given in the argument and preferred_country member
+     * variable (which can be set via SetCountryPreference() member function). The calling function
+     * (QueryMaster_()) is expected to create a new empty entry in Releases member variable for
+     * this function to fill. If this function returns true, Releases.back() contains the selected
+     * record data.
+     *
+     * @param[in] JSON object containing versions: /masters/{master_id}/versions
+     * @param[in] Optional UPC or empty string if none given
+     * @return true if a release is successfully retrieved
+     */
+    bool SelectFromMasterVersions_(const CUtilJson &versions, const std::string &upc);
 };
