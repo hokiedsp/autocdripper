@@ -4,6 +4,7 @@
 #include <string>
 
 #include <musicbrainz5/Query.h>
+#include <musicbrainz5/Metadata.h>
 #include <musicbrainz5/ArtistCredit.h>
 #include <coverart/CoverArt.h>
 
@@ -456,7 +457,11 @@ private:
     std::string discid;
     MusicBrainz5::CQuery MB5;
     CoverArtArchive::CCoverArt CAA;
-    std::vector<MusicBrainz5::CRelease> Releases;
+
+    std::vector<MusicBrainz5::CMetadata> MBQueries;
+    std::vector<MusicBrainz5::CRelease*> Releases;
+//    std::vector<MusicBrainz5::CRelease> Releases;
+
     std::vector<CoverArtArchive::CReleaseInfo> CoverArts;
 
     int CoverArtSize; // 0-full, 1-large thumbnail (500px), 2-small thumbnail (250px)

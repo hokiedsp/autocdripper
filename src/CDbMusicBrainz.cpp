@@ -13,6 +13,7 @@
 #include "credirect.h" // to redirect std::cerr stream
 
 #include <musicbrainz5/Metadata.h>
+#include <musicbrainz5/Disc.h>
 #include <musicbrainz5/Release.h>
 #include <musicbrainz5/Medium.h>
 #include <musicbrainz5/MediumList.h>
@@ -53,7 +54,7 @@ using std::to_string;
 using namespace MusicBrainz5;
 using namespace CoverArtArchive;
 
-/** Constructor.
+/** Constructor->l785
  *
  *  @param[in] CDDB server name. If omitted or empty, default server
  *             "musicbrainz.org" is used.
@@ -84,7 +85,7 @@ CDbMusicBrainz::~CDbMusicBrainz()
  *  in the specified drive with its *  tracks specified in the supplied cuesheet
  *  and its length. Previous query outcome discarded. After disc and its tracks
  *  are initialized, CDDB disc ID is computed. If the computation fails, function
- *  throws an runtime_error.
+ *  throws an runtime_error->l785l785
  *
  *  @param[in] CD-ROM device path
  *  @param[in] Cuesheet with its basic data populated
@@ -107,40 +108,61 @@ int CDbMusicBrainz::Query(const std::string &dev, const SCueSheet &cuesheet, con
     // Run the query
     try
     {
-        CReleaseList list = MB5.LookupDiscID(discid);
-        //        CMetadata Metadata=Query("discid",DiscID);
-        //        CDisc *Disc=Metadata.Disc();
-        //        if (Disc && Disc->ReleaseList())
-        //            ReleaseList=*Disc->ReleaseList();
+        CMetadata data = MB5.Query("discid", discid);
 
-        cout << "[CDbMusicBrainz::Query] 3: " << list.NumItems() << " matches\n";
-
-        // Add all the matched releases to Releases deque
-        Releases.reserve(list.NumItems());
-        CoverArts.reserve(list.NumItems());
-
-        for (int i=0;i<list.NumItems();i++)
+        CDisc *disc = data.Disc();
+        CReleaseList *list;
+        if (disc && (list=disc->ReleaseList()))
         {
-            CRelease *r = list.Item(i);
-            if (r->MediaMatchingDiscID (discid).NumItems())
-            {
-                Releases.emplace_back(*r);
+            CRelease *r;
+            CQuery::tParamMap Params;
+            Params["inc"] = "artists labels recordings release-groups url-rels discids artist-credits";
 
-                // also look for the coverart
+            // Add all the matched releases to Releases deque
+            MBQueries.reserve(list->NumItems());
+
+            // Create new MBQueries element & populate
+            for (int i=0; i<list->NumItems() && (r=list->Item(i)); i++)
+            {
+                MBQueries.emplace_back(); // create an empty instance
+                CMetadata &rdata = MBQueries.back();
                 try
                 {
-                    CoverArts.emplace_back(CAA.ReleaseInfo(r->ID()));
+                    rdata = MB5.Query("release", r->ID(), "", Params);
                 }
-                catch (CoverArtArchive::CResourceNotFoundError &e)
+                catch (...)
                 {
-                    CoverArts.emplace_back(); // not found, enque empty info
+                    cout << "failed\n";
+                    MBQueries.pop_back();
+                    throw;
                 }
+                if (!rdata.Release()) MBQueries.pop_back();
             }
 
-            cout << "[CDbMusicBrainz::Query] 4:" << i << endl;
+            // Populate Releases vector (safe as MBQueries is fixed until next query)
+            Releases.reserve(MBQueries.size());
+            for (vector<CMetadata>::iterator it = MBQueries.begin();
+                 it != MBQueries.end();
+                 it ++)
+                Releases.push_back((*it).Release());
+
+            // Populate CoverArts vector
+            CoverArts.reserve(MBQueries.size());
+            for (vector<CRelease*>::iterator it = Releases.begin();
+                 it != Releases.end();
+                 it ++)
+            {
+                // also look for the coverart
+                CoverArts.emplace_back();
+                try
+                {
+                    CoverArts.back() = (CAA.ReleaseInfo((*it)->ID()));
+                }
+                catch (...) {} //don't care if failed in any ways
+            }
         }
     }
-    catch (MusicBrainz5::CResourceNotFoundError &e) { cout << "Exception caught\n"; } // no match found, just return
+    catch (MusicBrainz5::CResourceNotFoundError &e) {} // no match found, just return
 
     // return the number of matches
     return Releases.size();
@@ -156,38 +178,14 @@ int CDbMusicBrainz::Query(const std::string &dev, const SCueSheet &cuesheet, con
  */
 void CDbMusicBrainz::Populate(const int recnum)
 {
-    // redirect cerr stream during this function call
-    cerr_redirect quiet_cerr;
-
-    // set disc
-    if (recnum<0) // all discs
-    {
-        vector<CRelease>::iterator it;
-        for (it=Releases.begin(); it!=Releases.end(); it++)
-            (*it) = MB5.LookupRelease((*it).ID()); 	// replace the initial output with the full output
-    }
-    else if (recnum<(int)Releases.size())	// single disc
-    {
-        CRelease &r = Releases[recnum];
-        r = MB5.LookupRelease(r.ID()); 	// replace the initial output with the full output
-//        MusicBrainz5::CRelease Release;
-//        tParamMap Params;
-//        Params["inc"]="artists labels recordings release-groups url-rels discids artist-credits";
-//        CMetadata Metadata=Query("release",ReleaseID,"",Params);
-//        if (Metadata.Release())
-//            Release=*Metadata.Release();
-    }
-    else
-    {
-        throw(runtime_error("Invalid Release ID."));
-    }
 }
 
-/** Clear all the disc entries
+    /** Clear all the disc entries
  */
 void CDbMusicBrainz::Clear()
 {
     // clear the list of matched releases and their coverart info
+    MBQueries.clear();
     Releases.clear();
     CoverArts.clear();
     discid.clear();
@@ -226,7 +224,7 @@ std::string CDbMusicBrainz::ReleaseId(const int recnum) const
     if (recnum<0 || recnum>=(int)Releases.size()) // all discs
         throw(runtime_error("Invalid CD record ID."));
 
-    return Releases[recnum].ID();
+    return Releases[recnum]->ID();
 }
 
 /** Get album title
@@ -241,7 +239,7 @@ std::string CDbMusicBrainz::AlbumTitle(const int recnum) const
     if (recnum<0 || recnum>=(int)Releases.size()) // all discs
         throw(runtime_error("Invalid CD record ID."));
 
-    return Releases[recnum].Title();
+    return Releases[recnum]->Title();
 }
 
 /** Get album artist
@@ -258,7 +256,7 @@ std::string CDbMusicBrainz::AlbumArtist(const int recnum) const
     if (recnum<0 || recnum>=(int)Releases.size()) // all discs
         throw(runtime_error("Invalid CD record ID."));
 
-    CArtistCredit *credit = Releases[recnum].ArtistCredit();
+    CArtistCredit *credit = Releases[recnum]->ArtistCredit();
     if (credit) rval = GetArtistString_(*credit);
 
     return rval;
@@ -278,7 +276,7 @@ std::string CDbMusicBrainz::Date(const int recnum) const
     if (recnum<0 || recnum>=(int)Releases.size()) // all discs
         throw(runtime_error("Invalid CD record ID."));
 
-    return Releases[recnum].Date();
+    return Releases[recnum]->Date();
 }
 
 /** Get release country
@@ -293,7 +291,7 @@ std::string CDbMusicBrainz::Country(const int recnum) const
     if (recnum<0 || recnum>=(int)Releases.size()) // all discs
         throw(runtime_error("Invalid CD record ID."));
 
-    return Releases[recnum].Country();
+    return Releases[recnum]->Country();
 }
 
 /**
@@ -311,7 +309,7 @@ int CDbMusicBrainz::DiscNumber(const int recnum) const
         throw(runtime_error("Invalid CD record ID."));
 
     // get cd media info
-    CMediumList media = Releases[recnum].MediaMatchingDiscID(discid); // guarantees to return non-NULL
+    CMediumList media = Releases[recnum]->MediaMatchingDiscID(discid); // guarantees to return non-NULL
     CMedium *medium = media.Item(0);
 
     // get disc# and total # of cds if multiple-cd set
@@ -335,8 +333,8 @@ int CDbMusicBrainz::TotalDiscs(const int recnum) const
         throw(runtime_error("Invalid CD record ID."));
 
     // get disc# and total # of cds if multiple-cd set
-    if (Releases[recnum].MediumList())
-        rval = Releases[recnum].MediumList()->NumItems();
+    if (Releases[recnum]->MediumList())
+        rval = Releases[recnum]->MediumList()->NumItems();
 
     return rval;
 }
@@ -355,7 +353,7 @@ std::string CDbMusicBrainz::AlbumLabel(const int recnum) const
     if (recnum<0 || recnum>=(int)Releases.size()) // all discs
         throw(runtime_error("Invalid CD record ID."));
 
-    CLabelInfoList *list = Releases[recnum].LabelInfoList();
+    CLabelInfoList *list = Releases[recnum]->LabelInfoList();
     CLabelInfo *info;
     CLabel *label;
     if (list && list->NumItems() && (info=list->Item(0)) && (label=info->Label()))
@@ -376,7 +374,7 @@ std::string CDbMusicBrainz::AlbumUPC(const int recnum) const
     if (recnum<0 || recnum>=(int)Releases.size()) // all discs
         throw(runtime_error("Invalid CD record ID."));
 
-    return Releases[recnum].Barcode();
+    return Releases[recnum]->Barcode();
 }
 
 
@@ -396,7 +394,7 @@ int CDbMusicBrainz::NumberOfTracks(const int recnum) const
         throw(runtime_error("Invalid CD record ID."));
 
     // get cd media info
-    CMediumList media = Releases[recnum].MediaMatchingDiscID(discid); // guarantees to return non-NULL
+    CMediumList media = Releases[recnum]->MediaMatchingDiscID(discid); // guarantees to return non-NULL
     CMedium *medium = media.Item(0);
 
     // initialize tracks
@@ -425,7 +423,7 @@ std::string CDbMusicBrainz::TrackTitle(int tracknum, const int recnum) const
         throw(runtime_error("Invalid CD record ID."));
 
     // get cd media info
-    CMediumList media = Releases[recnum].MediaMatchingDiscID(discid); // guarantees to return non-NULL
+    CMediumList media = Releases[recnum]->MediaMatchingDiscID(discid); // guarantees to return non-NULL
     CMedium *medium = media.Item(0);
 
     // initialize tracks
@@ -468,7 +466,7 @@ std::string CDbMusicBrainz::TrackArtist(int tracknum, const int recnum) const
         throw(runtime_error("Invalid CD record ID."));
 
     // get cd media info
-    CMediumList media = Releases[recnum].MediaMatchingDiscID(discid); // guarantees to return non-NULL
+    CMediumList media = Releases[recnum]->MediaMatchingDiscID(discid); // guarantees to return non-NULL
     CMedium *medium = media.Item(0);
 
     // initialize tracks
@@ -513,7 +511,7 @@ std::string CDbMusicBrainz::TrackISRC(int tracknum, const int recnum) const
         throw(runtime_error("Invalid CD record ID."));
 
     // get cd media info
-    CMediumList media = Releases[recnum].MediaMatchingDiscID(discid); // guarantees to return non-NULL
+    CMediumList media = Releases[recnum]->MediaMatchingDiscID(discid); // guarantees to return non-NULL
     CMedium *medium = media.Item(0);
 
     // initialize tracks
@@ -618,49 +616,49 @@ SDbrBase* CDbMusicBrainz::Retrieve(const int recnum) const
         throw(runtime_error("Invalid CD record ID."));
 
     // Grab the specified release info
-    const CRelease &r = Releases[recnum];
+    const CRelease *r = Releases[recnum];
 
-    if (r.ArtistCredit ())
-        rec->Performer = GetArtistString_(*r.ArtistCredit());
-    rec->Title = r.Title();
+    if (r->ArtistCredit ())
+        rec->Performer = GetArtistString_(*r->ArtistCredit());
+    rec->Title = r->Title();
 
     rec->Rems.emplace_back("DBSRC MusicBrainz");
     rec->Rems.emplace_back("DISCID ");	// comments on the disc
     rec->Rems[1].append(discid);
 
     rec->Rems.emplace_back("MBID ");
-    rec->Rems[2].append(r.ID());
+    rec->Rems[2].append(r->ID());
     nrems = 3;
 
-    if (!r.Date().empty())
+    if (!r->Date().empty())
     {
         rec->Rems.emplace_back("DATE ");
-        rec->Rems[3].append(r.Date());
+        rec->Rems[3].append(r->Date());
         nrems++;
     }
 
-    if (!r.Country().empty())
+    if (!r->Country().empty())
     {
         rec->Rems.emplace_back("COUNTRY ");
-        rec->Rems[nrems].append(r.Country());
+        rec->Rems[nrems].append(r->Country());
         nrems++;
     }
 
-    if (!r.Barcode().empty())
+    if (!r->Barcode().empty())
     {
         rec->Rems.emplace_back("UPC ");
-        rec->Rems[nrems].append(r.Barcode());
+        rec->Rems[nrems].append(r->Barcode());
         nrems++;
     }
 
-    if (!r.ASIN().empty())
+    if (!r->ASIN().empty())
     {
         rec->Rems.emplace_back("ASIN ");
-        rec->Rems[nrems].append(r.ASIN());
+        rec->Rems[nrems].append(r->ASIN());
         nrems++;
     }
 
-    CLabelInfoList *list = r.LabelInfoList();
+    CLabelInfoList *list = r->LabelInfoList();
     CLabelInfo *info;
     CLabel *label;
     string name;
@@ -672,18 +670,18 @@ SDbrBase* CDbMusicBrainz::Retrieve(const int recnum) const
     }
 
     // get cd media info
-    CMediumList media = r.MediaMatchingDiscID(discid); // guarantees to return non-NULL
+    CMediumList media = r->MediaMatchingDiscID(discid); // guarantees to return non-NULL
     CMedium *medium = media.Item(0);
 
     // get disc# and total # of cds if multiple-cd set
-    if (r.MediumList()->NumItems()>1)
+    if (r->MediumList()->NumItems()>1)
     {
         rec->Rems.emplace_back("DISC ");
         rec->Rems[nrems].append(to_string(medium->Position()));
         nrems++;
 
         rec->Rems.emplace_back("DISCS ");
-        rec->Rems[nrems].append(to_string(r.MediumList()->NumItems()));
+        rec->Rems[nrems].append(to_string(r->MediumList()->NumItems()));
         nrems++;
     }
 
@@ -759,42 +757,42 @@ void CDbMusicBrainz::Print(const int recnum) const
     if (recnum<0) // all discs
     {
         cout << "Found " << Releases.size() << " matches:" << endl;
-        vector<CRelease>::const_iterator it;
+        vector<CRelease*>::const_iterator it;
         for (it=Releases.begin(); it!=Releases.end(); it++)
         {
-            const CRelease &r = *it;
+            const CRelease *r = *it;
 
             // Retrieve and print the category and disc ID.
-            cout << r.Title() << " (";
+            cout << r->Title() << " (";
 
             // if multi-disc release, insert the disc position
-            if (r.MediumList ()->NumItems()>1)
-                cout << r.MediaMatchingDiscID(discid).Item(0)->Position()
-                     << " out of " << r.MediumList ()->NumItems() << ") (";
+            if (r->MediumList ()->NumItems()>1)
+                cout << r->MediaMatchingDiscID(discid).Item(0)->Position()
+                     << " out of " << r->MediumList ()->NumItems() << ") (";
 
-            if (r.Date().empty()) cout << "Unknown";
-            else cout << r.Date ();
+            if (r->Date().empty()) cout << "Unknown";
+            else cout << r->Date ();
             cout << ":";
-            if (!r.TextRepresentation() || r.TextRepresentation()->Language().empty()) cout << "UNKNOWN";
-            else cout << r.TextRepresentation ()->Language();
+            if (!r->TextRepresentation() || r->TextRepresentation()->Language().empty()) cout << "UNKNOWN";
+            else cout << r->TextRepresentation ()->Language();
             cout << ")" << endl;
         }
     }
     else if (recnum<(int)Releases.size())	// single disc
     {
-        const CRelease &r = Releases[recnum];
+        const CRelease *r = Releases[recnum];
 
-        cout << " ID: " << r.ID() << endl;
-        cout << " Title: " << r.Title() << endl;
-        cout << " Status: " << r.Status () << endl;
-        cout << " Quality: " << r.Quality () << endl;
-        cout << " Disambiguation: " << r.Disambiguation () << endl;
-        cout << " Packaging: " << r.Packaging () << endl;
-        cout << " TextRepresentation/Language: " << r.TextRepresentation ()->Language() << endl;
-        cout << " TextRepresentation/Script: " << r.TextRepresentation ()->Script() << endl;
-        if (r.ArtistCredit ())
+        cout << " ID: " << r->ID() << endl;
+        cout << " Title: " << r->Title() << endl;
+        cout << " Status: " << r->Status () << endl;
+        cout << " Quality: " << r->Quality () << endl;
+        cout << " Disambiguation: " << r->Disambiguation () << endl;
+        cout << " Packaging: " << r->Packaging () << endl;
+        cout << " TextRepresentation/Language: " << r->TextRepresentation ()->Language() << endl;
+        cout << " TextRepresentation/Script: " << r->TextRepresentation ()->Script() << endl;
+        if (r->ArtistCredit ())
         {
-            CNameCreditList * list = r.ArtistCredit()->NameCreditList ();
+            CNameCreditList * list = r->ArtistCredit()->NameCreditList ();
             cout << " ArtistCredit: There are " << list->NumItems() << " credits." << endl;
             for (int i=0;i<list->NumItems();i++)
             {
@@ -805,24 +803,24 @@ void CDbMusicBrainz::Print(const int recnum) const
                     cout << "  Artist Name: " << credit->Artist()->Name() << endl;
             }
         }
-        if (r.ReleaseGroup ())
+        if (r->ReleaseGroup ())
         {
-            cout << " Release Group ID: " << r.ReleaseGroup ()->ID() << endl;
-            cout << "  Primary Type: " << r.ReleaseGroup()->PrimaryType () << endl;
-            cout << "  Title: " << r.ReleaseGroup()->Title () << endl;
-            cout << "  Disambiguation: " << r.ReleaseGroup()->Disambiguation () << endl;
-            cout << "  First Release Date: " << r.ReleaseGroup()->FirstReleaseDate () << endl;
+            cout << " Release Group ID: " << r->ReleaseGroup ()->ID() << endl;
+            cout << "  Primary Type: " << r->ReleaseGroup()->PrimaryType () << endl;
+            cout << "  Title: " << r->ReleaseGroup()->Title () << endl;
+            cout << "  Disambiguation: " << r->ReleaseGroup()->Disambiguation () << endl;
+            cout << "  First Release Date: " << r->ReleaseGroup()->FirstReleaseDate () << endl;
         }
-        cout << " Date: " << r.Date () << endl;
-        cout << " Country: " << r.Country () << endl;
-        cout << " Barcode: " << r.Barcode () << endl;
-        cout << " ASIN: " << r.ASIN () << endl;
+        cout << " Date: " << r->Date () << endl;
+        cout << " Country: " << r->Country () << endl;
+        cout << " Barcode: " << r->Barcode () << endl;
+        cout << " ASIN: " << r->ASIN () << endl;
 
-        if (r.LabelInfoList ())
+        if (r->LabelInfoList ())
         {
-            for (int i=0;i<r.LabelInfoList ()->NumItems();i++)
+            for (int i=0;i<r->LabelInfoList ()->NumItems();i++)
             {
-                CLabel *info = r.LabelInfoList ()->Item(i)->Label();
+                CLabel *info = r->LabelInfoList ()->Item(i)->Label();
                 cout << " Label " << i << ": " << info->ID () << endl;
                 cout << "  Type " << info->Type () << endl;
                 cout << "  Name " << info->Name () << endl;
@@ -833,14 +831,14 @@ void CDbMusicBrainz::Print(const int recnum) const
             }
         }
 
-        if (r.MediumList ())
-            cout << " MediumList Items: " << r.MediumList ()->NumItems() << endl; // total discs
+        if (r->MediumList ())
+            cout << " MediumList Items: " << r->MediumList ()->NumItems() << endl; // total discs
 
-        if (r.RelationListList()) // link to amazon or discog
+        if (r->RelationListList()) // link to amazon or discog
         {
-            for (int i = 0;i<r.RelationListList ()->NumItems(); i++)
+            for (int i = 0;i<r->RelationListList ()->NumItems(); i++)
             {
-                CRelationList *list = r.RelationListList ()->Item(i);
+                CRelationList *list = r->RelationListList ()->Item(i);
                 cout << " Relation List" << i << ": " << list->TargetType()  << endl;
                 for (int j = 0;j<list->NumItems();j++)
                 {
@@ -851,11 +849,11 @@ void CDbMusicBrainz::Print(const int recnum) const
             }
         }
 
-        if (r.CollectionList())
-            cout << " CollectionList Items: " << r.CollectionList ()->NumItems() << endl;
+        if (r->CollectionList())
+            cout << " CollectionList Items: " << r->CollectionList ()->NumItems() << endl;
         cout << endl;
 
-        CMediumList media = r.MediaMatchingDiscID(discid);
+        CMediumList media = r->MediaMatchingDiscID(discid);
         if (media.NumItems()>1) cout << "***** MULTIPLE MEDIA FOUND *****" << endl;
 
         CMedium *medium = media.Item(0);
@@ -1000,7 +998,7 @@ std::vector<unsigned char> CDbMusicBrainz::FrontData(const int recnum) const
     if (recnum<0||recnum>(int)CoverArts.size())
         throw(runtime_error("Invalid Record Index requested."));
 
-    return CAA.FetchFront(Releases[recnum].ID());
+    return CAA.FetchFront(Releases[recnum]->ID());
 }
 
 /** Check if the query returned a front cover
@@ -1013,7 +1011,7 @@ std::vector<unsigned char> CDbMusicBrainz::BackData(const int recnum) const
     if (recnum<0||recnum>(int)CoverArts.size())
         throw(runtime_error("Invalid Record Index requested."));
 
-    return CAA.FetchBack(Releases[recnum].ID());
+    return CAA.FetchBack(Releases[recnum]->ID());
 }
 
 /** Get the URL of the front cover image
@@ -1094,14 +1092,14 @@ std::string CDbMusicBrainz::RelationUrl(const std::string &type, const int recnu
         throw(runtime_error("Invalid CD record ID."));
 
     // First check the RelationListList in the Release
-    relslist = Releases[recnum].RelationListList();
+    relslist = Releases[recnum]->RelationListList();
     if (!relslist)
     {
         CQuery::tParamMap params;
         params["inc"] = "url-rels";
         try
         {
-            data = MB5.Query("release", Releases[recnum].ID(), "", params);
+            data = MB5.Query("release", Releases[recnum]->ID(), "", params);
             relslist = data.Release()->RelationListList();
         }
         catch (MusicBrainz5::CResourceNotFoundError &e) {} // no match found, just return
@@ -1110,7 +1108,7 @@ std::string CDbMusicBrainz::RelationUrl(const std::string &type, const int recnu
 
     if (rval.empty()) // if none found in Release, check ReleaseGroup
     {
-        CReleaseGroup *rg = Releases[recnum].ReleaseGroup();
+        CReleaseGroup *rg = Releases[recnum]->ReleaseGroup();
         if (rg)
         {
             relslist = rg->RelationListList();
