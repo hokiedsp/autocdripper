@@ -1,8 +1,24 @@
 #include "CDbDiscogsElem.h"
 
-CDbDiscogsElem::CDbDiscogsElem(const std::string &data, const int d)
+#include <cstdlib>
+//#include <ctime>
+//#include <sstream>
+//#include <iomanip>
+//#include <numeric> // for std::accumulate
+
+#include "utils.h"
+
+CDbDiscogsElem::CDbDiscogsElem(const std::string &data, const int d, const int offset)
+    : CUtilJson(data), disc(d), track_offset(offset)
+{
+    SetDiscSize_();
+}
+
+CDbDiscogsElem::CDbDiscogsElem(const std::string &data, const int d, const std::vector<int> &tracklengths)
     : CUtilJson(data), disc(d)
-{}
+{
+    SetDiscOffset_(tracklengths);
+}
 
 /**
  * @brief Exchanges the content with another CDbDiscogsElem object
@@ -18,6 +34,202 @@ void CDbDiscogsElem::Swap(CDbDiscogsElem &other)
     disc = other.disc;
     other.disc = tempdisc;
 }
+
+/**
+ * @brief Fill number_of_tracks
+ */
+void CDbDiscogsElem::SetDiscSize_()
+{
+    // gather track info
+    number_of_tracks = 0;
+    TraverseTracks_([&] (const json_t *t, const json_t *p)
+    {
+        number_of_tracks++;
+        return true;
+    } );
+}
+
+/**
+ * @brief Determine track offset for multi-disc release
+ *
+ * This function fills track_offset & number_of_tracks member variables.
+ *
+ * @param[in] vector of lengths of CD tracks in seconds
+ */
+bool CDbDiscogsElem::SetDiscOffset_(const std::vector<int> &cdtracks)
+{
+    // gather track info
+    std::vector<int> alltracks;
+    alltracks.reserve(128);
+    TraverseTracks_([&] (const json_t *t, const json_t *p)
+    {
+        // lambda function to be executed by TraverseTracks_
+        std::string duration;
+//        struct std::tm tm;
+        if (FindString(t,"duration",duration))
+        {
+            const char *str;
+            const char *str0 = duration.c_str();
+            int T = strtol(str0, const_cast<char**>(&str), 10);
+            if (str==str0) return false; // integer character not found
+            while (str && *str==':')
+            {
+                str0 = ++str;
+                T *= 60;
+                T += strtol(str0, const_cast<char**>(&str), 10);
+                if (str==str0) return false; // integer character not found
+            }
+            if (str) return false; // extrenous characters at the end
+
+            alltracks.push_back(T);
+
+            // NOT implemented in GCC4.8, must wait till GCC5.0
+            //            // convert duration string to
+            //            std::istringstream ss(duration);
+            //            ss >> std::get_time(&tm, "%H:%M:%S");
+
+            //            if (ss.fail())
+            //            {
+            //                ss.clear();
+            //                ss.seekg(0,ss.beg);
+            //                ss >> std::get_time(&tm, "%M:%S");
+
+            //                if (ss.fail())
+            //                {
+            //                    ss.clear();
+            //                    ss.seekg(0,ss.beg);
+            //                    ss >> std::get_time(&tm, "%S"); // not Discogs legitimate, but just in case
+            //                }
+            //            }
+
+            //            // if unknown duration format, invalid release
+            //            if (ss.fail()) return false; // hopefully it would never get here
+
+
+
+            // convert to seconds and store
+            //alltracks.push_back(tm.tm_sec+60*tm.tm_min+3600*tm.tm_hour);
+        }
+        return true;
+    } );
+
+
+    number_of_tracks = cdtracks.size();
+    track_offset = 0;
+    int Nlags = alltracks.size()-number_of_tracks;
+    if (Nlags>0) // exact match, no duration check
+    {
+        typedef std::vector<int>::const_iterator cintvectiter;
+        typedef std::vector<int>::iterator intvectiter;
+        auto compute_align_metric = [](intvectiter first1, intvectiter last1, cintvectiter first2, cintvectiter last2)
+        {
+            int metric = abs((*first1++)-(*first2++));
+            while (first1!=last1) metric += abs((*first1++)-(*first2++));
+            return metric;
+        };
+
+        cintvectiter cd_begin = cdtracks.begin();
+        cintvectiter cd_end = cdtracks.end();
+        intvectiter it = alltracks.begin();
+        int min = 100;
+
+        for (int lag = 0; lag<=Nlags && min>0; lag++)
+        {
+            int metric = compute_align_metric(it,(it++)+number_of_tracks,cd_begin,cd_end);
+            if (metric < min)
+            {
+                min = metric;
+                track_offset = lag;
+            }
+        }
+    }
+
+    return Nlags>=0;
+}
+
+/**
+ * @brief Traverses tracklist array and calls Callback() for every track-type element
+ * @param[in] Callback function taking a pointer to track (or subtrack) JSON element
+ *            and its parent track (only for subtrack, NULL if element is track) and
+ *            returns true to go to next track, false to quit traversing
+ */
+void CDbDiscogsElem::TraverseTracks_(std::function<bool (const json_t *track, const json_t *parent)> Callback) const
+{
+    // start the traversal of tracklist
+    json_t *tracks, *track;
+    bool gotonext = true;
+
+    // get the tracklist array
+    if (!FindArray("tracklist", tracks)) return;
+
+    // for each track of the tracklist
+    for(size_t index = 0;
+        gotonext && index < json_array_size(tracks) && (track = json_array_get(tracks, index));
+        index++)
+    {
+        json_t *subtracks, *subtrack;
+        std::string type;
+
+        if (FindString(track,"type",type))
+        {
+            if (type.compare("track")==0) // found a track
+            {
+                // call the callback function
+                gotonext = Callback(track,NULL);
+            }
+            else if (type.compare("index")==0 && FindArray(track,"sub_tracks",subtracks)) // contain sub_tracks
+            {
+                for(size_t subindex = 0;
+                    gotonext && subindex < json_array_size(tracks) && (subtrack = json_array_get(subtracks, subindex));
+                    subindex++)
+                {
+                    // call the callback function
+                    gotonext = Callback(subtrack,track);
+                }
+            }
+        }
+    }
+}
+
+/**
+ * @brief Find JSON object for the specified track
+ * @param[inout] track number between 1 and 99 -> 0
+ * @return pointer to a track JSON object
+ */
+const json_t* CDbDiscogsElem::FindTrack_(const size_t tracknum, const json_t **index) const
+{
+    if (!tracknum)
+        throw(std::runtime_error("Invalid tracknum, must be positive."));
+
+    const json_t *track;  // return value
+    size_t num = tracknum;
+    size_t offset = track_offset;
+
+    // if calling function requesting the pointer to index track, initialize to NULL
+    if (index) *index = NULL;
+
+    // traverse the tracklist looking for the requested track
+    TraverseTracks_([&] (const json_t *t, const json_t *p)
+    {
+        if (offset) offset--;
+        else num--;
+
+        if (!num) // found the track
+        {
+            track = t;
+            if (index) *index = p;
+        }
+
+        return num;
+    } );
+
+    if (num || !track)
+        throw(std::runtime_error("Track not found."));
+
+    return track;
+}
+
+// -----------------------------------------------------------------------------------------
 
 /** Return a unique release ID string
  *
@@ -116,57 +328,17 @@ int CDbDiscogsElem::DiscNumber() const
  */
 int CDbDiscogsElem::TotalDiscs() const
 {
-    json_t *array, *elem;
-    size_t index;
-    std::string str;
-    int rval = -1;
+    int rval = 1;
+    json_t *formats;
 
-    // look for format_quantity
-    json_int_t nodiscs;
-    if (FindInt("format_quantity", nodiscs))
+    try
     {
-        rval = (int)nodiscs;
+        std::string qty;
+        if (FindArray("formats",formats)
+                && FindString(json_array_get(formats,0),"qty",qty))
+            rval = std::stoi(qty);
     }
-    else
-    {
-        // look for qty entry under formats
-        if (FindArray("formats",array))
-        {
-            // Look for format entries
-            json_array_foreach(array, index, elem)
-            {
-                if (CompareString(elem,"name","CD") && FindString(elem,"qty",str))
-                {
-                    try
-                    {
-                        rval = std::stoi(str); // if qty given as a number, return it
-                        break;
-                    }
-                    catch(...)
-                    {}
-                }
-            }
-        }
-
-        // if for some reason, formats/qty is not found, check for existence of sub track field
-        {
-            if (FindArray("tracklist",array))
-            {
-                // If all tracks contain sub_tracks, assume multi-CD release, else single-cd release
-                json_array_foreach(array, index, elem)
-                {
-                    if (!FindArray(elem,"sub_tracks",elem))
-                    {
-                        rval = 1;
-                        break;
-                    }
-                }
-
-                // If reached here, all tracks contains sub_tracks -> multi-cd release
-                if (rval<1) json_array_size(array); // return # of tracks as the # of cds
-            }
-        }
-    }
+    catch (...) {} // if exception thrown, ignore and return 1
 
     return rval;
 }
@@ -195,7 +367,9 @@ std::string CDbDiscogsElem::AlbumLabel() const
  */
 std::string CDbDiscogsElem::AlbumUPC() const
 {
-    return Identifier("Barcode");
+    std::string upc = Identifier("Barcode");
+    if (upc.size()) cleanup_upc(upc);
+    return upc;
 }
 
 /** Get number of tracks
@@ -205,7 +379,7 @@ std::string CDbDiscogsElem::AlbumUPC() const
  */
 int CDbDiscogsElem::NumberOfTracks() const
 {
-    return json_array_size(TrackList_());
+    return number_of_tracks;
 }
 
 /** Get track title
@@ -219,14 +393,15 @@ std::string CDbDiscogsElem::TrackTitle(int tracknum) const
     std::string rval;
 
     // initialize tracks
-    json_t *tracks = TrackList_();
+    const json_t *parent;
+    const json_t *track = FindTrack_(tracknum, &parent);
 
-    // check track number
-    if (tracknum<=0 || tracknum>(int)json_array_size(tracks))
-        throw(std::runtime_error("Invalid CD Track Number."));
+    if (parent!=NULL && Genre().compare("Classical")==0)
+    {
+        rval = Title_(parent) + '-';
+    }
 
-    json_t *track = json_array_get(tracks,--tracknum);
-    rval = Title_(track);
+    rval += Title_(track);
 
     return rval;
 }
@@ -242,13 +417,9 @@ std::string CDbDiscogsElem::TrackArtist(int tracknum) const
     std::string rval;
 
     // initialize tracks
-    json_t *tracks = TrackList_();
+    const json_t *parent;
+    const json_t *track = FindTrack_(tracknum, &parent);
 
-    // check track number
-    if (tracknum<=0 || tracknum>(int)json_array_size(tracks))
-        throw(std::runtime_error("Invalid CD Track Number."));
-
-    json_t *track = json_array_get(tracks,--tracknum);
     rval = Artist_(track);
 
     return rval;
@@ -295,20 +466,6 @@ std::string CDbDiscogsElem::Identifier(const std::string type) const
 
     // if reaches here, Sought Identifier is not present in the record
     return "";
-}
-
-json_t* CDbDiscogsElem::TrackList_() const
-{
-    json_t *tracks;
-
-    if (!FindArray("tracklist", tracks))
-        throw(std::runtime_error("Tracklist not found."));
-
-    // if multi-disc set
-    if (TotalDiscs()>1)
-        FindArray(json_array_get(tracks,disc-1),"sub_tracks",tracks);
-
-    return tracks;
 }
 
 std::string CDbDiscogsElem::Title_(const json_t* data) // maybe release or track json_t

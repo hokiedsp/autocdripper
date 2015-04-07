@@ -42,6 +42,8 @@
 
 #include <discid/discid.h>
 
+#include "utils.h"
+
 using std::cout;
 using std::endl;
 
@@ -139,12 +141,33 @@ int CDbMusicBrainz::Query(const std::string &dev, const SCueSheet &cuesheet, con
                 if (!rdata.Release()) MBQueries.pop_back();
             }
 
+            // If UPC given, look for a match
+            bool upc_nomatch = true;
+            vector<CMetadata>::iterator it;
+            if (cdrom_upc.size())
+            {
+                for (it = MBQueries.begin(); it != MBQueries.end() && upc_nomatch; it ++)
+                {
+                    std::string upc = (*it).Release()->Barcode();
+                    if (upc.size())
+                    {
+                        cleanup_upc(upc);
+                        upc_nomatch = cdrom_upc.compare(upc)!=0;
+                    }
+                }
+            }
+
             // Populate Releases vector (safe as MBQueries is fixed until next query)
-            Releases.reserve(MBQueries.size());
-            for (vector<CMetadata>::iterator it = MBQueries.begin();
-                 it != MBQueries.end();
-                 it ++)
+            if (upc_nomatch) // if exact UPC match is not obtained, add all releases
+            {
+                Releases.reserve(MBQueries.size());
+                for (it = MBQueries.begin(); it != MBQueries.end(); it ++)
+                    Releases.push_back((*it).Release());
+            }
+            else // exact UPC match found, only add the matched release info
+            {
                 Releases.push_back((*it).Release());
+            }
 
             // Populate CoverArts vector
             CoverArts.reserve(MBQueries.size());
@@ -166,18 +189,6 @@ int CDbMusicBrainz::Query(const std::string &dev, const SCueSheet &cuesheet, con
 
     // return the number of matches
     return Releases.size();
-}
-
-/** Look up full disc information from MusicBrainz server. It supports single record or
- *  multiple records if multiple entries were found by Query(). If the computation
- *  fails, function throws an runtime_error.
- *
- *  @param[in] Disc record ID (0-based index to discs). If negative, retrieves info
- *             for all records.
- *  @param[in] Network time out in seconds. CDbMusicBrainz does not use this parameter
- */
-void CDbMusicBrainz::Populate(const int recnum)
-{
 }
 
     /** Clear all the disc entries
@@ -374,7 +385,9 @@ std::string CDbMusicBrainz::AlbumUPC(const int recnum) const
     if (recnum<0 || recnum>=(int)Releases.size()) // all discs
         throw(runtime_error("Invalid CD record ID."));
 
-    return Releases[recnum]->Barcode();
+    std::string upc = Releases[recnum]->Barcode();
+    if (upc.size()) cleanup_upc(upc);
+    return upc;
 }
 
 
@@ -1161,4 +1174,44 @@ std::string CDbMusicBrainz::MB5RelationUrl_(MusicBrainz5::CRelationListList *rel
     }
 
     return rval;
+}
+
+/** Get track length
+ *
+ *  @param[in] Track number (1-99)
+ *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+ *             is returned.
+ *  @return    Track length in seconds
+ *  @throw     runtime_error if track number is invalid
+ */
+std::vector<int> CDbMusicBrainz::TrackLengths(const int recnum) const
+{
+    std::vector<int> tracklengths;
+
+    // set disc
+    if (recnum<0 || recnum>=(int)Releases.size()) // all discs
+        throw(runtime_error("Invalid CD record ID."));
+
+    // set disc
+    if (recnum<0 || recnum>=(int)Releases.size()) // all discs
+        throw(runtime_error("Invalid CD record ID."));
+
+    // get cd media info
+    CMediumList media = Releases[recnum]->MediaMatchingDiscID(discid); // guarantees to return non-NULL
+    CMedium *medium = media.Item(0);
+
+    // initialize tracks
+    if (medium->TrackList())
+    {
+        int num_tracks = medium->TrackList()->NumItems();
+        tracklengths.reserve(num_tracks);
+        for (int i=0; i<num_tracks; i++)
+        {
+            CTrack *track = medium->TrackList()->Item(i);
+            if (!track) throw(runtime_error("Failed to retrieve track info."));
+            tracklengths.push_back(track->Length());
+        }
+    }
+
+    return tracklengths;
 }

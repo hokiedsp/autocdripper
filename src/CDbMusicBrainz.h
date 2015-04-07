@@ -176,17 +176,6 @@ public:
     /////////////////////////////////////////
     // for IReleaseDatabase
 
-    /** Look up full disc information from CDDB server. It supports single record or
-   *  multiple records if multiple entries were found by Query(). If the computation
-   *  fails, function throws an runtime_error.
-   *
-   *  @param[in] Disc record ID (0-based index to discs). If negative, retrieves info
-   *             for all records.
-   *  @param[in] Network time out in seconds. If omitted or negative, previous value
-   *             will be reused. System default is 10.
-   */
-    virtual void Populate(const int recnum=-1);
-
     /** Return a unique release ID string
      *
      *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
@@ -397,6 +386,15 @@ public:
      * @return URL string or empty if requestd URL type not in the URL
      */
     virtual std::string RelationUrl(const std::string &type, const int recnum=0);
+
+    /** Get a vector of track lengths
+     *
+     *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+     *             is returned.
+     *  @return    Vector of track lengths in seconds
+     *  @throw     runtime_error if release number is invalid
+     */
+    virtual std::vector<int> TrackLengths(const int recnum=0) const;
 
     /** Set a server connection protocol.
      *

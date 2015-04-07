@@ -221,24 +221,32 @@ void CDbFreeDb::SetCacheSettings(const std::string &cachemode, const std::string
  */
 int CDbFreeDb::Query(const std::string &dev, const SCueSheet &cuesheet, const size_t len, const std::string upc)
 {
+    cddb_disc_t *disc;
+
 	// must build disc based on cuesheet (throws error if fails to compute discid)
 	InitDisc_(cuesheet, len);
 
 	// Run the query
-	int matches = cddb_query(conn, discs[0]);
+    int matches = cddb_query(conn, disc);
 
 	// If errored out, throw the error
 	if (matches<0) throw(runtime_error(cddb_error_str(cddb_errno(conn))));
 
-	// store all the matches 
+    // Obtain the full record of the first disc
+    if (cddb_read(conn,disc)!=1)
+        throw(runtime_error(cddb_error_str(cddb_errno(conn))));
+
+    // reserve space for the matches
     discs.reserve(matches);
+    discs.push_back(disc);
+
 	for (int i=1;i<matches;i++)
 	{
 		// create a new disc object
-		cddb_disc_t *disc = cddb_disc_clone(discs[0]);
+        disc = cddb_disc_clone(discs[0]);
 
 		// populate the disc, throw error if it failed
-		if (!cddb_query_next(conn, disc))
+        if (!(cddb_query_next(conn, disc) && cddb_read(conn,disc)==1))
 			throw(runtime_error(cddb_error_str(cddb_errno(conn))));
 
         // store it in the vector
@@ -419,40 +427,6 @@ std::string CDbFreeDb::TrackArtist(int tracknum, const int recnum) const
         track = cddb_disc_get_track_next (discs[recnum]);
 
     return cddb_track_get_artist(track);
-}
-
-
-
-/** Look up full disc information from CDDB server. It supports single record or
- *  multiple records if multiple entries were found by Query(). If the computation
- *  fails, function throws an runtime_error.
- *
- *  @param[in] Disc record ID (0-based index to discs). If negative, retrieves info
- *             for all records.
- *  @param[in] Network time out in seconds. If omitted or negative, previous value
- *             will be reused. System default is 10.
- */
-void CDbFreeDb::Populate(const int recnum)
-{
-	// set disc
-	if (recnum<0) // all discs
-	{
-        vector<cddb_disc_t*>::iterator it;
-		for (it=discs.begin(); it!=discs.end(); it++)
-		{
-			if (cddb_read(conn,*it)!=1)
-				throw(runtime_error(cddb_error_str(cddb_errno(conn))));
-		}		
-	}
-	else if (recnum<(int)discs.size())	// single disc
-	{
-		if (cddb_read(conn,discs[recnum])!=1)
-			throw(runtime_error(cddb_error_str(cddb_errno(conn))));
-	}
-	else
-	{
-		throw(runtime_error("Invalid CD record ID."));
-	}
 }
 
 

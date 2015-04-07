@@ -158,17 +158,6 @@ public:
      */
     virtual void Clear();
 
-    /** Look up full disc information from CDDB server. It supports single record or
-      *  multiple records if multiple entries were found by Query(). If the computation
-      *  fails, function throws an runtime_error.
-      *
-      *  @param[in] Disc record ID (0-based index to discs). If negative, retrieves info
-      *             for all records.
-      *  @param[in] Network time out in seconds. If omitted or negative, previous value
-      *             will be reused. System default is 10.
-      */
-    virtual void Populate(const int recnum=-1) {}
-
     // -----------------------------------------------------------------------
 
     /** Return a unique disc ID if AllowQueryCD()=true

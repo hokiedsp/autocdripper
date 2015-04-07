@@ -212,6 +212,7 @@ void CCueSheetBuilder::ThreadMain()
         {
             // run query
             db.Query(cdrom_path, cuesheet, cdrom_len, cdrom_upc);
+            if (matched) matched = db.NumberOfMatches();
 
             cout << "[CCueSheetBuilder thread] Found " << db.NumberOfMatches()
                  << " matches in " << to_string(db.GetDatabaseType()) << "\n";
@@ -220,12 +221,6 @@ void CCueSheetBuilder::ThreadMain()
             if (db.GetDatabaseType() == DatabaseType::MUSICBRAINZ)
                 mbdb = &static_cast<CDbMusicBrainz&>(db);
 
-            if (db.NumberOfMatches())
-            {
-                matched = true;
-                if (db.IsReleaseDb())
-                    dynamic_cast<IReleaseDatabase&>(db).Populate();
-            }
         }
         else // if not queryable, check if it can use MusicBrainz
         {
@@ -250,13 +245,7 @@ void CCueSheetBuilder::ThreadMain()
             if (!db.NumberOfMatches() && db.MayBeLinkedFromMusicBrainz())
             {
                 db.Query(*mbdb, cdrom_upc);
-
-                if (db.NumberOfMatches())
-                {
-                    matched = true;
-                    if (db.IsReleaseDb())
-                        dynamic_cast<IReleaseDatabase&>(db).Populate();
-                }
+                if (db.NumberOfMatches()) matched = true;
             }
         }
     }

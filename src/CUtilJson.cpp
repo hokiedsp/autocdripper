@@ -28,6 +28,16 @@ CUtilJson::CUtilJson(const std::string &rawdata)
     }
 }
 
+/**
+ * @brief copy constructor
+ * @param source object
+ */
+CUtilJson::CUtilJson(const CUtilJson &src) : error(src.error)
+{
+    data = json_deep_copy(src.data);
+    if (!data) throw(std::runtime_error("Failed to copy JSON value."));
+}
+
 /** Destructor
  */
 CUtilJson::~CUtilJson()

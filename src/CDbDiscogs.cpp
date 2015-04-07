@@ -13,6 +13,7 @@
 #include "CDbMusicBrainz.h"
 #include "SCueSheet.h"
 #include "credirect.h" // to redirect std::cerr stream
+#include "utils.h"
 
 using std::cout;
 using std::endl;
@@ -62,15 +63,12 @@ int CDbDiscogs::Query(CDbMusicBrainz &mbdb, const std::string upc)
     // Clear previous results
     Clear();
 
-    int lastmaster=0;
+    int lastmaster = 0;
 
     // For each MB match,look for discogs link
     Releases.reserve(mbdb.NumberOfMatches());
     for (int i=0;i<mbdb.NumberOfMatches();i++)
     {
-        // get the disc#
-        int discno = mbdb.DiscNumber(i);
-
         // get the relation URL
         std::string url = mbdb.RelationUrl("discogs",i);
 
@@ -86,17 +84,39 @@ int CDbDiscogs::Query(CDbMusicBrainz &mbdb, const std::string upc)
             cout << url << std::endl;
 
             // either "relase" or "master" link
-            if (url.find("http://www.discogs.com/release")==0)
+            const std::string www_release("http://www.discogs.com/release");
+            const std::string www_master("http://www.discogs.com/master");
+
+            if (url.compare(0,www_release.length(),www_release)==0)
             {
                 // convert the given URL with base_url for API query URL
                 const std::string mb_base_url("http://www.discogs.com/release");
-                url.replace(0,mb_base_url.length(),base_url+"releases");
+                url.replace(0, mb_base_url.length(), base_url+"releases");
 
                 // Get release data & create new entry
                 PerformHttpTransfer_(url); // received data is stored in rawdata
-                Releases.emplace_back(rawdata,discno);
+                CDbDiscogsElem release(rawdata);
+
+                // if there is a master release associated with this release
+                // and UPC or preferred country specified but not matched
+                // query the master release
+                if (((upc.size() && upc.compare(release.AlbumUPC())!=0)
+                     || (preferred_country.size() && preferred_country.compare(release.Country())!=0))
+                    && release.FindString("master_url",url))
+                {
+                    // convert the API URL to WWW URL
+                    url.replace(0, (base_url+"masters").length(), www_master);
+                }
+                else
+                {
+                    // keep the record
+                    Releases.emplace_back("");
+                    Releases.back().Swap(release);
+                }
             }
-            else if (url.find("http://www.discogs.com/master")==0)
+
+            // If URL is that of a master releases, query for the master release and pick its version
+            if (url.compare(0,www_master.length(),www_master)==0)
             {
                 // master release link given
                 int id = QueryMaster_(url, upc, lastmaster);
@@ -104,8 +124,23 @@ int CDbDiscogs::Query(CDbMusicBrainz &mbdb, const std::string upc)
                 lastmaster = id; // update
             }
 
-            // check for the uniqueness
+            // Reached here indicates that new release has been added
+            CDbDiscogsElem &elem = Releases.back();
 
+            // if multi-disc release identify the offset
+            if (elem.TotalDiscs()>1)
+            {
+                // if multi-disc release, starting track offset must be computed when new CDbDiscogsElem is created
+                elem.disc = mbdb.DiscNumber(i);
+                elem.SetDiscOffset_(mbdb.TrackLengths(i));
+            }
+
+
+            // if UPC given, validate
+            if (upc.size())
+            {
+
+            }
         }
     }
 
@@ -266,6 +301,8 @@ bool CDbDiscogs::SelectFromMasterVersions_(const CUtilJson &versions, const std:
     return rval;
 }
 
+//-------------------------------------------------------------------------------------------------
+
 /** Returns the number of matched records returned from the last Query() call.
  *
  *  @return    Number of matched records
@@ -289,7 +326,6 @@ std::string CDbDiscogs::ReleaseId(const int recnum) const
 
     return Releases[recnum].ReleaseId();
 }
-
 
 /** Get album title
  *
@@ -530,88 +566,3 @@ void CDbDiscogs::Authorize_()
     //        exit(1);
     //    }
 }
-
-/** Retrieve the disc info from specified database record
- *
- *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
- *             is returned.
- *  @return    SDbrBase Pointer to newly created database record object. Caller is
- *             responsible for deleting the object.
- */
-//SDbrBase* CDbDiscogs::Retrieve(const int recnum) const
-//{
-//    json_t *tracks;
-//    int num_tracks;
-//    string str;
-//    json_int_t val;
-
-//    // instantiate new DBR object
-//    SDbrDiscogs * rec = new SDbrDiscogs;
-
-//    // set disc
-//    if (recnum<0 || recnum>=(int)Releases.size()) // all discs
-//        throw(runtime_error("Invalid Release record ID."));
-
-//    // Grab the specified release info
-//    const json_t *r = Releases[recnum];
-
-//    rec->Title = Title_(r);
-//    rec->Performer = Artist_(r);
-
-//    rec->Rems.emplace_back("DBSRC Discogs");
-//    if (FindInt_(r,"id",val))
-//        rec->Rems.emplace_back("ID "+to_string(val));	// comments on the disc
-
-//    str = Genre_(r);
-//    if (str.size()) rec->Rems.emplace_back("GENRE "+str);
-
-//    str = Date_(r);
-//    if (str.size())
-//        rec->Rems.emplace_back("DATE "+str);
-
-//    str = Country_(r);
-//    if (str.size())
-//        rec->Rems.emplace_back("COUNTRY "+str);
-
-//    str = Identifier_(r,"Barcode");
-//    if (str.size())
-//        rec->Rems.emplace_back("UPC "+str);
-
-//    str = Identifier_(r,"ASIN");
-//    if (str.size())
-//        rec->Rems.emplace_back("ASIN "+str);
-
-//    str = Label_(r);
-//    if (str.size())
-//        rec->Rems.emplace_back("LABEL "+str);
-
-//    // get disc# and total # of cds if multiple-cd set
-//    val = NumberOfDiscs_(r);
-//    if (val>1)
-//    {
-//        rec->Rems.emplace_back("DISC "+to_string(discnos[recnum]));
-//        rec->Rems.emplace_back("DISCS "+to_string(val));
-//    }
-
-//    // initialize tracks
-//    tracks = TrackList_(r, discnos[recnum]);
-//    num_tracks = json_array_size(tracks);
-//    rec->AddTracks(num_tracks); // adds Tracks 1 to num_tracks
-
-//    for (int i=0;i<num_tracks;i++)
-//    {
-//        json_t *track = json_array_get(tracks,i);
-
-//        // get the track object
-//        SCueTrack &rectrack = rec->Tracks[i];
-
-//        rectrack.Title = Title_(track);
-//        rectrack.Performer = Artist_(track);
-
-//        //CISRCList *isrcs = recording->ISRCList();
-//        //if (isrcs && isrcs->NumItems()>0)
-//        //    rectrack.ISRC = isrcs->Item(0)->ID();
-//    }
-
-//    return rec;
-//}

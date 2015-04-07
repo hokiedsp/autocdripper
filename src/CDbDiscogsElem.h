@@ -1,12 +1,15 @@
 #pragma once
 
+#include <functional>
+#include <vector>
 #include "CUtilJson.h"
 
 class CDbDiscogsElem : protected CUtilJson
 {
     friend class CDbDiscogs;
 public:
-    CDbDiscogsElem(const std::string &data, const int disc=1);
+    CDbDiscogsElem(const std::string &data, const int disc=1, const int offset=0);
+    CDbDiscogsElem(const std::string &data, const int disc, const std::vector<int> &tracklengths);
     virtual ~CDbDiscogsElem() {}
 
     /**
@@ -124,8 +127,40 @@ public:
 
 private:
     int disc; // in the case of multi-disc set, indicate the disc # (zero-based)
+    int track_offset; // starting track of the CD (always 0 if single disc release)
+    int number_of_tracks; // number of tracks on the CD (-1 to use all tracks of the release)
 
-    json_t* TrackList_() const;
+    /**
+     * @brief Traverses tracklist array and calls Callback() for every track-type element
+     * @param[in] Callback function taking a pointer to track (or subtrack) JSON element
+     *            and its parent track (only for subtrack, NULL if element is track) and
+     *            returns true to go to next track, false to quit traversing
+     */
+    void TraverseTracks_(std::function<bool (const json_t *track, const json_t *parent)>) const;
+
+    /**
+     * @brief Find JSON object for the specified track
+     * @param[in] track number between 1 and 99 -> 0
+     * @param[out] if not NULL and track is found in sub_tracks listing, returns its parent index track JSON object
+     * @return pointer to a track JSON object
+     */
+    const json_t* FindTrack_(const size_t trackno, const json_t **index=NULL) const;
+
+    /**
+     * @brief Determine track offset for multi-disc release
+     *
+     * This function fills track_offset & number_of_tracks member variables.
+     *
+     * @param[in] vector of lengths of CD tracks in seconds
+     * @return false if Discogs release is invalid
+     */
+    bool SetDiscOffset_(const std::vector<int> &tracklengths);
+
+    /**
+     * @brief Fill number_of_tracks
+     */
+    void SetDiscSize_();
+
     static std::string Title_(const json_t* data); // maybe release or track json_t
     static std::string Artist_(const json_t* data, const int artisttype=0); // maybe release or track json_t
 };
