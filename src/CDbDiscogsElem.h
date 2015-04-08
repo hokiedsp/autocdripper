@@ -78,6 +78,12 @@ public:
      */
     std::string AlbumLabel() const;
 
+    /** Get catalog number
+     *
+     *  @return    Catalog Number string (empty if not available)
+     */
+    std::string AlbumCatNo() const;
+
     /** Get album UPC
      *
      *  @return    UPC string (empty if UPC not available)

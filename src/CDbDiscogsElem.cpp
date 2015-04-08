@@ -122,19 +122,26 @@ bool CDbDiscogsElem::SetDiscOffset_(const std::vector<int> &cdtracks)
         }
 
         // determine the disc #
-        if (track_offset==0)
+        if (track_offset==0) // -> undisputably the first disc
         {
             disc = 1;
         }
         else
         {
+            // Expects Pos entry on the first track is expected to begin with a disc #.
+            // Any preceding non-digits are skipped and first number is taken as the disc #.
+            // If no number of found or the first # is less than 2, disc# is probably not
+            // displayed in the field. If so, disc variable remain unchanged.
             std::string position;
             const json_t* track = FindTrack_(1);
             CUtilJson::FindString(track,"position",position);
             const char* str = position.c_str();
             while (*str && !isdigit(*str)) str++;
-            int T = strtol(str, NULL, 10);
-            if (T>1) disc = T;
+            if (*str)
+            {
+                int T = strtol(str, NULL, 10);
+                if (T>1) disc = T;
+            }
         }
     }
 
@@ -357,6 +364,24 @@ std::string CDbDiscogsElem::AlbumLabel() const
     }
 
     return labelstr;
+}
+
+/** Get catalog number
+ *
+ *  @return    CatNo string (empty if not available)
+ */
+std::string CDbDiscogsElem::AlbumCatNo() const
+{
+    json_t *labels;
+    std::string catno;
+
+    if (FindArray("labels",labels))
+    {
+        labels = json_array_get(labels,0); // get the first label entry
+        FindString(labels,"catno",catno);
+    }
+
+    return catno;
 }
 
 /** Get album UPC

@@ -192,6 +192,14 @@ public:
      */
     virtual std::string AlbumLabel(const int recnum=0) const=0;
 
+    /** Get catalog number
+     *
+     *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+     *             is returned.
+     *  @return    Catalog Number string (empty if label not available)
+     */
+    virtual std::string AlbumCatNo(const int recnum=0) const=0;
+
     /** Get album UPC
      *
      *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)

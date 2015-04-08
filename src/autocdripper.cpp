@@ -47,6 +47,7 @@ int main(int argc, const char *argv[])
         csbuilder.AddRemField(AlbumRemFieldType::DISCS);
         csbuilder.AddRemField(AlbumRemFieldType::GENRE);
         csbuilder.AddRemField(AlbumRemFieldType::LABEL);
+        csbuilder.AddRemField(AlbumRemFieldType::CATNO);
         csbuilder.AddRemField(AlbumRemFieldType::COUNTRY);
         csbuilder.AddRemField(AlbumRemFieldType::DATE);
 

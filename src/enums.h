@@ -27,6 +27,7 @@ enum class AlbumRemFieldType
     COUNTRY,    /// release country
     UPC,        /// UPC barcode
     LABEL,      /// label
+    CATNO,      /// catalog number
     DISC,       /// disc#
     DISCS,      /// number of discs in a set
 };

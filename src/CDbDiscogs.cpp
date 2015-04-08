@@ -471,6 +471,22 @@ std::string CDbDiscogs::AlbumLabel(const int recnum) const
     return Releases[recnum].AlbumLabel();
 }
 
+
+/** Get catalog number
+ *
+ *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+ *             is returned.
+ *  @return    Catalog Number string (empty if label not available)
+ */
+std::string CDbDiscogs::AlbumCatNo(const int recnum) const
+{
+    // set disc
+    if (recnum<0 || recnum>=(int)Releases.size()) // all discs
+        throw(runtime_error("Invalid CD record ID."));
+
+    return Releases[recnum].AlbumCatNo();
+}
+
 /** Get album UPC (barcode)
  *
  *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)

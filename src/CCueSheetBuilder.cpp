@@ -444,6 +444,10 @@ void CCueSheetBuilder::ProcessDatabase_(IDatabase &db, const int recid)
                     rem = rdb.AlbumLabel(recid);
                     if (rem.size()) rem.insert(0,"LABEL ");
                     break;
+                case AlbumRemFieldType::CATNO:
+                    rem = rdb.AlbumCatNo(recid);
+                    if (rem.size()) rem.insert(0,"CATNO ");
+                    break;
                 case AlbumRemFieldType::DISC:
                     if (rdb.TotalDiscs()>1)
                     {
