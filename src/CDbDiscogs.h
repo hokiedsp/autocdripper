@@ -387,13 +387,12 @@ private:
 
     /**
      * @brief Query helper function to analyze master release record
-     * @param[in] receives a url to a master release record and returns a url to its oldest CD release
-     *            record.
+     * @param[in] master release record ID
      * @param[in] UPC barcode. Empty if not given
-     * @param[in] ID of the last master record queried (0 if none prior).
-     * @return ID of the queried master record
+     * @param[inout] ID of the last master record queried, will be updated if id of the url is different
+     * @return Selected release record
      */
-    int QueryMaster_(std::string &url, const std::string upc, const int last_id);
+    CDbDiscogsElem QueryMaster_(const int id, const std::string upc, int &last_id);
 
     /**
      * @brief Select a release from releases listed under a master release
@@ -404,9 +403,10 @@ private:
      * this function to fill. If this function returns true, Releases.back() contains the selected
      * record data.
      *
+     * @param[inout] Current release selection, updates if better match found
      * @param[in] JSON object containing versions: /masters/{master_id}/versions
      * @param[in] Optional UPC or empty string if none given
      * @return true if a release is successfully retrieved
      */
-    bool SelectFromMasterVersions_(const CUtilJson &versions, const std::string &upc);
+    bool SelectFromMasterVersions_(CDbDiscogsElem &elem, const CUtilJson &versions, const std::string &upc);
 };

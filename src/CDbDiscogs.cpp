@@ -8,6 +8,7 @@
 #include <sstream>
 #include <iostream>
 #include <iomanip>
+#include <cctype> /* for isdigit */
 
 #include "CDbDiscogsElem.h"
 #include "CDbMusicBrainz.h"
@@ -72,7 +73,7 @@ int CDbDiscogs::Query(CDbMusicBrainz &mbdb, const std::string upc)
         // get the relation URL
         std::string url = mbdb.RelationUrl("discogs",i);
 
-        cout << " MB link: " << url << std::endl;
+        cout << "[Discogs::Query] MB link: " << url << std::endl;
 
         if (url.size())
         {
@@ -81,31 +82,36 @@ int CDbDiscogs::Query(CDbMusicBrainz &mbdb, const std::string upc)
             //  http://www.discogs.com/release/2449413 // jobim songbook
             //  http://www.discogs.com/master/251798   // bill evans moon beams
 
-            cout << url << std::endl;
+            // Parse URL to extract the ID & its type: release vs. master
+            // if parsing fails at any point, the MBDB entry is skipped
+            const std::string wwwurl("http://www.discogs.com/");
+            if (url.compare(0,wwwurl.size(),wwwurl)!=0) continue; // invalid link, move on to the next
+            size_t pos = url.find_last_of('/',url.size());  // ID is found to the left of pos
+            if (pos==(url.size()-1)) continue; // no # after the last slash -> invalid
+            char *urlstr;
+            json_int_t id = strtol(url.c_str()+pos+1, &urlstr, 10);
+            if (id==0 || urlstr!=(url.c_str()+url.size())) continue; // invalid ID number
+            bool isrelease = url.compare(pos-8, 8, "/release")==0;
+            bool ismaster = url.compare(pos-7, 7, "/master")==0;
+            if (!(isrelease||ismaster)) continue; // non-release related link
 
-            // either "relase" or "master" link
-            const std::string www_release("http://www.discogs.com/release");
-            const std::string www_master("http://www.discogs.com/master");
+            cout << "[Discogs::Query] " << (isrelease?"Release ID: ":"Master ID") << id << "\n";
 
-            if (url.compare(0,www_release.length(),www_release)==0)
+            if (isrelease)
             {
-                // convert the given URL with base_url for API query URL
-                const std::string mb_base_url("http://www.discogs.com/release");
-                url.replace(0, mb_base_url.length(), base_url+"releases");
-
                 // Get release data & create new entry
-                PerformHttpTransfer_(url); // received data is stored in rawdata
+                PerformHttpTransfer_(base_url + "releases/" + std::to_string(id)); // received data is stored in rawdata
                 CDbDiscogsElem release(rawdata);
 
                 // if there is a master release associated with this release
                 // and UPC or preferred country specified but not matched
                 // query the master release
                 if (((upc.size() && upc.compare(release.AlbumUPC())!=0)
-                     || (preferred_country.size() && preferred_country.compare(release.Country())!=0))
-                    && release.FindString("master_url",url))
+                     || (upc.empty() && preferred_country.size() && preferred_country.compare(release.Country())!=0))
+                    && release.FindInt("master_id",id))
                 {
-                    // convert the API URL to WWW URL
-                    url.replace(0, (base_url+"masters").length(), www_master);
+                    ismaster = true;
+                    cout << "[Discogs::Query] Linked to a master release: " << id << "\n";
                 }
                 else
                 {
@@ -115,13 +121,18 @@ int CDbDiscogs::Query(CDbMusicBrainz &mbdb, const std::string upc)
                 }
             }
 
-            // If URL is that of a master releases, query for the master release and pick its version
-            if (url.compare(0,www_master.length(),www_master)==0)
+            // If URL is that of a master releases, query for the master release and pick its best matching version
+            if (ismaster)
             {
-                // master release link given
-                int id = QueryMaster_(url, upc, lastmaster);
-                if (id<0) continue; // duplicate master, go to next record
-                lastmaster = id; // update
+                // get best matching release from the associated releases
+                CDbDiscogsElem release = QueryMaster_(id, upc, lastmaster);
+
+                if (release.data) // if release is not empty
+                {
+                    // keep the record
+                    Releases.emplace_back("");
+                    Releases.back().Swap(release);
+                }
             }
 
             // Reached here indicates that new release has been added
@@ -130,15 +141,20 @@ int CDbDiscogs::Query(CDbMusicBrainz &mbdb, const std::string upc)
             // if multi-disc release identify the offset
             if (elem.TotalDiscs()>1)
             {
-                // if multi-disc release, starting track offset must be computed when new CDbDiscogsElem is created
+                cout << "[CDbDiscogs::Query] Multi-disc release -> Determining the disc offset...";
+
+                // copy the disc# from MB
                 elem.disc = mbdb.DiscNumber(i);
-                elem.SetDiscOffset_(mbdb.TrackLengths(i));
-            }
 
-
-            // if UPC given, validate
-            if (upc.size())
-            {
+                // if multi-disc release, starting track offset must be computed when new CDbDiscogsElem is created
+                if (!elem.SetDiscOffset_(mbdb.TrackLengths(i)))
+                {
+                    cout << "failed! Discarding the record.\n";
+                    Releases.pop_back();
+                    continue;
+                }
+                else
+                    cout << "success! Ntracks: " << elem.number_of_tracks << " Offset: " << elem.track_offset << "\n";
 
             }
         }
@@ -156,36 +172,30 @@ int CDbDiscogs::Query(CDbMusicBrainz &mbdb, const std::string upc)
  * Releases member variable. The selection is based on preferred_country member variable and
  * UPC string argument.
  *
- * @param[in] receives a url to a master release record and returns a url to its oldest CD release
- *            record. Content will be altered by the function.
+ * @param[in] master release record ID
  * @param[in] UPC barcode. Empty if not given.
- * @param[in] ID of the last master record queried (0 if none prior).
- * @return ID of the queried master record
+ * @param[inout] ID of the last master record queried, will be updated if id of the url is different
+ * @return Selected release record
  */
-int CDbDiscogs::QueryMaster_(std::string &url, const std::string upc, const int last_id)
+CDbDiscogsElem CDbDiscogs::QueryMaster_(const int id, const std::string upc, int &last_id)
 {
-    int id=0; // return value. master release ID or <0 if duplicate found
-
-    const std::string mb_base_url("http://www.discogs.com/master");
-
     // Check the master release id
-    id = std::stoi(url.substr(mb_base_url.size()+1));
+    CDbDiscogsElem release(""); // return value
     if (id!=last_id)
     {
-        // Create new Releases entry
-        Releases.emplace_back(""); // empty element
+        // update the id
+        last_id = id;
 
-        try
+        // retrieve the master data
+        PerformHttpTransfer_(base_url+"/masters/"+std::to_string(id)); // received data is stored in rawdata
+        CUtilJson master(rawdata);
+
+        // get the URL link to its versions
+        std::string url;
+        if (CUtilJson::FindString(master.data,"versions_url",url))
         {
-            // convert the given URL with base_url for API query URL
-            url.replace(0,mb_base_url.length(),base_url+"masters");
 
-            // retrieve the master data
-            PerformHttpTransfer_(url); // received data is stored in rawdata
-            CUtilJson master(rawdata);
-
-            // get the URL link to its versions
-            CUtilJson::FindString(master.data,"versions_url",url);
+            cout << "[Discogs::MasterQuery] Versions are found at: " << url << "\n";
 
             // retrieve the versions data
             PerformHttpTransfer_(url); // received data is stored in rawdata
@@ -194,43 +204,28 @@ int CDbDiscogs::QueryMaster_(std::string &url, const std::string upc, const int 
             // Get the number of pages
             json_int_t pages;
             json_t *pageinfo;
-            versions.FindObject("pagination", pageinfo);
-            CUtilJson::FindInt(pageinfo, "pages", pages);
-
-            // go through the first page
-            bool notfound = SelectFromMasterVersions_(versions, upc);
-
-            // go over additional pages if available
-            for (json_int_t p = 2; notfound && p<=pages; p++)
+            if (versions.FindObject("pagination", pageinfo)
+                    && CUtilJson::FindInt(pageinfo, "pages", pages))
             {
-                PerformHttpTransfer_(url+"?page="+std::to_string(p)); // received data is stored in rawdata
-                CUtilJson versions(rawdata);
 
-                notfound = SelectFromMasterVersions_(versions, upc);
+                cout << "[Discogs::MasterQuery] Versions are listed in " << pages << " pages\n";
+
+                // go through the first page
+                bool notfound = SelectFromMasterVersions_(release, versions, upc);
+
+                // go over additional pages if available
+                for (json_int_t p = 2; notfound && p<=pages; p++)
+                {
+                    PerformHttpTransfer_(url+"?page="+std::to_string(p)); // received data is stored in rawdata
+                    CUtilJson versions(rawdata);
+
+                    notfound = SelectFromMasterVersions_(release, versions, upc);
+                }
             }
-
-            // If no release was chosen, delete the release
-            if (!Releases.back().data) Releases.pop_back();
-        }
-        catch (...)
-        {
-            // if exception thrown, pop the new entry
-            Releases.pop_back();
-            throw;
         }
     }
-    else
-    {
-        id = -1;
-    }
-    //    }
-    //    else
-    //    {
-    //        url.clear(); // for now
-    //        // sort through data
-    //    }
 
-    return id; // for now
+    return release; // for now
 }
 
 /**
@@ -242,11 +237,12 @@ int CDbDiscogs::QueryMaster_(std::string &url, const std::string upc, const int 
  * this function to fill. If this function returns true, Releases.back() contains the selected
  * record data.
  *
+ * @param[inout] Current release selection, updates if better match found
  * @param[in] JSON object containing versions: /masters/{master_id}/versions
  * @param[in] Optional UPC or empty string if none given
  * @return true if the selection is not firm.
  */
-bool CDbDiscogs::SelectFromMasterVersions_(const CUtilJson &versions, const std::string &upc)
+bool CDbDiscogs::SelectFromMasterVersions_(CDbDiscogsElem &elem, const CUtilJson &versions, const std::string &upc)
 {
     bool rval = true; // returns true if selection is not firm
     json_t *list;
@@ -256,7 +252,7 @@ bool CDbDiscogs::SelectFromMasterVersions_(const CUtilJson &versions, const std:
     std::string url;
 
     // get the version list
-    CUtilJson::FindArray(versions.data, "versions", list);
+    versions.FindArray("versions", list);
 
     // traverse the array and look for the
     for(size_t index = 0;
@@ -265,9 +261,20 @@ bool CDbDiscogs::SelectFromMasterVersions_(const CUtilJson &versions, const std:
     {
         bool country_match, upc_match;
 
+        json_int_t id;
+        CUtilJson::FindInt(version,"id",id);
+        cout << "[Discogs::MasterVersionQuery] ID: " << id << "\n";
+
         // look for the format string and if it does not contain CD, skip
-        if (CUtilJson::FindString(version, "format", fmt) && fmt.compare(0, 2, "CD")!=0)
-            continue;
+        if (!CUtilJson::FindString(version, "format", fmt)) continue;
+        size_t pos=0;
+        if (isdigit(fmt.front())) // ##xFMT notation
+        {
+            pos = fmt.find_first_of('x');
+            if (pos==fmt.npos) continue;
+            pos++;
+        }
+        if (fmt.compare(pos, 2, "CD")!=0) continue;
 
         // Retrieve the release data if (1) the first item, (2) UPC given (but not yet matched)
         // or (3) preferred country is given and matched to release's country
@@ -277,7 +284,8 @@ bool CDbDiscogs::SelectFromMasterVersions_(const CUtilJson &versions, const std:
                  && country.compare(preferred_country)==0)))
             && CUtilJson::FindString(version,"resource_url",url))
         {
-            if (!CUtilJson::FindString(version,"country",country)) cout << "FindString country failed\n";
+            if (!CUtilJson::FindString(version,"country",country))
+                cout << "[Discogs::MasterVersionQuery] FindString country failed\n";
 
             // Potential match: retrieve the release data
             PerformHttpTransfer_(url); // received data is stored in rawdata
@@ -289,11 +297,14 @@ bool CDbDiscogs::SelectFromMasterVersions_(const CUtilJson &versions, const std:
             /* UPC given & matched or Country given & matched or neither given*/
 
             // Overwrite the last Releases element with it
-            CDbDiscogsElem &elem = Releases.back();
-            if (upc_match || (upc.empty() && !elem.data)) elem.Swap(release);
+            if (upc_match || (upc.empty() && !elem.data))
+            {
+                cout << "[Discogs::MasterVersionQuery] Release data swapped." << endl;
+                elem.Swap(release);
+            }
 
-            if (country_match) cout << "Country matched" << endl;
-            else cout << preferred_country << " vs. " << country << endl;
+            if (country_match) cout << "[Discogs::MasterVersionQuery] Country matched" << endl;
+            else cout << "[Discogs::MasterVersionQuery] " << preferred_country << " vs. " << country << endl;
 
             //CUtilJson::PrintJSON(version);
         }

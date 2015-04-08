@@ -136,15 +136,15 @@ private:
      *            and its parent track (only for subtrack, NULL if element is track) and
      *            returns true to go to next track, false to quit traversing
      */
-    void TraverseTracks_(std::function<bool (const json_t *track, const json_t *parent)>) const;
+    void TraverseTracks_(std::function<bool (const json_t *track, const json_t *parent, const json_t *header)>) const;
 
     /**
      * @brief Find JSON object for the specified track
-     * @param[in] track number between 1 and 99 -> 0
+     * @param[in] track number counting over multiple discs
      * @param[out] if not NULL and track is found in sub_tracks listing, returns its parent index track JSON object
      * @return pointer to a track JSON object
      */
-    const json_t* FindTrack_(const size_t trackno, const json_t **index=NULL) const;
+    const json_t* FindTrack_(const size_t trackno, const json_t **index=NULL, const json_t **header=NULL) const;
 
     /**
      * @brief Determine track offset for multi-disc release

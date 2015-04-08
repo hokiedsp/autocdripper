@@ -1209,7 +1209,7 @@ std::vector<int> CDbMusicBrainz::TrackLengths(const int recnum) const
         {
             CTrack *track = medium->TrackList()->Item(i);
             if (!track) throw(runtime_error("Failed to retrieve track info."));
-            tracklengths.push_back(track->Length());
+            tracklengths.push_back(track->Length()/1000);
         }
     }
 

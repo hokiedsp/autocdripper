@@ -33,9 +33,9 @@ int main(int argc, const char *argv[])
 
         CSourceCdda cdrom; // auto-detect CD-ROM drive with a audio CD
 
-        //csbuilder.SetCdInfo(cdrom);
+        csbuilder.SetCdInfo(cdrom);
         //csbuilder.SetCdInfo(cdrom,"731452547224"); // jobim songbook
-        csbuilder.SetCdInfo(cdrom,"025218643429"); // bill evans moon beams
+        //csbuilder.SetCdInfo(cdrom,"025218643429"); // bill evans moon beams
 
         csbuilder.AddDatabase(discogs);
         csbuilder.AddDatabase(mbdb);
