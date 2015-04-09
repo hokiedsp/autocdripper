@@ -9,23 +9,9 @@ using std::runtime_error;
  */
 CUtilJson::CUtilJson(const std::string &rawdata)
 {
-    if (rawdata.size())
-    {
-        // now load the data onto json object
-        try
-        {
-            data = json_loadb(rawdata.c_str(), rawdata.size(), 0, &error);
-            if(!data) throw(std::runtime_error(error.text));
-        }
-        catch (...)
-        {
-            throw; // rethrow the exception
-        }
-    }
-    else
-    {
-        data = NULL;
-    }
+    // now load the data onto json object
+    if (rawdata.size()) LoadData(rawdata);
+    else data = NULL;   // if no data
 }
 
 /**
@@ -42,7 +28,31 @@ CUtilJson::CUtilJson(const CUtilJson &src) : error(src.error)
  */
 CUtilJson::~CUtilJson()
 {
-    json_object_clear(data);
+    if (data) json_object_clear(data);
+}
+
+void CUtilJson::LoadData(const std::string &rawdata)
+{
+    if (rawdata.size())
+    {
+        // clear existing data
+        ClearData();
+
+        data = json_loadb(rawdata.c_str(), rawdata.size(), 0, &error);
+        if(!data) throw(std::runtime_error(error.text));
+    }
+}
+
+/**
+ * @brief Clear existing JSON data
+ */
+void CUtilJson::ClearData()
+{
+    if (data)
+    {
+        json_object_clear(data);
+        data = NULL;
+    }
 }
 
 // helper functions to get value of a requested key

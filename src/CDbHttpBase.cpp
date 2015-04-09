@@ -75,7 +75,7 @@ void CDbHttpBase::PerformHttpTransfer_(const std::string &url)
  * @param[in] URL of the remote content
  * @return Length in bytes; if unknown, returns 0
  */
-size_t CDbHttpBase::GetHttpContentLength_(const std::string &url)
+size_t CDbHttpBase::GetHttpContentLength_(const std::string &url) const
 {
     double size;
 

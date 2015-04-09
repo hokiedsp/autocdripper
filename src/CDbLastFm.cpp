@@ -12,6 +12,7 @@
 
 #include "SCueSheet.h"
 #include "credirect.h" // to redirect std::cerr stream
+#include "CDbMusicBrainz.h"
 
 using std::cout;
 using std::endl;
@@ -31,267 +32,59 @@ const std::string CDbLastFm::base_url("http://ws.audioscrobbler.com/2.0/");
  *  @param[in] Client program version. If omitted or empty, uses "alpha"
  */
 CDbLastFm::CDbLastFm(const std::string &key, const std::string &cname,const std::string &cversion)
-    : CDbHttpBase(cname,cversion), CDbJsonBase(), apikey(key), CoverArtSize(3)
+    : CDbHttpBase(cname,cversion), apikey(key), CoverArtSize(3)
 {}
-
-/** Constructor.
- *
- *  @param[in] Client program last.fm API key
- *  @param[in] Client program name. If omitted or empty, uses "autorip"
- *  @param[in] Client program version. If omitted or empty, uses "alpha"
- */
-CDbLastFm::CDbLastFm(const CDbMusicBrainz &mb, const std::string &key, const std::string &cname,const std::string &cversion)
-    : CDbHttpBase(cname,cversion), CDbJsonBase(), apikey(key), CoverArtSize(3)
-{
-    // for each LastFm release URL
-
-}
 
 CDbLastFm::~CDbLastFm() {}
 
-/** Perform a new LastFm query given a list of MusicBrainz release IDs
- *
- *  @param[in] collection of MusicBrainz release IDs
- *  @return    Number of valid records
+/**
+ * @brief Clear all the matches from previous search
  */
-int CDbLastFm::Query(const std::deque<std::string> &list)
+void CDbLastFm::Clear()
 {
-    // if empty deque given, do nothing
-    if (list.empty()) return 0;
+    ClearData();
+}
 
-    ClearReleases_();
+/** If MayBeLinkedFromMusicBrainz() returns true, Query() performs a new
+ *  query based on the MusicBrainz query results.
+ *
+ *  @param[in] MusicBrainz database object.
+ *  @param[in] (Optional) UPC barcode
+ *  @return    Number of matched records
+ */
+int CDbLastFm::Query(CDbMusicBrainz &mbdb, const std::string upc)
+{
+    cout << "[LastFM::Query] starting\n";
 
-    // look up all releases
-    deque<string>::const_iterator it;
-    for (it=list.begin();it!=list.end();it++)
+    // clear the data
+    Clear();
+
+    // Get the MBID
+    discid = mbdb.GetDiscId();
+    if (discid.size())
     {
-        PerformHttpTransfer_(FormUrlFromMbid(*it, apikey));
-        AppendRelease_(data); // Create a new JSON object
-        if (!FindObject_(Releases.back(),"album",Releases.back()))
-            throw(runtime_error("Received album data is corrupted."));
+        // form search URL
+        string url(base_url);
+        url.reserve(256);
+        url += "?method=album.getinfo&format=json&api_key=";
+        url += apikey;
+        url += "&mbid=";
+        url += discid;
+
+        // look up all releases
+        PerformHttpTransfer_(url);
+
+        std::cout << rawdata << std::endl;
+
+        // parse the downloaded JSON data
+        LoadData(rawdata);
+
+        // donno what to expect, try
+        PrintJSON();
     }
 
     // return the number of matches
-    return Releases.size();
-}
-
-/** If IsSearchable() returns true, Search() performs a new album search based on
- *  album title and artist. If search is not supported or did not return any match,
- *  Search() returns zero.
- *
- *  @param[in] Album title
- *  @param[in] Album artist
- *  @param[in] If true, immediately calls Read() to populate disc records.
- *  @param[in] Network time out in seconds. If omitted or negative, previous value
- *             will be reused. System default is 10.
- *  @return    Number of matched records
- */
-int CDbLastFm::Search(const std::string &title, const std::string &artist, const bool autofill, const int timeout)
-{
-    return 0;
-}
-
-/** Returns the CD record ID associated with the specified genre. If no matching
- *  record is found, it returns -1.
- *
- *  @return Matching CD record ID.
- */
-int CDbLastFm::MatchByGenre(const std::string &genre) const
-{
-    return -1;
-}
-
-/** Get album title
- *
- *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
- *             is returned.
- *  @return    Title string (empty if title not available)
- */
-std::string CDbLastFm::AlbumTitle(const int recnum) const
-{
-    // set record
-    if (recnum<0 || recnum>=(int)Releases.size()) // all discs
-        throw(runtime_error("Invalid Release record ID."));
-
-    return Title_(Releases[recnum]);
-}
-
-std::string CDbLastFm::Title_(const json_t* json)
-{
-    string titlestr;
-    if (FindString_(json,"name",titlestr)) return titlestr;
-    return "";
-}
-
-/** Get album artist
- *
- *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
- *             is returned.
- *  @return    Artist string (empty if artist not available)
- */
-std::string CDbLastFm::AlbumArtist(const int recnum) const
-{
-    // set disc
-    if (recnum<0 || recnum>=(int)Releases.size()) // all discs
-        throw(runtime_error("Invalid CD record ID."));
-
-    return AlbumArtist_(Releases[recnum]);
-}
-
-/** Get genre
- *
- *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
- *             is returned.
- *  @return    Empty string (LastFm does not support genre)
- */
-std::string CDbLastFm::Genre(const int recnum) const
-{
-    // set disc
-    if (recnum<0 || recnum>=(int)Releases.size()) // all discs
-        throw(runtime_error("Invalid CD record ID."));
-
-    return Genre_(Releases[recnum]);
-}
-
-std::string CDbLastFm::Genre_(const json_t* release)
-{
-    json_t *toptags, *tag;
-    string str;
-
-    if (FindObject_(release,"toptags",toptags)
-            && FindArray_(toptags,"tag",tag)
-            && FindString_(json_array_get(tag,0),"name", str)) return str;
-    else return "";
-}
-
-/**
- * @brief Returns number of tracks on the CD
- * @param[in] Disc record ID (0-based index). If omitted, the first record (0)
- *             is returned.
- * @return Number of tracks
- */
-int CDbLastFm::NumberOfTracks(const int recnum) const
-{
-    // set disc
-    if (recnum<0 || recnum>=(int)Releases.size()) // all discs
-        throw(runtime_error("Invalid CD record ID."));
-
-    return json_array_size(TrackList_(Releases[recnum]));
-}
-
-std::string CDbLastFm::AlbumArtist_(const json_t* json)
-{
-    string str;
-
-    // Look for artist entries
-    if (FindString_(json,"artist",str)) return str;
-    else return "";
-}
-
-std::string CDbLastFm::Date_(const json_t* release)
-{
-    string str;
-    if (FindString_(release,"releasedate",str)) return str;
-    else return "";
-}
-
-json_t* CDbLastFm::TrackList_(const json_t *release)
-{
-    json_t *tracks, *track;
-
-    if (FindObject_(release,"tracks",tracks) && FindArray_(tracks,"track",track))
-        return track;
-    else
-        throw(runtime_error("Tracklist not found."));
-}
-
-/** Retrieve the disc info from specified database record
- *
- *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
- *             is returned.
- *  @return    SDbrBase Pointer to newly created database record object. Caller is
- *             responsible for deleting the object.
- */
-SDbrBase* CDbLastFm::Retrieve(const int recnum) const
-{
-    json_t *tracks;
-    int num_tracks;
-    string str;
-
-    // instantiate new DBR object
-    SDbrLastFm * rec = new SDbrLastFm;
-
-    // set disc
-    if (recnum<0 || recnum>=(int)Releases.size()) // all discs
-        throw(runtime_error("Invalid Release record ID."));
-
-    // Grab the specified release info
-    const json_t *r = Releases[recnum];
-
-    rec->Title = Title_(r);
-    rec->Performer = AlbumArtist_(r);
-
-    rec->Rems.emplace_back("DBSRC LastFm");
-    if (FindString_(r,"id",str))
-        rec->Rems.emplace_back("ID "+str);	// comments on the disc
-
-    str = Genre_(r);
-    if (str.size()) rec->Rems.emplace_back("GENRE "+str);
-
-    str = Date_(r);
-    if (str.size())
-        rec->Rems.emplace_back("DATE "+str);
-
-    // initialize tracks
-    tracks = TrackList_(r);
-    num_tracks = json_array_size(tracks);
-    rec->AddTracks(num_tracks); // adds Tracks 1 to num_tracks
-
-    for (int i=0;i<num_tracks;i++)
-    {
-        json_t *track = json_array_get(tracks,i);
-
-        // get the track object
-        SCueTrack &rectrack = rec->Tracks[i];
-
-        rectrack.Title = Title_(track);
-        rectrack.Performer = TrackArtist_(track);
-
-        //CISRCList *isrcs = recording->ISRCList();
-        //if (isrcs && isrcs->NumItems()>0)
-        //    rectrack.ISRC = isrcs->Item(0)->ID();
-    }
-
-    return rec;
-}
-
-std::string CDbLastFm::TrackArtist_(const json_t* data)
-{
-    json_t *artist;
-    string str;
-    if (FindObject_(data,"artist",artist) && FindString_(artist,"name",str))
-        return str;
-    else
-        return "";
-}
-
-/**
- * @brief Form URL from MusicBrainz release ID
- * @param[in] MusicBrainz release ID
- * @return Generated URL
- */
-std::string CDbLastFm::FormUrlFromMbid(const std::string &MBID, const std::string &apikey)
-{
-    string url(base_url);
-
-    url.reserve(256);
-
-    url += "?method=album.getinfo&format=json&api_key=";
-    url += apikey;
-    url += "&mbid=";
-    url += MBID;
-
-    return url;
+    return data!=NULL;
 }
 
 /** Specify the preferred coverart image width
@@ -327,11 +120,11 @@ void CDbLastFm::SetPreferredHeight(const size_t &height)
  */
 bool CDbLastFm::Front(const int recnum) const
 {
-    // set disc
-    if (recnum<0 || recnum>=(int)Releases.size()) // all discs
+    // check for the valid disc request
+    if (!data || recnum!=0)
         throw(runtime_error("Invalid CD record ID."));
 
-    return ImageURL_(Releases[recnum], CoverArtSize).size();
+    return ImageURL_().size();
 }
 
 /** Retrieve the front cover data.
@@ -339,18 +132,18 @@ bool CDbLastFm::Front(const int recnum) const
  *  @param[out] image data buffer.
  *  @param[in]  record index (default=0)
  */
-std::vector<unsigned char> CDbLastFm::FrontData(const int recnum)
+UByteVector CDbLastFm::FrontData(const int recnum) const
 {
-    std::vector<unsigned char> imdata;
+    UByteVector imdata;
     string url;
     size_t size;
 
-    // set disc
-    if (recnum<0 || recnum>=(int)Releases.size()) // all discs
+    // check for the valid disc request
+    if (data==NULL || recnum!=0)
         throw(runtime_error("Invalid CD record ID."));
 
     // get the URL of the image file
-    url = ImageURL_(Releases[recnum], CoverArtSize);
+    url = ImageURL_();
 
     // get the image file size
     size = GetHttpContentLength_(url);
@@ -381,14 +174,14 @@ std::vector<unsigned char> CDbLastFm::FrontData(const int recnum)
  */
 std::string CDbLastFm::FrontURL(const int recnum) const
 {
-    // set disc
-    if (recnum<0 || recnum>=(int)Releases.size()) // all discs
+    // check for the valid disc request
+    if (data==NULL || recnum!=0)
         throw(runtime_error("Invalid CD record ID."));
 
-    return ImageURL_(Releases[recnum], CoverArtSize);
+    return ImageURL_();
 }
 
-std::string CDbLastFm::ImageURL_(const json_t *release, const int size)
+std::string CDbLastFm::ImageURL_() const
 {
     // Image sizes are assumed to be according to:
     // http://www.last.fm/group/Last.fm+Web+Services/forum/21604/_/544605/1#f9834498
@@ -404,10 +197,10 @@ std::string CDbLastFm::ImageURL_(const json_t *release, const int size)
     size_t index;
 
     // must have image array object
-    if (!FindArray_(release,"image",imarray)) return "";
+    if (!FindArray("image",imarray)) return "";
 
     // prepare size string
-    switch (size)
+    switch (CoverArtSize)
     {
     case 0: sizestr = "small"; break;
     case 1: sizestr = "medium"; break;
@@ -420,10 +213,10 @@ std::string CDbLastFm::ImageURL_(const json_t *release, const int size)
     json_array_foreach(imarray, index, imobject)
     {
         // grab the URL
-        if (!FindString_(imobject,"#text",url)) continue;
+        if (!FindString(imobject,"#text",url)) continue;
 
         // check the image type
-        if (CompareString_(imobject,"size",sizestr)==0) break;
+        if (CompareString(imobject,"size",sizestr)==0) break;
     }
 
     return url;

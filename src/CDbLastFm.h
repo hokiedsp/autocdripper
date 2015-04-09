@@ -1,50 +1,23 @@
 #pragma once
 
 #include <string>
-#include <curl/curl.h>
-#include <jansson.h>
-
 #include "IDatabase.h"
 #include "IReleaseDatabase.h"
 #include "IImageDatabase.h"
 #include "CDbHttpBase.h"
-#include "CDbJsonBase.h"
-#include "SDbrBase.h"
+#include "CUtilJson.h"
 
 struct SCueSheet;
-
-/** Last.fm Database CD Record structure - SCueSheet with DbType()
- */
-struct SDbrLastFm : SDbrBase
-{
-    /** Name of the database the record was retrieved from
-   *
-   *  @return Name of the database
-   */
-    virtual std::string SourceDatabase() const { return "LastFm"; }
-
-    friend std::ostream& operator<<(std::ostream& stdout, const SDbrLastFm& obj);
-};
-
-/** Overloaded stream insertion operator to output the content of SDbrLastFm
- *  object. The output is in accordance with the CDRWIN's Cue-Sheet syntax
- *
- *  @param[in]  Reference to an std::ostream object
- *  @return     Copy of the stream object
- */
-inline std::ostream& operator<<(std::ostream& os, const SDbrLastFm& o)
-{
-    os << dynamic_cast<const SCueSheet&>(o);
-    return os;
-}
-
 class CDbMusicBrainz;
 
 /** Class to access last.fm online CD databases service.
+ *
+ *  Because of its release information content is inferior to MusicBrainz, this DB is utilized
+ *  as an image DB only. Also, this DB is only queried off MusicBrainz ID; hence, it is guaranteed
+ *  to be a single result or none.
  */
 class CDbLastFm :
-        public IDatabase, public IReleaseDatabase, public IImageDatabase,
-        public CDbHttpBase, public CDbJsonBase
+        public IDatabase, public IImageDatabase, public CDbHttpBase, private CUtilJson
 {
 public:
     /** Constructor.
@@ -55,131 +28,119 @@ public:
      */
     CDbLastFm(const std::string &apikey, const std::string &cname="autorip", const std::string &cversion="alpha");
 
-    /** Constructor.
-     *
-     *  @param[in] Client program last.fm API key
-     *  @param[in] Client program name. If omitted or empty, uses "autorip"
-     *  @param[in] Client program version. If omitted or empty, uses "alpha"
-     */
-    CDbLastFm(const CDbMusicBrainz &mb, const std::string &apikey, const std::string &cname="autorip",const std::string &cversion="alpha");
-
     /** Destructor
      */
     virtual ~CDbLastFm();
 
     /**
+     * @brief Return database type enum
+     * @return ReleaseDatabase enumuration value
+     */
+    virtual DatabaseType GetDatabaseType() const { return DatabaseType::LASTFM; }
+
+    /**
      * @brief Return true if Database can be searched for a CD info
      * @return true if database can be searched for a CD release
      */
-    bool IsReleaseDb() { return true; }
+    bool IsReleaseDb() const { return false; }
 
     /**
      * @brief Return true if Database can be searched for a CD cover art
      * @return true if database can be searched for a CD cover art
      */
-    bool IsImageDb() { return true; }
+    bool IsImageDb() const { return true; }
 
     /**
-     * @brief Return true if DB depends on MusicBrainz results
-     * @return
+     * @brief Return true if database can be queried directly from CD info
+     * @return true if database can receive CD info based query
      */
-    bool DependsOnMusicBrainz() { return true; }
+    virtual bool AllowQueryCD() const { return false; }
 
     /**
-     * @brief Return database type enum
-     * @return ReleaseDatabase enumuration value
+     * @brief Return true if MusicBrainz database is known to contain
+     *        a link to this database
+     * @return true if release ID is obtainable from MusicBrainz
      */
-    virtual ReleaseDatabase GetDatabaseType() const { return ReleaseDatabase::LASTFM; }
+    virtual bool MayBeLinkedFromMusicBrainz() const { return true; }
 
-    /** Returns false as LastFm database cannot be queried based on CD track info.
-     *
-     *  @return    true if query is supported
+    /**
+     * @brief Return true if database supports UPC barcode search
+     * @return true if database supports UPC barcode search
      */
-    virtual bool IsQueryable() const { return false; }
+    virtual bool AllowSearchByUPC() const { return false; }
 
-    /** Returns true as LastFm database can be searched by album title and artist.
-     *
-     *  @return    true if search is supported
+    /**
+     * @brief Return true if database supports search by album artist and title
+     * @return true if database supports search by album artist and title
      */
-    virtual bool IsSearchable() const { return true; }
+    virtual bool AllowSearchByArtistTitle() const { return false; }
 
-    /** LastFm does not support direct CD query. Always returns 0.
+    /** If AllowQueryCD() returns true, Query() performs a new query for the CD info
+     *  in the specified drive with its *  tracks specified in the supplied cuesheet
+     *  and its length. Previous query outcome discarded. After disc and its tracks
+     *  are initialized, CDDB disc ID is computed. If the computation fails, function
+     *  throws an runtime_error.
      *
      *  @param[in] CD-ROM device path
-     *  @param[in] Cuesheet with its basic data populated (not used)
-     *  @param[in] Length of the CD in seconds (not used)
-     *  @param[in] If true, immediately calls Read() to populate disc records.
-     *  @param[in] Network time out in seconds. (not used)
+     *  @param[in] Cuesheet with its basic data populated
+     *  @param[in] Length of the CD in sectors
+     *  @param[in] (Optional) UPC barcode
      *  @return    Number of matched records
      */
-    virtual int Query(const std::string &dev, const SCueSheet &cuesheet, const size_t len, const bool autofill=false, const int timeout=-1)
+    virtual int Query(const std::string &dev, const SCueSheet &cuesheet,
+                      const size_t len, const std::string cdrom_upc="")
     { return 0; }
 
-    /** Perform a new LastFm query given a list of its release IDs
+    /** If MayBeLinkedFromMusicBrainz() returns true, Query() performs a new
+     *  query based on the MusicBrainz query results.
      *
-     *  @param[in] List of MusicBrainz release IDs
-     *  @return    Number of valid records
+     *  @param[in] MusicBrainz database object.
+     *  @param[in] (Optional) UPC barcode
+     *  @return    Number of matched records
      */
-    virtual int Query(const std::deque<std::string> &list);
+    virtual int Query(CDbMusicBrainz &mbdb, const std::string upc="");
 
-    /** If IsSearchable() returns true, Search() performs a new album search based on
+    /** If AllowSearchByArtistTitle() returns true, Search() performs a new album search based on
      *  album title and artist. If search is not supported or did not return any match,
      *  Search() returns zero.
      *
      *  @param[in] Album title
      *  @param[in] Album artist
-     *  @param[in] If true, immediately calls Read() to populate disc records.
-     *  @param[in] Network time out in seconds. If omitted or negative, previous value
-     *             will be reused. System default is 10.
+     *  @param[in] true to narrowdown existing records; false for new search
      *  @return    Number of matched records
      */
-    virtual int Search(const std::string &title, const std::string &artist, const bool autofill=false, const int timeout=-1);
+    virtual int Search(const std::string &title, const std::string &artist,
+                       bool narrowdown=false) { return 0; }
 
-    /** Return the LastFm discid string
+    /** If AllowSearchByUPC() returns true, Search() performs a new album search based on
+     *  album title and artist. If search is not supported or did not return any match,
+     *  Search() returns zero.
+     *
+     *  @param[in] UPC string
+     *  @param[in] true to narrowdown existing records; false for new search
+     *  @return    Number of matched records
+     */
+    virtual int Search(const std::string &upc, bool narrowdown=false)
+    { return 0; }
+
+    /**
+     * @brief Clear all the matches from previous search
+     */
+    virtual void Clear();
+
+    // -----------------------------------------------------------------------
+
+    /** Returns the number of matched records returned from the last Query() call.
+     *
+     *  @return    Number of matched records
+     */
+    virtual int NumberOfMatches() const { return data!=nullptr; };
+
+    /** Return the discid string (Last.FM uses MusicBrainz ID)
      *
      *  @return LastFm discid string if Query was successful. Otherwise "00000000".
      */
-    virtual std::string GetDiscId() const { return ""; }
-
-    /** Get album title
-     *
-     *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
-     *             is returned.
-     *  @return    Title string (empty if title not available)
-     */
-    virtual std::string AlbumTitle(const int recnum=-1) const;
-
-    /** Get album artist
-         *
-         *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
-         *             is returned.
-         *  @return    Artist string (empty if artist not available)
-         */
-    virtual std::string AlbumArtist(const int recnum=-1) const;
-
-    /** Get genre
-     *
-     *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
-     *             is returned.
-     *  @return    Empty string (LastFm does not support genre)
-     */
-    virtual std::string Genre(const int recnum=0) const;
-
-    /**
-     * @brief Returns number of tracks on the CD
-     * @param[in] Disc record ID (0-based index). If omitted, the first record (0)
-     *             is returned.
-     * @return Number of tracks
-     */
-    virtual int NumberOfTracks(const int recnum=0) const;
-
-    /** Get label name
-     *
-     *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
-     *             is returned.
-     *  @return    Label string (empty if label not available)
-     */
-    virtual std::string AlbumLabel(const int recnum=0) const { return ""; }
+    virtual std::string GetDiscId() const { return discid; }
 
     /** Get album UPC
      *
@@ -188,39 +149,6 @@ public:
      *  @return    UPC string (empty if title not available)
      */
     virtual std::string AlbumUPC(const int recnum=-1) const { return ""; }
-
-    /** Returns the CD record ID associated with the specified genre. If no matching
-     *  record is found, it returns -1.
-     *
-     *  @return Matching CD record ID.
-     */
-    virtual int MatchByGenre(const std::string &genre) const;
-
-    /** No action performed as the full data is retrieved by query/search call.
-     *
-     *  @param[in] Disc record ID (0-based index to discs). If negative, retrieves info
-     *             for all records.
-     *  @param[in] Network time out in seconds. If omitted or negative, previous value
-     *             will be reused. System default is 10.
-     */
-    virtual void Populate(const int discnum=-1, const int timeout=-1) {}
-
-    /** Retrieve the disc info from specified database record
-         *
-         *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
-         *             is returned.
-         *  @return    SDbrBase Pointer to newly created database record object. Caller is
-         *             responsible for deleting the object.
-         */
-    virtual SDbrBase* Retrieve(const int recnum=0) const;
-
-    /**
-     * @brief last.fm cannot resolve multi-disc entry. Always returns 1
-     * @param Release record ID (0-based index). If omitted, the first record (0)
-     *        is returned.
-     * @return Always 1
-     */
-    int NumberOfDiscs(const int recnum=0) const { return 1; }
 
     /** Specify the preferred coverart image width
      *
@@ -253,14 +181,14 @@ public:
      *  @param[out] image data buffer.
      *  @param[in]  record index (default=0)
      */
-    virtual std::vector<unsigned char> FrontData(const int recnum=0);
+    virtual UByteVector FrontData(const int recnum=0) const;
 
     /** Check if the query returned a front cover
      *
      *  @param[out] image data buffer.
      *  @param[in]  record index (default=0)
      */
-    virtual std::vector<unsigned char> BackData(const int recnum=0) { std::vector<unsigned char> data; return data; }
+    virtual UByteVector BackData(const int recnum=0) const { UByteVector data; return data; }
 
     /** Get the URL of the front cover image
      *
@@ -281,20 +209,11 @@ private:
     std::string apikey;
     int CoverArtSize; // 0-"small", 1-"medium", 2-"large", 3-"extralarge","mega"
 
+    std::string discid; // musicbrainz ID
+
     /**
-     * @brief Form URL from MusicBrainz release ID
-     * @param[in] MusicBrainz release ID
-     * @param[in] last.fm API Key
-     * @return Generated URL
+     * @brief Look through JSON strutcure for the URL to the image with requested size
+     * @return URL string to the image
      */
-    static std::string FormUrlFromMbid(const std::string& MBID, const std::string &apikey);
-
-    static std::string Title_(const json_t* data); // maybe release or track json_t
-    static std::string AlbumArtist_(const json_t *release);
-    static std::string TrackArtist_(const json_t *track);
-    static std::string Genre_(const json_t *release);
-    static std::string Date_(const json_t *release);
-    static json_t* TrackList_(const json_t *release);
-
-    static std::string ImageURL_(const json_t *release, const int CoverArtSize);
+    std::string ImageURL_() const;
 };

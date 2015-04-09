@@ -16,6 +16,7 @@ using std::endl;
 #include "CDbFreeDb.h"
 #include "CDbMusicBrainz.h"
 #include "CDbDiscogs.h"
+#include "CDbLastFm.h"
 
 using std::exception;
 
@@ -26,6 +27,8 @@ int main(int argc, const char *argv[])
         CDbFreeDb freedb;
         CDbMusicBrainz mbdb;
         CDbDiscogs discogs;
+        CDbLastFm lastfm("0691e8527e395f789d23e4e91b0be8fc");
+//                const string Secret = "ce74c6a6955a7e9e2a2e6makeed8cfa796a3";
         CCueSheetBuilder csbuilder;
 
         freedb.SetCacheSettings("off");
@@ -39,6 +42,7 @@ int main(int argc, const char *argv[])
 
         csbuilder.AddDatabase(discogs);
         csbuilder.AddDatabase(mbdb);
+        csbuilder.AddDatabase(lastfm);
         //csbuilder.AddDatabase(freedb);
 
         csbuilder.AddRemField(AlbumRemFieldType::DBINFO);

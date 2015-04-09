@@ -21,6 +21,18 @@ public:
      */
     virtual ~CUtilJson();
 
+    /**
+     * @brief Load New Data. Clears existing data first. If empty, no action.
+     * @param valid JSON string
+     * @throw runtime_error if invalid JSON string.
+     */
+    virtual void LoadData(const std::string &data);
+
+    /**
+     * @brief Clear existing JSON data
+     */
+    void ClearData();
+
     /** Debug function. Prints full-struct of JSON object for a release
      *
      *  @param[in] Record index to print'

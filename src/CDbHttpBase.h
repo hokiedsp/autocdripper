@@ -54,7 +54,7 @@ protected:
      * @param[in] URL of the remote content
      * @return Length in bytes; if unknown, returns 0
      */
-    virtual size_t GetHttpContentLength_(const std::string &url);
+    virtual size_t GetHttpContentLength_(const std::string &url) const;
 
     /* Default callback for writing received HTTP data
      *
