@@ -140,50 +140,68 @@ bool CUtilJson::FindArray(const json_t* obj, const std::string &key, json_t* & v
     return val!=NULL && json_is_array(val);
 }
 
-void CUtilJson::PrintJSON(const json_t* obj, std::ostream &os)
+void CUtilJson::PrintJSON(const json_t* obj, const int depth, std::ostream &os)
 {
     const char *key;
     json_t *value;
     json_object_foreach(const_cast<json_t*>(obj), key, value)
     {
-        PrintJSON_(os, key, value, "");
+        PrintJSON_(os, depth, key, value, "");
     }
 }
 
-void CUtilJson::PrintJSON_(std::ostream &os, const char *key, json_t *value, std::string pre)
+void CUtilJson::PrintJSON_(std::ostream &os, int depth, const char *key, json_t *value, std::string pre)
 {
     /* block of code that uses key and value */
     if (json_typeof(value)==JSON_ARRAY)
     {
-        size_t index;
-        json_t *array_val;
-        json_array_foreach(value,index,array_val)
+        if (depth==0) // do not traverse
         {
-            os << pre << key << "[" << index << "]";
-            PrintJSON_value_(os, array_val, pre);
+            os << pre << key << "[" << json_array_size(value) << "]\n";
+        }
+        else
+        {
+            if (depth>0) depth--;
+
+            size_t index;
+            json_t *array_val;
+            json_array_foreach(value,index,array_val)
+            {
+                os << pre << key << "[" << index << "]";
+                PrintJSON_value_(os, depth, array_val, pre);
+            }
         }
     }
     else
     {
         os << pre << key;
-        PrintJSON_value_(os, value, pre);
+        PrintJSON_value_(os, depth, value, pre);
     }
 }
 
-void CUtilJson::PrintJSON_value_(std::ostream &os, json_t *value, const std::string pre)
+void CUtilJson::PrintJSON_value_(std::ostream &os, int depth, json_t *value, const std::string pre)
 {
     switch (json_typeof(value))
     {
     case JSON_OBJECT:
 
-        os << endl;
-
-        const char *obj_key;
-        json_t *obj_val;
-
-        json_object_foreach(value, obj_key, obj_val)
+        if (depth==0)
         {
-            PrintJSON_(os, obj_key, obj_val, pre+" ");
+            os << "(o)\n";
+        }
+        else
+        {
+            if (depth>0) depth--;
+
+            os << endl;
+
+            const char *obj_key;
+            json_t *obj_val;
+
+            json_object_foreach(value, obj_key, obj_val)
+            {
+                PrintJSON_(os, depth, obj_key, obj_val, pre+" ");
+            }
         }
 
         break;

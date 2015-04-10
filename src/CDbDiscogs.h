@@ -350,14 +350,14 @@ public:
      *  @param[out] image data buffer.
      *  @param[in]  record index (default=0)
      */
-    virtual UByteVector FrontData(const int recnum=0) const { UByteVector rval; return rval; }
+    virtual UByteVector FrontData(const int recnum=0) { UByteVector rval; return rval; }
 
     /** Check if the query returned a front cover
      *
      *  @param[out] image data buffer.
      *  @param[in]  record index (default=0)
      */
-    virtual UByteVector BackData(const int recnum=0) const { UByteVector rval; return rval; }
+    virtual UByteVector BackData(const int recnum=0) { UByteVector rval; return rval; }
 
     /** Get the URL of the front cover image
      *

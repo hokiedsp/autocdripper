@@ -113,6 +113,14 @@ public:
      */
     virtual std::string GetDiscId() const=0;
 
+    /** Return the ID of the release
+     *
+     *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+     *             is returned.
+     *  @return ID string
+     */
+    virtual std::string ReleaseId(const int recnum=-1) const=0;
+
     /** Get album UPC
      *
      *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
@@ -152,14 +160,14 @@ public:
      *  @param[out] image data buffer.
      *  @param[in]  record index (default=0)
      */
-    virtual UByteVector FrontData(const int recnum=0) const=0;
+    virtual UByteVector FrontData(const int recnum=0)=0;
 
     /** Check if the query returned a front cover
      *
      *  @param[out] image data buffer.
      *  @param[in]  record index (default=0)
      */
-    virtual UByteVector BackData(const int recnum=0) const=0;
+    virtual UByteVector BackData(const int recnum=0)=0;
 
     /** Get the URL of the front cover image
      *

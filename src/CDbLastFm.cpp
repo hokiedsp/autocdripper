@@ -13,6 +13,7 @@
 #include "SCueSheet.h"
 #include "credirect.h" // to redirect std::cerr stream
 #include "CDbMusicBrainz.h"
+#include "CDbLastFmElem.h"
 
 using std::cout;
 using std::endl;
@@ -42,7 +43,7 @@ CDbLastFm::~CDbLastFm() {}
  */
 void CDbLastFm::Clear()
 {
-    ClearData();
+    Releases.clear();
 }
 
 /** If MayBeLinkedFromMusicBrainz() returns true, Query() performs a new
@@ -60,31 +61,36 @@ int CDbLastFm::Query(CDbMusicBrainz &mbdb, const std::string upc)
     Clear();
 
     // Get the MBID
-    discid = mbdb.GetDiscId();
-    if (discid.size())
+    for (int i=0; i<mbdb.NumberOfMatches(); i++)
     {
-        // form search URL
-        string url(base_url);
-        url.reserve(256);
-        url += "?method=album.getinfo&format=json&api_key=";
-        url += apikey;
-        url += "&mbid=";
-        url += discid;
+        std::string mbid = mbdb.ReleaseId(i);
+        if (mbid.size())
+        {
+            // form search URL
+            string url(base_url);
+            url.reserve(256);
+            url += "?method=album.getinfo&format=json&api_key=";
+            url += apikey;
+            url += "&mbid=";
+            url += mbid;
 
-        // look up all releases
-        PerformHttpTransfer_(url);
+            // look up all releases
+            PerformHttpTransfer_(url);
 
-        std::cout << rawdata << std::endl;
+            // parse the downloaded JSON data
+            CDbLastFmElem release(rawdata);
 
-        // parse the downloaded JSON data
-        LoadData(rawdata);
-
-        // donno what to expect, try
-        PrintJSON();
+            // if images are available, keep the record
+            if (release.HasImage())
+            {
+                Releases.emplace_back("");
+                Releases.back().Swap(release);
+            }
+        }
     }
 
     // return the number of matches
-    return data!=NULL;
+    return Releases.size();
 }
 
 /** Specify the preferred coverart image width
@@ -113,6 +119,31 @@ void CDbLastFm::SetPreferredHeight(const size_t &height)
     else CoverArtSize = 4; // mega
 }
 
+
+/** Returns the number of matched records returned from the last Query() call.
+ *
+ *  @return    Number of matched records
+ */
+int CDbLastFm::NumberOfMatches() const
+{
+    return Releases.size();
+}
+
+/** Return the ID of the release
+ *
+ *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+ *             is returned.
+ *  @return ID string
+ */
+std::string CDbLastFm::ReleaseId(const int recnum) const
+{
+    // check for the valid disc request
+    if (Releases.empty() || recnum<0 || recnum>=(int)Releases.size())
+        throw(runtime_error("Invalid CD record ID."));
+
+    return Releases[recnum].ReleaseId();
+}
+
 /** Check if the query returned a front cover
  *
  *  @param[in]  record index (default=0)
@@ -121,10 +152,25 @@ void CDbLastFm::SetPreferredHeight(const size_t &height)
 bool CDbLastFm::Front(const int recnum) const
 {
     // check for the valid disc request
-    if (!data || recnum!=0)
+    if (Releases.empty() || recnum<0 || recnum>=(int)Releases.size())
         throw(runtime_error("Invalid CD record ID."));
 
-    return ImageURL_().size();
+    return Releases[recnum].HasImage();
+}
+
+/** Get the URL of the front cover image
+ *
+ *  @param[in]  Record index (default=0)
+ *  @return     URL string
+ */
+std::string CDbLastFm::FrontURL(const int recnum) const
+{
+    // check for the valid disc request
+    if (Releases.empty() || recnum<0 || recnum>=(int)Releases.size())
+        throw(runtime_error("Invalid CD record ID."));
+
+    // get the URL of the image file
+    return Releases[recnum].ImageURL(CoverArtSize);
 }
 
 /** Retrieve the front cover data.
@@ -132,18 +178,13 @@ bool CDbLastFm::Front(const int recnum) const
  *  @param[out] image data buffer.
  *  @param[in]  record index (default=0)
  */
-UByteVector CDbLastFm::FrontData(const int recnum) const
+UByteVector CDbLastFm::FrontData(const int recnum)
 {
     UByteVector imdata;
-    string url;
     size_t size;
 
-    // check for the valid disc request
-    if (data==NULL || recnum!=0)
-        throw(runtime_error("Invalid CD record ID."));
-
     // get the URL of the image file
-    url = ImageURL_();
+    string url = FrontURL(recnum);
 
     // get the image file size
     size = GetHttpContentLength_(url);
@@ -162,62 +203,7 @@ UByteVector CDbLastFm::FrontData(const int recnum) const
 
     // reset the download buffer
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, CDbHttpBase::write_callback);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &data);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &rawdata);
 
     return imdata;
-}
-
-/** Get the URL of the front cover image
- *
- *  @param[in]  Record index (default=0)
- *  @return     URL string
- */
-std::string CDbLastFm::FrontURL(const int recnum) const
-{
-    // check for the valid disc request
-    if (data==NULL || recnum!=0)
-        throw(runtime_error("Invalid CD record ID."));
-
-    return ImageURL_();
-}
-
-std::string CDbLastFm::ImageURL_() const
-{
-    // Image sizes are assumed to be according to:
-    // http://www.last.fm/group/Last.fm+Web+Services/forum/21604/_/544605/1#f9834498
-    //
-    //<image size="small" >…34px…</image>
-    //<image size="medium">…64px…</image>
-    //<image size="large">…126px…</image>
-    //<image size="extralarge">…252px…</image>
-    //<image size="mega">…500px…</image>
-
-    json_t *imarray, *imobject;
-    string url, sizestr;
-    size_t index;
-
-    // must have image array object
-    if (!FindArray("image",imarray)) return "";
-
-    // prepare size string
-    switch (CoverArtSize)
-    {
-    case 0: sizestr = "small"; break;
-    case 1: sizestr = "medium"; break;
-    case 2: sizestr = "large"; break;
-    case 3: sizestr = "extralarge"; break;
-    default: sizestr = "mega";
-    }
-
-    // go through each image object (assume image array contains its immages in increasing size)
-    json_array_foreach(imarray, index, imobject)
-    {
-        // grab the URL
-        if (!FindString(imobject,"#text",url)) continue;
-
-        // check the image type
-        if (CompareString(imobject,"size",sizestr)==0) break;
-    }
-
-    return url;
 }

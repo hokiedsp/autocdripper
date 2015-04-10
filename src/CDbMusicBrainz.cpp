@@ -1026,7 +1026,7 @@ bool CDbMusicBrainz::Back(const int recnum) const
  *  @param[out] image data buffer.
  *  @param[in]  record index (default=0)
  */
-std::vector<unsigned char> CDbMusicBrainz::FrontData(const int recnum) const
+UByteVector CDbMusicBrainz::FrontData(const int recnum)
 {
     if (recnum<0||recnum>(int)CoverArts.size())
         throw(runtime_error("Invalid Record Index requested."));
@@ -1039,7 +1039,7 @@ std::vector<unsigned char> CDbMusicBrainz::FrontData(const int recnum) const
  *  @param[out] image data buffer.
  *  @param[in]  record index (default=0)
  */
-std::vector<unsigned char> CDbMusicBrainz::BackData(const int recnum) const
+UByteVector CDbMusicBrainz::BackData(const int recnum)
 {
     if (recnum<0||recnum>(int)CoverArts.size())
         throw(runtime_error("Invalid Record Index requested."));

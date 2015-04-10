@@ -1,14 +1,18 @@
 #pragma once
 
 #include <string>
+#include <vector>
+
 #include "IDatabase.h"
 #include "IReleaseDatabase.h"
 #include "IImageDatabase.h"
 #include "CDbHttpBase.h"
-#include "CUtilJson.h"
 
 struct SCueSheet;
 class CDbMusicBrainz;
+class CDbLastFmElem;
+
+typedef std::vector<CDbLastFmElem> CDbLastFmElemVector;
 
 /** Class to access last.fm online CD databases service.
  *
@@ -17,7 +21,7 @@ class CDbMusicBrainz;
  *  to be a single result or none.
  */
 class CDbLastFm :
-        public IDatabase, public IImageDatabase, public CDbHttpBase, private CUtilJson
+        public IDatabase, public IImageDatabase, public CDbHttpBase
 {
 public:
     /** Constructor.
@@ -130,17 +134,25 @@ public:
 
     // -----------------------------------------------------------------------
 
+    /** Return a unique disc ID if AllowQueryCD()=true
+     *
+     *  @return discid string
+     */
+    virtual std::string GetDiscId() const { return ""; }
+
     /** Returns the number of matched records returned from the last Query() call.
      *
      *  @return    Number of matched records
      */
-    virtual int NumberOfMatches() const { return data!=nullptr; };
+    virtual int NumberOfMatches() const;
 
-    /** Return the discid string (Last.FM uses MusicBrainz ID)
+    /** Return the ID of the release
      *
-     *  @return LastFm discid string if Query was successful. Otherwise "00000000".
+     *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+     *             is returned.
+     *  @return ID string
      */
-    virtual std::string GetDiscId() const { return discid; }
+    virtual std::string ReleaseId(const int recnum=-1) const;
 
     /** Get album UPC
      *
@@ -181,14 +193,14 @@ public:
      *  @param[out] image data buffer.
      *  @param[in]  record index (default=0)
      */
-    virtual UByteVector FrontData(const int recnum=0) const;
+    virtual UByteVector FrontData(const int recnum=0);
 
     /** Check if the query returned a front cover
      *
      *  @param[out] image data buffer.
      *  @param[in]  record index (default=0)
      */
-    virtual UByteVector BackData(const int recnum=0) const { UByteVector data; return data; }
+    virtual UByteVector BackData(const int recnum=0) { UByteVector data; return data; }
 
     /** Get the URL of the front cover image
      *
@@ -209,11 +221,5 @@ private:
     std::string apikey;
     int CoverArtSize; // 0-"small", 1-"medium", 2-"large", 3-"extralarge","mega"
 
-    std::string discid; // musicbrainz ID
-
-    /**
-     * @brief Look through JSON strutcure for the URL to the image with requested size
-     * @return URL string to the image
-     */
-    std::string ImageURL_() const;
+    CDbLastFmElemVector Releases;
 };

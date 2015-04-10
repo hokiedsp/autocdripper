@@ -35,10 +35,11 @@ public:
 
     /** Debug function. Prints full-struct of JSON object for a release
      *
-     *  @param[in] Record index to print'
-     *  @param[in] Output stream to print the object (default: cout)
+     * @param[in] Depth to traverse the JSON object tree (negative to go all the way)
+     * @param[in] Record index to print'
+     * @param[in] Output stream to print the object (default: cout)
      */
-    virtual void PrintJSON(std::ostream &os=std::cout) const { PrintJSON(data, os); }
+    virtual void PrintJSON(const int depth=-1, std::ostream &os=std::cout) const { PrintJSON(data, depth, os); }
 
     // functions to get value of a requested key off the root
     bool FindBool(const std::string &key, bool &val) const { return FindBool(data, key, val); }
@@ -64,10 +65,11 @@ public:
 
     /** Debug function. Prints full-struct of JSON object for a release
      *
-     *  @param[in] Record index to print'
+     *  @param[in] pointer to a JSON object to print
+     * @param[in] traversal depth (<0 to go all the way)
      *  @param[in] Output stream to print the object (default: cout)
      */
-    static void PrintJSON(const json_t* obj, std::ostream &os=std::cout);
+    static void PrintJSON(const json_t* obj, const int depth=-1, std::ostream &os=std::cout);
 
     // generic static functions to get value of a requested key
     static bool FindBool(const json_t* obj, const std::string &key, bool &val);
@@ -90,6 +92,6 @@ public:
     static int CompareString(const json_t* obj, const std::string &key, const std::string &str);
 
 private:
-    static void PrintJSON_(std::ostream &os, const char *key, json_t *value, const std::string pre);
-    static void PrintJSON_value_(std::ostream &os, json_t *value, const std::string pre);
+    static void PrintJSON_(std::ostream &os, int depth, const char *key, json_t *value, const std::string pre);
+    static void PrintJSON_value_(std::ostream &os, int depth, json_t *value, const std::string pre);
 };
