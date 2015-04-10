@@ -89,6 +89,8 @@ int CDbLastFm::Query(CDbMusicBrainz &mbdb, const std::string upc)
         }
     }
 
+    cout << "[LastFM::Query] found " << Releases.size() << " releases with images\n";
+
     // return the number of matches
     return Releases.size();
 }

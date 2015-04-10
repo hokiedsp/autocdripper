@@ -46,9 +46,26 @@ std::string CDbLastFmElem::ReleaseId() const
  */
 bool CDbLastFmElem::HasImage() const
 {
+    bool rval = false;
+
     // must have image array object
-    json_t *imarray;
-    return FindArray("image",imarray) && json_array_size(imarray);
+    json_t *imarray, *imobject;
+    size_t index;
+    std::string url;
+    if (FindArray("image",imarray))
+    {
+        // go through each image object (assume image array contains its immages in increasing size)
+        json_array_foreach(imarray, index, imobject)
+        {
+            // if any image exists, return valid
+            if (FindString(imobject,"#text",url))
+            {
+                rval = true;
+                break;
+            }
+        }
+    }
+    return rval;
 }
 
 std::string CDbLastFmElem::ImageURL(int size) const
