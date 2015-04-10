@@ -138,11 +138,22 @@ private:
 
     /**
      * @brief Traverses tracklist array and calls Callback() for every track-type element
-     * @param[in] Callback function taking a pointer to track (or subtrack) JSON element
-     *            and its parent track (only for subtrack, NULL if element is track) and
-     *            returns true to go to next track, false to quit traversing
+     * @param[in] Callback function
+     *
+     * Callback (lambda) function:
+     * - Called on every JSON object under tracklist" with its "type_"=="track"
+     * - Input arguments:
+     *   track: Pointer to the current JSON "track" object
+     *   parent: Pointer to the parent JSON "index track" object if track is a sub_track. Or
+     *           NULL if track is not a sub_track
+     *   pidx: sub_track index if parent is not NULL. Otherwise, unknown
+     *   heading: Pointer to the last seen JSON "heading track" object. NULL if there has been none.
+     *   hidx: track index (only counting the main tracks) w.r.t. heading. Unknonwn if heading is NULL,
      */
-    void TraverseTracks_(std::function<bool (const json_t *track, const json_t *parent, const json_t *header)>) const;
+    void TraverseTracks_(
+            std::function<bool (const json_t *track,
+                                const json_t *parent, size_t pidx,
+                                const json_t *heading, size_t hidx)> Callback) const;
 
     /**
      * @brief Find JSON object for the specified track
@@ -150,7 +161,8 @@ private:
      * @param[out] if not NULL and track is found in sub_tracks listing, returns its parent index track JSON object
      * @return pointer to a track JSON object
      */
-    const json_t* FindTrack_(const size_t trackno, const json_t **index=NULL, const json_t **header=NULL) const;
+    const json_t* FindTrack_(const size_t trackno, const json_t **index=NULL, size_t *suboffset=NULL,
+                             const json_t **header=NULL, size_t *headoffset=NULL) const;
 
     /**
      * @brief Determine track offset for multi-disc release
@@ -166,6 +178,13 @@ private:
      * @brief Fill number_of_tracks
      */
     void SetDiscSize_();
+
+    /**
+     * @brief return the total number of sub_tracks listed under an index track
+     * @param[in] pointer to the index track JSON object
+     * @return number of sub_tracks or 0 if failed
+     */
+    static size_t NumberOfSubTracks_(const json_t *track);
 
     static std::string Title_(const json_t* data); // maybe release or track json_t
     static std::string Artist_(const json_t* data, const int artisttype=0); // maybe release or track json_t

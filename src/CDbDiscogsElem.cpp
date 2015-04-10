@@ -47,7 +47,7 @@ void CDbDiscogsElem::SetDiscSize_()
 {
     // gather track info
     number_of_tracks = 0;
-    TraverseTracks_([&] (const json_t *t, const json_t *p, const json_t *h)
+    TraverseTracks_([&] (const json_t *t, const json_t *p, size_t pidx, const json_t *h, size_t hidx)
     {
         number_of_tracks++;
         return true;
@@ -66,7 +66,7 @@ bool CDbDiscogsElem::SetDiscOffset_(const std::vector<int> &cdtracks)
     // gather track info
     std::vector<int> alltracks;
     alltracks.reserve(128);
-    TraverseTracks_([&] (const json_t *t, const json_t *p, const json_t *h)
+    TraverseTracks_([&] (const json_t *t, const json_t *p, size_t pidx, const json_t *h, size_t hidx)
     {
         // lambda function to be executed by TraverseTracks_
         std::string duration;
@@ -150,12 +150,24 @@ bool CDbDiscogsElem::SetDiscOffset_(const std::vector<int> &cdtracks)
 
 /**
  * @brief Traverses tracklist array and calls Callback() for every track-type element
- * @param[in] Callback function taking a pointer to track (or subtrack) JSON element
- *            and its parent track (only for subtrack, NULL if element is track) and
- *            a pointer to last-seen heading track JSON element. The function returns
- *            true to go to next track, false to quit traversing
+ * @param[in] Callback function
+ *
+ * Callback (lambda) function:
+ * - Called on every JSON object under tracklist" with its "type_"=="track"
+ * - Input arguments:
+ *   const json_t *track: Pointer to the current JSON "track" object
+ *   const json_t *parent: Pointer to the parent JSON "index track" object if track
+ *                         is a sub_track. Or NULL if track is not a sub_track
+ *   const int &pidx: sub_track index if parent is not NULL. Otherwise, unknown
+ *   const json_t *heading: Pointer to the last seen JSON "heading track" object.
+ *                          NULL if there has been none.
+ *   const int &hidx: track index (only counting the main tracks) w.r.t. heading.
+ *                    Unknonwn if heading is NULL,
  */
-void CDbDiscogsElem::TraverseTracks_(std::function<bool (const json_t *t, const json_t *p, const json_t *h)> Callback) const
+void CDbDiscogsElem::TraverseTracks_(
+            std::function<bool (const json_t *track,
+                                const json_t *parent, size_t pidx,
+                                const json_t *heading, size_t hidx)> Callback) const
 {
     // start the traversal of tracklist
     json_t *tracks, *track, *heading=NULL;
@@ -171,25 +183,27 @@ void CDbDiscogsElem::TraverseTracks_(std::function<bool (const json_t *t, const 
     {
         json_t *subtracks, *subtrack;
         std::string type;
+        size_t subindex, headindex;
 
         if (FindString(track,"type_",type))
         {
             if (type.compare("track")==0) // found a track
             {
                 // call the callback function
-                gotonext = Callback(track,NULL,heading);
+                gotonext = Callback(track,NULL,subindex,heading,index-headindex);
             }
             else if (type.compare("index")==0 && FindArray(track,"sub_tracks",subtracks)) // contain sub_tracks
             {
                 // call the callback function on each subtrack
-                for(size_t subindex = 0;
-                    gotonext && subindex < json_array_size(tracks) && (subtrack = json_array_get(subtracks, subindex));
+                for(subindex = 0;
+                    gotonext && subindex < json_array_size(subtracks) && (subtrack = json_array_get(subtracks, subindex));
                     subindex++)
-                    gotonext = Callback(subtrack,track,heading);
+                    gotonext = Callback(subtrack,track,subindex,heading,index-headindex);
             }
             else if (type.compare("heading")==0)
             {
                 heading = track;
+                headindex = index;
             }
         }
     }
@@ -200,7 +214,7 @@ void CDbDiscogsElem::TraverseTracks_(std::function<bool (const json_t *t, const 
  * @param[inout] track number between 1 and 99 -> 0
  * @return pointer to a track JSON object
  */
-const json_t* CDbDiscogsElem::FindTrack_(const size_t tracknum, const json_t **index, const json_t **heading) const
+const json_t* CDbDiscogsElem::FindTrack_(const size_t tracknum, const json_t **index, size_t *suboffset, const json_t **heading, size_t *headoffset) const
 {
     if (!tracknum)
         throw(std::runtime_error("Invalid tracknum, must be positive."));
@@ -213,7 +227,7 @@ const json_t* CDbDiscogsElem::FindTrack_(const size_t tracknum, const json_t **i
     if (index) *index = NULL;
 
     // traverse the tracklist looking for the requested track
-    TraverseTracks_([&] (const json_t *t, const json_t *p, const json_t *h)
+    TraverseTracks_([&] (const json_t *t, const json_t *p, size_t pidx, const json_t *h, size_t hidx)
     {
         if (offset) offset--;
         else num--;
@@ -222,7 +236,9 @@ const json_t* CDbDiscogsElem::FindTrack_(const size_t tracknum, const json_t **i
         {
             track = t;
             if (index) *index = p;
+            if (suboffset) *suboffset = pidx;
             if (heading) *heading = h;
+            if (headoffset) *headoffset = hidx;
         }
 
         return num;
@@ -232,6 +248,22 @@ const json_t* CDbDiscogsElem::FindTrack_(const size_t tracknum, const json_t **i
         throw(std::runtime_error("Track not found."));
 
     return track;
+}
+
+/**
+ * @brief return the total number of sub_tracks listed under an index track
+ * @param[in] pointer to the index track JSON object
+ * @return number of sub_tracks or 0 if failed
+ */
+size_t CDbDiscogsElem::NumberOfSubTracks_(const json_t *track)
+{
+    json_t *subtracks;
+    size_t rval = 0;
+
+    if (FindArray(track,"sub_tracks",subtracks))
+        rval = json_array_size(subtracks);
+
+    return rval;
 }
 
 // -----------------------------------------------------------------------------------------
@@ -416,12 +448,22 @@ std::string CDbDiscogsElem::TrackTitle(int tracknum) const
     std::string rval;
 
     // initialize tracks
-    const json_t *parent, *heading;
-    const json_t *track = FindTrack_(tracknum, &parent, &heading);
+    const json_t *parent;
+    size_t pidx;
+    bool showtitle=true;
+    const json_t *track = FindTrack_(tracknum, &parent, &pidx, NULL, NULL);
 
-    if (heading!=NULL) rval = Title_(heading) + ": ";
-    if (parent!=NULL) rval += Title_(parent) + ": ";
-    rval += Title_(track);
+    // For a work with multiple movements, Discogs uses sub_tracks for its
+    // movement tracks (not always followed though...)
+    if (parent!=NULL)
+    {
+        showtitle = NumberOfSubTracks_(parent)>1;
+        rval = Title_(parent);
+        if (showtitle) rval += ": " + itoroman(pidx+1) + ". ";
+    }
+
+    // add the main title of the track
+    if (showtitle) rval += Title_(track);
 
     return rval;
 }
@@ -470,23 +512,25 @@ std::string CDbDiscogsElem::TrackISRC(int tracknum) const
 
 std::string CDbDiscogsElem::Identifier(const std::string type) const
 {
-    size_t index;
-    json_t *idarray, *id;
-    std::string str;
-
-    if (!FindArray("identifiers",idarray)) return "";
-
-    // Look for the entry with requested type
-    json_array_foreach(idarray, index, id)
+    std::string rval;
+    json_t *idarray;
+    if (FindArray("identifiers",idarray))
     {
-        // if Identifier type does not match, go to next
-        if (CompareString(id, "type", type)) continue;
 
-        if (FindString(id,"value",str)) return str;
+        // Look for the entry with requested type
+        json_t *id;
+        for(size_t index = 0;
+            rval.empty() && index < json_array_size(idarray) && (id = json_array_get(idarray, index));
+            index++)
+        {
+            // if Identifier type does not match, go to next
+            if (CompareString(id, "type", type)) continue;
+
+            if (FindString(id,"value",str)) return str;
+        }
     }
 
-    // if reaches here, Sought Identifier is not present in the record
-    return "";
+    return rval;
 }
 
 std::string CDbDiscogsElem::Title_(const json_t* data) // maybe release or track json_t
