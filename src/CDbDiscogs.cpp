@@ -199,7 +199,10 @@ CDbDiscogsElem CDbDiscogs::QueryMaster_(const int id, const std::string upc, int
 
             // retrieve the versions data
             PerformHttpTransfer_(url); // received data is stored in rawdata
+
             CUtilJson versions(rawdata);
+
+            versions.PrintJSON();
 
             // Get the number of pages
             json_int_t pages;
@@ -207,7 +210,6 @@ CDbDiscogsElem CDbDiscogs::QueryMaster_(const int id, const std::string upc, int
             if (versions.FindObject("pagination", pageinfo)
                     && CUtilJson::FindInt(pageinfo, "pages", pages))
             {
-
                 cout << "[Discogs::MasterQuery] Versions are listed in " << pages << " pages\n";
 
                 // go through the first page
@@ -376,7 +378,11 @@ std::string CDbDiscogs::AlbumArtist(const int recnum) const
  */
 std::string CDbDiscogs::AlbumComposer(const int recnum) const
 {
-    return "";
+    // set disc
+    if (recnum<0 || recnum>=(int)Releases.size()) // all discs
+        throw(runtime_error("Invalid CD record ID."));
+
+    return Releases[recnum].AlbumComposer();
 }
 
 /** Get genre

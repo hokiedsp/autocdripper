@@ -389,11 +389,11 @@ void CCueSheetBuilder::ProcessDatabase_(IDatabase &db, const int recid)
     {
         const IReleaseDatabase& rdb = dynamic_cast<const IReleaseDatabase&>(db);
         // get primary album data
-        if (cuesheet.Performer.empty())
+        if (cuesheet.Performer.empty() && cuesheet.Songwriter.empty())
+        {
             cuesheet.Performer = rdb.AlbumArtist(recid);
-
-        if (cuesheet.Songwriter.empty())
             cuesheet.Songwriter = rdb.AlbumComposer(recid);
+        }
 
         if (cuesheet.Title.empty())
             cuesheet.Title = rdb.AlbumTitle(recid);
@@ -403,14 +403,14 @@ void CCueSheetBuilder::ProcessDatabase_(IDatabase &db, const int recid)
         {
             SCueTrack &track = cuesheet.Tracks[i++];
 
-            if (track.Performer.empty())
+            if (track.Performer.empty() && track.Songwriter.empty())
+            {
                 track.Performer = rdb.TrackArtist(i, recid);
+                track.Songwriter = rdb.TrackComposer(i, recid);
+            }
 
             if (track.Title.empty())
                 track.Title = rdb.TrackTitle(i, recid);
-
-            if (track.Songwriter.empty())
-                track.Songwriter = rdb.TrackComposer(i, recid);
         }
 
         // get additional album data

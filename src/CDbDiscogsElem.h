@@ -2,6 +2,8 @@
 
 #include <functional>
 #include <vector>
+#include <string>
+
 #include "CUtilJson.h"
 
 class CDbDiscogsElem : protected CUtilJson
@@ -99,6 +101,18 @@ public:
 
     /** Get track title
      *
+     *  Track title is intelligently obtained.
+     *  Case 1. main track - track title
+     *  Case 2. sub_track - parent index track title + ": " + [index#] + ". " sub_track title
+     *     Exception 1. If only 1 sub_track is given under an index track, index# and sub_track
+     *     title are omitted.
+     *     Exception 2. If sub_track index# is found in its title (either as an Arabic or Roman number)
+     *     [index#] is omitted. Note that inclusion of movement # is discouraged by Discogs.
+     *  Case Unaccounted: Some submitters use heading track to provide the main title of the
+     *     work and subsequent toplevel tracks for its movements. This function ignores all the heading
+     *     tracks, thus only movement names will be added to the cuesheet. Discogs entry must be fixed
+     *     to fix this case.
+     *
      *  @param[in] Track number (1-99)
      *  @return    Title string (empty if title not available)
      *  @throw     runtime_error if track number is invalid
@@ -135,6 +149,10 @@ private:
     int disc; // in the case of multi-disc set, indicate the disc # (zero-based)
     int track_offset; // starting track of the CD (always 0 if single disc release)
     int number_of_tracks; // number of tracks on the CD (-1 to use all tracks of the release)
+
+    bool various_performers;    // false if album has unique set of performing artists
+    bool various_composers;     // false if album has a single composer
+    json_t *album_credits;      // fixed link to the release's extraartists
 
     /**
      * @brief Traverses tracklist array and calls Callback() for every track-type element
@@ -186,6 +204,52 @@ private:
      */
     static size_t NumberOfSubTracks_(const json_t *track);
 
+    /**
+     * @brief Get title of album/track
+     * @param[in] pointer to either album or track JSON object
+     * @return the title of album or track
+     */
     static std::string Title_(const json_t* data); // maybe release or track json_t
-    static std::string Artist_(const json_t* data, const int artisttype=0); // maybe release or track json_t
+
+    /**
+     * @brief Get a string of performer names associated with album or track. It excludes
+     *        composer names
+     * @param[in] pointer to album or track JSON object
+     * @return string of performers
+     */
+    static std::string Performer_(const json_t* data); // maybe release or track json_t
+
+    /**
+     * @brief Get a string of performer names associated with album or track. It excludes
+     *        composer names
+     * @param[in] pointer to album or track JSON object
+     * @return composer
+     */
+    std::string Composer_(const json_t* data) const; // maybe release or track json_t
+
+    /**
+     * @brief Analyze Artists lists to fill various_performers, various_composers, and album_credits
+     */
+    void AnalyzeArtists_();
+
+    static bool IsComposer_(const json_t* artist, const json_t* extraartists,
+                            const std::vector<std::string> &keywords
+                            = {"Composed", "Written", "Adapted",
+                               "Arranged", "Lyrics", "Music", "Songwriter",
+                               "Words", "Orchestrated"});
+
+    /**
+     * @brief Get artist's Discogs ID
+     * @param artist JSON object (an element of artists or extraartists arrays)
+     * @return integer ID
+     */
+    static json_int_t ArtistId_(const json_t* artist);
+
+    /**
+     * @brief Look for the artist with the ID in the array of artists
+     * @param id
+     * @param artists
+     * @return JSON object corresponds to the artist under search or NULL if not found
+     */
+    static json_t *FindArtist_(const json_int_t id, const json_t* artists);
 };

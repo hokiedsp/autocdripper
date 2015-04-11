@@ -7,7 +7,7 @@ using std::runtime_error;
 
 /** Constructor.
  */
-CUtilJson::CUtilJson(const std::string &rawdata)
+CUtilJson::CUtilJson(const std::string &rawdata) : data(NULL)
 {
     // now load the data onto json object
     if (rawdata.size()) LoadData(rawdata);
@@ -18,7 +18,7 @@ CUtilJson::CUtilJson(const std::string &rawdata)
  * @brief copy constructor
  * @param source object
  */
-CUtilJson::CUtilJson(const CUtilJson &src) : error(src.error)
+CUtilJson::CUtilJson(const CUtilJson &src) : data(NULL), error(src.error)
 {
     data = json_deep_copy(src.data);
     if (!data) throw(std::runtime_error("Failed to copy JSON value."));
@@ -144,9 +144,33 @@ void CUtilJson::PrintJSON(const json_t* obj, const int depth, std::ostream &os)
 {
     const char *key;
     json_t *value;
-    json_object_foreach(const_cast<json_t*>(obj), key, value)
+
+    if (json_is_object(obj))
     {
-        PrintJSON_(os, depth, key, value, "");
+        json_object_foreach(const_cast<json_t*>(obj), key, value)
+        {
+            PrintJSON_(os, depth, key, value, "");
+        }
+    }
+    else if (json_is_array(obj))
+    {
+        if (depth==0) // do not traverse
+        {
+            os << "[" << json_array_size(obj) << "]\n";
+        }
+        else
+        {
+            size_t index;
+            json_array_foreach(obj,index,value)
+            {
+                os << "[" << index << "]";
+                PrintJSON_value_(os, (depth>0)?depth-1:depth, value, "");
+            }
+        }
+    }
+    else
+    {
+        PrintJSON_value_(os, depth, const_cast<json_t*>(obj), "");
     }
 }
 

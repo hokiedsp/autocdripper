@@ -3,6 +3,7 @@
 #include <stdexcept>
 #include <cstdlib>
 #include <climits>
+#include <cctype>
 //#include <ctime>
 //#include <sstream>
 //#include <iomanip>
@@ -12,17 +13,20 @@
 
 #include "utils.h"
 
-CDbDiscogsElem::CDbDiscogsElem(const std::string &data, const int d, const int offset)
-    : CUtilJson(data), disc(d), track_offset(offset)
+CDbDiscogsElem::CDbDiscogsElem(const std::string &rawdata, const int d, const int offset)
+    : CUtilJson(rawdata), disc(d), track_offset(offset)
 {
     SetDiscSize_();
+    AnalyzeArtists_();
 }
 
-CDbDiscogsElem::CDbDiscogsElem(const std::string &data, const int d, const std::vector<int> &tracklengths)
-    : CUtilJson(data), disc(d)
+CDbDiscogsElem::CDbDiscogsElem(const std::string &rawdata, const int d, const std::vector<int> &tracklengths)
+    : CUtilJson(rawdata), disc(d)
 {
     if (!SetDiscOffset_(tracklengths))
         throw(std::runtime_error("Release without valid track information."));
+
+    AnalyzeArtists_();
 }
 
 /**
@@ -298,7 +302,7 @@ std::string CDbDiscogsElem::AlbumTitle() const
  */
 std::string CDbDiscogsElem::AlbumArtist() const
 {
-    return Artist_(data);
+    return Performer_(data);
 }
 
 /** Get album composer
@@ -307,8 +311,7 @@ std::string CDbDiscogsElem::AlbumArtist() const
  */
 std::string CDbDiscogsElem::AlbumComposer() const
 {
-    std::string rval;
-    return rval;
+    return Composer_(data);
 }
 
 /** Get genre
@@ -437,7 +440,19 @@ int CDbDiscogsElem::NumberOfTracks() const
     return number_of_tracks;
 }
 
-/** Get track title
+/** @brief Get track title
+ *
+ *  Track title is intelligently obtained.
+ *  Case 1. main track - track title
+ *  Case 2. sub_track - parent index track title + ": " + [index#] + ". " sub_track title
+ *     Exception 1. If only 1 sub_track is given under an index track, index# and sub_track
+ *     title are omitted.
+ *     Exception 2. If sub_track index# is found in its title (either as an Arabic or Roman number)
+ *     [index#] is omitted. Note that inclusion of movement # is discouraged by Discogs.
+ *  Case Unaccounted: Some submitters use heading track to provide the main title of the
+ *     work and subsequent toplevel tracks for its movements. This function ignores all the heading
+ *     tracks, thus only movement names will be added to the cuesheet. Discogs entry must be fixed
+ *     to fix this case.
  *
  *  @param[in] Track number (1-99)
  *  @return    Title string (empty if title not available)
@@ -446,24 +461,46 @@ int CDbDiscogsElem::NumberOfTracks() const
 std::string CDbDiscogsElem::TrackTitle(int tracknum) const
 {
     std::string rval;
+    std::string movt_num;
 
     // initialize tracks
     const json_t *parent;
     size_t pidx;
     bool showtitle=true;
-    const json_t *track = FindTrack_(tracknum, &parent, &pidx, NULL, NULL);
+    const json_t *track = FindTrack_(tracknum, &parent, &pidx);
 
     // For a work with multiple movements, Discogs uses sub_tracks for its
     // movement tracks (not always followed though...)
     if (parent!=NULL)
     {
-        showtitle = NumberOfSubTracks_(parent)>1;
         rval = Title_(parent);
-        if (showtitle) rval += ": " + itoroman(pidx+1) + ". ";
+        rval += ": ";
+
+        // only show the movement titles if there are more than 1 movement
+        showtitle = NumberOfSubTracks_(parent)>1;
+        if (showtitle) movt_num = itoroman(++pidx);
     }
 
-    // add the main title of the track
-    if (showtitle) rval += Title_(track);
+    if (showtitle)
+    {
+        // add the main title of the (sub)track
+        std::string track_title = Title_(track);
+
+        // add movement # only if it's not already included in the track title
+        if (movt_num.size())
+        {
+            bool excluded = track_title.compare(0,movt_num.size(),movt_num)!=0;
+            if (excluded)
+            {
+                std::string movt_arabic = std::to_string(pidx);
+                if (track_title.compare(0,movt_arabic.size(),movt_arabic)!=0)
+                    rval += movt_num + ". ";
+            }
+        }
+
+        // append the track title
+        rval += track_title;
+    }
 
     return rval;
 }
@@ -482,10 +519,7 @@ std::string CDbDiscogsElem::TrackArtist(int tracknum) const
     const json_t *parent;
     const json_t *track = FindTrack_(tracknum, &parent);
 
-    rval = Artist_(track);
-    if (rval.empty() && parent) rval = Artist_(parent);
-
-    return rval;
+    return Performer_(track);
 }
 
 /** Get track composer
@@ -496,7 +530,13 @@ std::string CDbDiscogsElem::TrackArtist(int tracknum) const
  */
 std::string CDbDiscogsElem::TrackComposer(int tracknum) const
 {
-    return "";
+    std::string rval;
+
+    // initialize tracks
+    const json_t *parent;
+    const json_t *track = FindTrack_(tracknum, &parent);
+
+    return Composer_(track);
 }
 
 /** Get track ISRC
@@ -524,9 +564,8 @@ std::string CDbDiscogsElem::Identifier(const std::string type) const
             index++)
         {
             // if Identifier type does not match, go to next
-            if (CompareString(id, "type", type)) continue;
-
-            if (FindString(id,"value",str)) return str;
+            if (CompareString(id, "type", type)==0)
+                FindString(id,"value",rval);
         }
     }
 
@@ -540,54 +579,225 @@ std::string CDbDiscogsElem::Title_(const json_t* data) // maybe release or track
     return titlestr;
 }
 
-std::string CDbDiscogsElem::Artist_(const json_t* data, const int artisttype) // maybe release or track json_t
+std::string CDbDiscogsElem::Performer_(const json_t* data) // maybe release or track json_t
 {
     std::string astr, joinstr, str;
-    bool more = true; // if true, more artist names are expected
-    size_t index;
-    json_t *artists, *value;
+    json_t *artists;
+
+    // Get credits to check for composer
+    json_t *credits;
+    if (!FindArray(data, "extraartists",credits)) credits = NULL;
 
     // Look for artist entries
-    if (FindArray(data, "artists",artists))
+    if (FindArray(data, "artists", artists))
     {
-        json_array_foreach(artists, index, value)
+        json_t *artist;
+        size_t num_artists = json_array_size(artists);
+        for (size_t i = 0; i<num_artists && (artist = json_array_get(artists,i)); i++)
         {
-            // look for the name string
-            if (!FindString(value,"name",str) || str.empty()) break;
-            astr += str;
-
-            // look for the join string and append it to the artist string
-            more = FindString(value,"join", joinstr);
-            if (more && joinstr.size())
+            // if non-composer and given a valid name
+            if (!IsComposer_(artist, credits)
+                    && ((FindString(artist,"anv",str) && str.size()) // get album specific alternate name first
+                        || (FindString(artist,"name",str) && str.size()))) // if not given, use the Discogs' name
             {
-                if (joinstr.substr(0,1).find_first_of(" ,;:./\\])>|")==std::string::npos) astr += ' ';
-                astr += joinstr;
-                if (joinstr.substr(joinstr.size()-1,1).find_first_of(" /\\[(<|")==std::string::npos) astr += ' ';
-            }
-            else
-            {
-                more = false;
-                break;
-            }
-        }
-    }
+                if (astr.size()) astr += joinstr;
+                astr += str;
 
-    // If none found or more expected, also check extraartists entries
-    if (more && FindArray(data, "extraartists",artists))
-    {
-        json_array_foreach(artists, index, value)
-        {
-            // look for the name string
-            if (!FindString(value,"name",str) || str.empty()) break;
-            astr += str;
-
-            // look for the join string and append it to the artist string
-            if (!FindString(value,"join", joinstr) || joinstr.empty()) break;
-            if (joinstr.substr(0,1).find_first_of(" ,;:./\\])>|")==std::string::npos) astr += ' ';
-            astr += joinstr;
-            if (joinstr.substr(joinstr.size()-1,1).find_first_of(" /\\[(<|")==std::string::npos) astr += ' ';
+                // look for the next join string and append it to the artist string
+                FindString(artist,"join", joinstr);
+            }
+//                    if (joinstr.substr(0,1).find_first_of(" ,;:./\\])>|")==std::string::npos) astr += ' ';
+//                    astr += joinstr;
+//                    if (joinstr.substr(joinstr.size()-1,1).find_first_of(" /\\[(<|")==std::string::npos) astr += ' ';
         }
     }
 
     return astr;
+}
+
+std::string CDbDiscogsElem::Composer_(const json_t* data) const// maybe release or track json_t
+{
+    std::string astr, joinstr, str;
+    json_t *artists;
+    json_t *artist;
+
+    // Get credits to check for composer
+    json_t *credits;
+    if (!FindArray(data, "extraartists",credits)) credits = NULL;
+
+    // Look for artist entries
+    if (FindArray(data, "artists", artists))
+    {
+        size_t num_artists = json_array_size(artists);
+        for (size_t i = 0; i<num_artists && (artist = json_array_get(artists,i)); i++)
+        {
+            // if non-composer and given a valid name
+            if (IsComposer_(artist, credits)
+                    && ((FindString(artist,"anv",str) && str.size()) // get album specific alternate name first
+                        || (FindString(artist,"name",str) && str.size()))) // if not given, use the Discogs' name
+            {
+                if (astr.size()) astr += joinstr;
+                astr += str;
+
+                // look for the next join string and append it to the artist string
+                FindString(artist,"join", joinstr);
+            }
+//                    if (joinstr.substr(0,1).find_first_of(" ,;:./\\])>|")==std::string::npos) astr += ' ';
+//                    astr += joinstr;
+//                    if (joinstr.substr(joinstr.size()-1,1).find_first_of(" /\\[(<|")==std::string::npos) astr += ' ';
+        }
+    }
+
+    // if composer not given in main artists list, look in the credits
+    if (astr.empty())
+    {
+        std::cout << "Composer not found in artists, checking extraartists\n";
+
+        bool notfound = true;
+        size_t num_artists = json_array_size(credits);
+        for (size_t i = 0; notfound && i<num_artists && (artist = json_array_get(credits,i)); i++)
+        {
+            PrintJSON(artist);
+
+            // if composer and given a valid name
+            if (IsComposer_(artist, credits, {"Composed By"}) // only look for "Composed By"
+                    && ((FindString(artist,"anv",str) && str.size()) // get album specific alternate name first
+                        || (FindString(artist,"name",str) && str.size()))) // if not given, use the Discogs' name
+            {
+                notfound = true;
+                astr = str;
+                // if album credits, make sure not depending on position
+            }
+//                    if (joinstr.substr(0,1).find_first_of(" ,;:./\\])>|")==std::string::npos) astr += ' ';
+//                    astr += joinstr;
+//                    if (joinstr.substr(joinstr.size()-1,1).find_first_of(" /\\[(<|")==std::string::npos) astr += ' ';
+        }
+    }
+
+    // if track composer still not found, look in the album credits
+    if (astr.empty() && credits!=album_credits)
+    {
+
+    }
+
+    return astr;
+}
+
+bool CDbDiscogsElem::IsComposer_(const json_t* artist, const json_t* extraartists, const std::vector<std::string> &keywords)
+{
+    bool rval = false;
+
+    // get artist's role (check in the given artist JSON object first, then in the extraartists JSON array)
+    std::string role;
+    FindString(artist,"role",role);
+    if (role.empty())
+    {
+        artist = FindArtist_(ArtistId_(artist),extraartists);
+        if (artist) FindString(artist,"role",role);
+    }
+
+    // if role is found, look for must creator
+    if (role.size())
+    {
+        std::vector<std::string>::const_iterator it;
+        for (it=keywords.begin(); !rval && it!=keywords.end(); it++)
+        {
+            size_t pos = role.find((*it));
+            if (pos!=role.npos) // if keyword is found
+            {
+                // make sure it is a standalone word
+                if (pos==0 || isspace(role[pos-1]))
+                {
+                    std::cout << "   verified a space before " << *it << "\n";
+
+                    pos += (*it).size();
+                    rval = pos >= role.size() || isspace(role[pos]);
+                }
+            }
+        }
+    }
+
+    return rval;
+}
+
+/**
+ * @brief Look for the artist with the ID in the array of artists
+ * @param id
+ * @param artists
+ * @return JSON object corresponds to the artist under search or NULL if not found
+ */
+json_t *CDbDiscogsElem::FindArtist_(const json_int_t id, const json_t* artists)
+{
+    json_t *rval = NULL;
+    json_t *artist;
+    for (size_t i=0;
+         !rval && i<json_array_size(artists) && (artist = json_array_get(artists, i));
+         i++)
+    {
+        if (id==ArtistId_(artist)) rval = artist;
+    }
+    return rval;
+}
+
+/**
+ * @brief Get artist's Discogs ID
+ * @param artist JSON object (an element of artists or extraartists arrays)
+ * @return integer ID
+ */
+json_int_t CDbDiscogsElem::ArtistId_(const json_t* artist)
+{
+    json_int_t rval = -1;
+    FindInt(artist,"id",rval);
+    return rval;
+}
+
+/**
+ * @brief Analyze Artists lists to fill various_performers, various_composers, and album_credits
+ */
+void CDbDiscogsElem::AnalyzeArtists_()
+{
+    various_performers = false;    // false if album has unique set of performing artists
+    various_composers = false;     // false if album has a single composer
+    album_credits = NULL;      // fixed link to the release's extraartists
+
+    // if element has no data, nothing to do
+    if (!data) return;
+
+    // Get and store the extraartist JSON array for later use
+    FindArray(data, "extraartists", album_credits);
+
+    // Look for artist entries
+    json_t *artists;
+    if (FindArray(data, "artists", artists) && json_array_size(artists)>0)
+    {
+        std::string name;
+        json_t *artist = json_array_get(artists,0);
+        FindString(artist,"name",name);
+
+        // Look for name == "Various"
+        various_performers = name.compare("Various")==0;
+
+        if (various_performers) // If various artist, possibly various_composers as well
+        {
+            various_composers = true;
+        }
+        else // specific artists given, check if they are composers (or any kind of music creaters)
+        {
+            // check if more than one composers are listed
+            int num_artists = json_array_size(artists);
+            int num_composers = IsComposer_(artist, album_credits);
+            for (int i=1;
+                 i<num_artists && (artist = json_array_get(artists,i));
+                 i++)
+            {
+                if (IsComposer_(artist, album_credits)) num_composers++;
+            }
+
+            // if more than a composer listed, multiple composers in the album
+            if (num_composers>1) various_composers = true;
+
+            // if only composer names are given
+            if (num_artists==num_composers) various_performers = true;
+        }
+    }
 }
