@@ -118,6 +118,8 @@ public:
 	std::string Songwriter;	// name of songwriter (80-char max)
 	std::string Title;		// album title (80-char max)
 
+    size_t TotalTime;  // total CD length in sectors
+
     SCueTrackDeque Tracks;
 
 	SCueSheet(const int type=CUE_FILETYPE_WAVE);

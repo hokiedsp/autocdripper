@@ -40,9 +40,9 @@ int main(int argc, const char *argv[])
         //csbuilder.SetCdInfo(cdrom,"731452547224"); // jobim songbook
         //csbuilder.SetCdInfo(cdrom,"025218643429"); // bill evans moon beams
 
-        csbuilder.AddDatabase(discogs);
+        //csbuilder.AddDatabase(discogs);
         csbuilder.AddDatabase(mbdb);
-        csbuilder.AddDatabase(lastfm);
+        //csbuilder.AddDatabase(lastfm);
         //csbuilder.AddDatabase(freedb);
 
         csbuilder.AddRemField(AlbumRemFieldType::DBINFO);

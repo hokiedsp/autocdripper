@@ -140,7 +140,7 @@ bool SCueTrack::CheckISRC() const
 
 //-----------------------------------------------------------------------------//
 
-SCueSheet::SCueSheet(const int type) : FileType(type) {}
+SCueSheet::SCueSheet(const int type) : FileType(type), TotalTime(0) {}
 SCueSheet::~SCueSheet() {}
 
 /** Returns the number of indexes for the track
@@ -288,6 +288,20 @@ std::ostream& operator<<(std::ostream& os, const SCueSheet& o)
 	if (!o.Performer.empty()) os << "PERFORMER " << o.Performer << endl;
 	if (!o.Songwriter.empty()) os << "SONGWRITER " << o.Songwriter << endl;
 
+    // Add REM TOTALTIME (for future reconstruction of DISC IDs)
+    if (o.TotalTime>0)
+    {
+        // break down the time in mm:ss:ff format
+        size_t mm,ss,ff;
+        TimeToString(o.TotalTime, mm, ss, ff);
+
+        os << "REM TOTALTIME "
+           << setfill('0') << setw(2) << mm << ":"
+           << setfill('0') << setw(2) << ss << ":"
+           << setfill('0') << setw(2) << ff << endl;
+    }
+
+    // Print all the user-defined REM entries
     vector<string>::const_iterator itRem;
     for (itRem = o.Rems.begin(); itRem!=o.Rems.end(); itRem++)
 		os << "REM " << *itRem << endl;
@@ -403,4 +417,3 @@ std::ostream& operator<<(std::ostream& os, const SCueTrackIndex& o)
 	
 	return os;
 }
-

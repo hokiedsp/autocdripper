@@ -15,3 +15,13 @@ void cleanup_upc(std::string &upc);
  * @throw std::out_of_range if val is not in (0,4000)
  */
 std::string itoroman (int val);
+
+
+struct string_key_comparer
+{
+    public:
+    bool operator()(const std::string x, const std::string y)
+    {
+         return x.compare(y)<0;
+    }
+};

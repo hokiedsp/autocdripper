@@ -178,6 +178,9 @@ SCueSheet CSourceCdda::GetCueSheet() const /* populates CueSheet */
 {
     SCueSheet CueSheet;
 
+    // set the total time
+    CueSheet.TotalTime = GetLength();
+
 	// initialize tracks
 	CueSheet.AddTracks(cdda_tracks(d));
 

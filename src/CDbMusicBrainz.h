@@ -3,15 +3,19 @@
 #include <vector>
 #include <string>
 
-#include <musicbrainz5/Query.h>
-#include <musicbrainz5/Metadata.h>
-#include <musicbrainz5/ArtistCredit.h>
 #include <coverart/CoverArt.h>
+
+#include <libxml/tree.h>
 
 #include "IDatabase.h"
 #include "IReleaseDatabase.h"
 #include "IImageDatabase.h"
+#include "CDbHttpBase.h"
+
 #include "SDbrBase.h"
+
+class CDbMusicBrainzElem;
+class CDbMusicBrainzElemBase;
 
 /** MusicBrainz CD Database Record structure - SCueSheet with DbType()
  */
@@ -40,7 +44,7 @@ inline std::ostream& operator<<(std::ostream& os, const SDbrMusicBrainz& o)
 
 /** Class to access MusicBrainz online CD and coverart databases service.
  */
-class CDbMusicBrainz : public IDatabase, public IReleaseDatabase, public IImageDatabase
+class CDbMusicBrainz : public IDatabase, public IReleaseDatabase, public IImageDatabase, public CDbHttpBase
 {
 public:
     /** Constructor.
@@ -206,7 +210,7 @@ public:
      *             is returned.
      *  @return    Composer/songwriter string (empty if artist not available)
      */
-    virtual std::string AlbumComposer(const int recnum=0) const { return ""; }
+    virtual std::string AlbumComposer(const int recnum=0) const;
 
     /** Get genre
      *
@@ -315,7 +319,7 @@ public:
      *  @return    Composer string (empty if artist not available)
      *  @throw     runtime_error if track number is invalid
      */
-    virtual std::string TrackComposer(int tracknum, const int recnum=0) const { return ""; }
+    virtual std::string TrackComposer(int tracknum, const int recnum=0) const;
 
     /** Get track ISRC
      *
@@ -413,62 +417,30 @@ public:
      */
     void SetProtocol(const std::string &protocol);
 
-    /** Retrieve the disc info from specified database record
-     *
-     *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
-     *             is returned.
-     *  @return    SDbrBase Pointer to newly created database record object. Caller is
-     *             responsible for deleting the object.
-     */
-    virtual SDbrBase* Retrieve(const int recnum=0) const;
-
-    /** Print the retrieved disc record. If discnum is specified (i.e., valid record ID),
-     *  it displays the disc info with tracks. If discnum is omitted or negative, it lists
-     *  records with their discid, genre, artist and title.
-     *
-     *  @param[in] Disc record ID (0-based index to discs). If negative, retrieves info
-     *             for all records.
-     */
-    void Print(const int discnum=-1) const;
-
 private:
+    static const std::string base_url;
+    CoverArtArchive::CCoverArt CAA;
+
+    std::vector<CDbMusicBrainzElem> Releases;
+    std::vector<CoverArtArchive::CReleaseInfo> CoverArts;
+
+    int CoverArtSize; // 0-full, 1-large thumbnail (500px), 2-small thumbnail (250px)
+
     /** Initialize a new disc and fill it with disc info
      *  from the supplied cuesheet and length. Previously created disc
      *  data are discarded. After disc and its tracks are initialized,
      *  CDDB disc ID is computed. If the computation fails, function
      *  throws an runtime_error.
      *
-     *  @param[in] CD-ROM device path
+     *  @param[in] cuesheet representing the disc
      */
-    void InitDisc_(const std::string &dev);
-
-    /** Form an artist credit string
-     *
-     *  @param[in] ArtistCredit query data
-     *  @param[in] true to use SortName (if available) for the first asrtist's name
-     *             (default is false)
-     *  @return    Artist name in plain string
-     */
-    std::string GetArtistString_(const MusicBrainz5::CArtistCredit &credit, const bool sortfirst=false) const;
+    CDbMusicBrainzElemBase GetNewDiscData_(const SCueSheet &cuesheet);
 
     /**
-     * @brief Helper function to RelationUrl
-     * @param A pointer to MB5 meta (must be non-null)
-     * @param[in]  Relationship type (e.g., "discogs", "amazon asin")
-     * @return URL string or empty if requestd URL type not in the URL
+     * @brief Check medium-list in a discid release to identify the disc if multi-disc set
+     * @param[in] pointer to an XML node for a release
+     * @param[in] total time of the CD in sectors
+     * @return disc number
      */
-    std::string MB5RelationUrl_(MusicBrainz5::CRelationListList *relslist,
-                               const std::string &type) const;
-
-    std::string discid;
-    MusicBrainz5::CQuery MB5;
-    CoverArtArchive::CCoverArt CAA;
-
-    std::vector<MusicBrainz5::CMetadata> MBQueries;
-    std::vector<MusicBrainz5::CRelease*> Releases;
-//    std::vector<MusicBrainz5::CRelease> Releases;
-
-    std::vector<CoverArtArchive::CReleaseInfo> CoverArts;
-
-    int CoverArtSize; // 0-full, 1-large thumbnail (500px), 2-small thumbnail (250px)
+    int DiscID_(const xmlNode *release_node, const int trackcount, const size_t totaltime);
 };
