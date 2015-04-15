@@ -19,6 +19,7 @@
 
 #include "CDbMusicBrainzElemBase.h"
 #include "CDbMusicBrainzElem.h"
+#include "CDbMusicBrainzElemCAA.h"
 
 #include "utils.h"
 
@@ -46,10 +47,8 @@ const std::string CDbMusicBrainz::base_url = "http://musicbrainz.org/ws/2/";
  *  @param[in] Client program name. If omitted or empty, uses "autorip"
  *  @param[in] Client program version. If omitted or empty, uses "alpha"
  */
-CDbMusicBrainz::CDbMusicBrainz(const std::string &servername, const int serverport,
-                               const std::string &username, const std::string &password,
-                               const std::string &cname,const std::string &cversion):
-    CAA(cname+"-"+cversion), CoverArtSize(0)
+CDbMusicBrainz::CDbMusicBrainz(const std::string &cname,const std::string &cversion)
+    : CDbHttpBase(cname,cversion), CoverArtSize(0)
 {}
 
 CDbMusicBrainz::~CDbMusicBrainz()
@@ -75,7 +74,7 @@ int CDbMusicBrainz::Query(const std::string &dev, const SCueSheet &cuesheet, con
     // Clear the discs
     Clear();
 
-    cout << "[CDbMusicBrainz::Query] 1. Querying with disc TOC\n";
+    cout << "[CDbMusicBrainz::Query] 1. Querying with disc TOC...";
 
     // must build disc based on cuesheet (throws error if fails to compute discid)
     CDbMusicBrainzElemBase discdata = GetNewDiscData_(cuesheet);
@@ -139,12 +138,23 @@ int CDbMusicBrainz::Query(const std::string &dev, const SCueSheet &cuesheet, con
              it != Releases.end();
              it ++)
         {
-            CoverArts.emplace_back();
+            // Build coverart lookup URL
+            std::string url = "http://coverartarchive.org//release/" + it->ReleaseId();
+
+            url = "http://coverartarchive.org/release/76df3287-6cda-33eb-8e9a-044b5e15ffdd";
+
+            // Get release data & create new entry
+            curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+            PerformHttpTransfer_(url); // received data is stored in rawdata
+            curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 0L);
+
+            // Parse the downloaded JSON data
             try
             {
-                CoverArts.back() = (CAA.ReleaseInfo((*it).ReleaseId()));
+                CoverArts.emplace_back(rawdata);    // if rawdata invalid, would not affect the container
             }
-            catch (...) {} //don't care if failed in any ways
+            catch(...)
+            {}
         }
     }
 
@@ -246,7 +256,6 @@ int CDbMusicBrainz::DiscID_(const xmlNode *release_node, const int trackcount, c
 
     return discno;
 }
-
 
 /** Clear all the disc entries
  */
@@ -587,12 +596,44 @@ bool CDbMusicBrainz::Back(const int recnum) const
  *  @param[out] image data buffer.
  *  @param[in]  record index (default=0)
  */
+UByteVector CDbMusicBrainz::ImageData_(const std::string &url) const
+{
+    UByteVector imdata;
+    size_t size;
+
+    if (url.size())
+    {
+        // get the image file size
+        size = GetHttpContentLength_(url);
+        if (size>0) imdata.reserve(size);
+
+        // set imdata as the download buffer
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, CDbHttpBase::write_uchar_vector_callback);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &imdata);
+
+        // perform the HTTP transaction
+        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+        CURLcode res = curl_easy_perform(curl);
+        if(res != CURLE_OK) throw(std::runtime_error(curl_easy_strerror(res)));
+
+        cout << "IMAGE SIZE: " << imdata.size() << " bytes" << endl;
+
+        // reset the download buffer
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, CDbHttpBase::write_callback);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &rawdata);
+    }
+
+    return imdata;
+}
+
+/** Retrieve the front cover data.
+ *
+ *  @param[out] image data buffer.
+ *  @param[in]  record index (default=0)
+ */
 UByteVector CDbMusicBrainz::FrontData(const int recnum)
 {
-    if (recnum<0||recnum>(int)CoverArts.size())
-        throw(runtime_error("Invalid Record Index requested."));
-
-    return CAA.FetchFront(Releases[recnum].ReleaseId());
+    return ImageData_(FrontURL(recnum));
 }
 
 /** Check if the query returned a front cover
@@ -602,10 +643,7 @@ UByteVector CDbMusicBrainz::FrontData(const int recnum)
  */
 UByteVector CDbMusicBrainz::BackData(const int recnum)
 {
-    if (recnum<0||recnum>(int)CoverArts.size())
-        throw(runtime_error("Invalid Record Index requested."));
-
-    return CAA.FetchBack(Releases[recnum].ReleaseId());
+    return ImageData_(BackURL(recnum));
 }
 
 /** Get the URL of the front cover image
@@ -615,25 +653,24 @@ UByteVector CDbMusicBrainz::BackData(const int recnum)
  */
 std::string CDbMusicBrainz::FrontURL(const int recnum) const
 {
+    string rval;
+
+    // check recnum validity
     if (recnum<0||recnum>(int)CoverArts.size())
         throw(runtime_error("Invalid Record Index requested."));
 
-    const CImageList *info = CoverArts[recnum].ImageList();
-    if (!info) return ""; // coverart not found
+    // get release
+    std::string id = Releases[recnum].ReleaseId();
 
-    for (int i=0;i<info->NumItems();i++)
+    // loop CoverArts to look for the data
+    for (std::vector<CDbMusicBrainzElemCAA>::const_iterator it = CoverArts.begin();
+         rval.empty() && it!=CoverArts.end();
+         it++)
     {
-        const CImage *image = info->Item(i);
-        if (image->Front())  // front cover found,look for request image size
-        {
-            string url;
-            const CThumbnails *tn = image->Thumbnails();
-            if (CoverArtSize==2 && !(url=tn->Small()).empty()) return url;
-            else if (CoverArtSize>0 && !(url=tn->Large()).empty()) return url;
-            else return image->Image();
-        }
+        if (id.compare((*it).ReleaseId())==0) rval = (*it).FrontURL(CoverArtSize);
     }
-    return "";
+
+    return rval;
 }
 
 /** Get the URL of the back cover image
@@ -645,26 +682,22 @@ std::string CDbMusicBrainz::BackURL(const int recnum) const
 {
     string rval;
 
+    // check recnum validity
     if (recnum<0||recnum>(int)CoverArts.size())
         throw(runtime_error("Invalid Record Index requested."));
 
-    const CImageList *info = CoverArts[recnum].ImageList();
-    if (info)// only if coverart found
+    // get release
+    std::string id = Releases[recnum].ReleaseId();
+
+    // loop CoverArts to look for the data
+    for (std::vector<CDbMusicBrainzElemCAA>::const_iterator it = CoverArts.begin();
+         rval.empty() && it!=CoverArts.end();
+         it++)
     {
-        for (int i=0;i<info->NumItems()&&rval.size();i++)
-        {
-            const CImage *image = info->Item(i);
-            if (image->Back())  // back cover found,look for request image size
-            {
-                string url;
-                const CThumbnails *tn = image->Thumbnails();
-                if (CoverArtSize==2 && !(url=tn->Small()).empty()) rval = url;
-                else if (CoverArtSize>0 && !(url=tn->Large()).empty()) rval = url;
-                else rval = image->Image();
-            }
-        }
+        if (id.compare((*it).ReleaseId())==0) rval = (*it).BackURL(CoverArtSize);
     }
-    return "";
+
+    return rval;
 }
 
 /**

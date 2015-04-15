@@ -35,13 +35,8 @@ CDbDiscogsElem::CDbDiscogsElem(const std::string &rawdata, const int d, const st
  */
 void CDbDiscogsElem::Swap(CDbDiscogsElem &other)
 {
-    json_t *tempdata = data;
-    data = other.data;
-    other.data = tempdata;
-
-    int tempdisc = disc;
-    disc = other.disc;
-    other.disc = tempdisc;
+    CUtilJson::Swap(other);
+    std::swap(disc,other.disc);
 }
 
 /**

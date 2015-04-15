@@ -1,6 +1,7 @@
 #include "CUtilJson.h"
 
 #include <stdexcept>
+#include <utility>
 
 using std::endl;
 using std::runtime_error;
@@ -29,6 +30,16 @@ CUtilJson::CUtilJson(const CUtilJson &src) : data(NULL), error(src.error)
 CUtilJson::~CUtilJson()
 {
     if (data) json_object_clear(data);
+}
+
+/**
+ * @brief Exchanges the content with another CDbDiscogsElem object
+ * @param Another CDbDiscogsElem object
+ */
+void CUtilJson::Swap(CUtilJson &other)
+{
+    std::swap(data,other.data);
+    std::swap(error,other.error);
 }
 
 void CUtilJson::LoadData(const std::string &rawdata)

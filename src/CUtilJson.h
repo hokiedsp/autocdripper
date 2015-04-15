@@ -22,6 +22,12 @@ public:
     virtual ~CUtilJson();
 
     /**
+     * @brief Exchanges the content with another CDbDiscogsElem object
+     * @param Another CDbDiscogsElem object
+     */
+    virtual void Swap(CUtilJson &other);
+
+    /**
      * @brief Load New Data. Clears existing data first. If empty, no action.
      * @param valid JSON string
      * @throw runtime_error if invalid JSON string.

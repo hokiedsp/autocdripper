@@ -15,6 +15,7 @@
 #include "SDbrBase.h"
 
 class CDbMusicBrainzElem;
+class CDbMusicBrainzElemCAA;
 class CDbMusicBrainzElemBase;
 
 /** MusicBrainz CD Database Record structure - SCueSheet with DbType()
@@ -59,9 +60,7 @@ public:
      *  @param[in] Client program name. If omitted or empty, uses "autorip"
      *  @param[in] Client program version. If omitted or empty, uses "alpha"
      */
-    CDbMusicBrainz(const std::string &servername="musicbrainz.org", const int serverport=80,
-                   const std::string &username="", const std::string &password="",
-                   const std::string &cname="autorip",const std::string &cversion="alpha");
+    CDbMusicBrainz(const std::string &cname="autorip",const std::string &cversion="alpha");
 
     /** Destructor
      */
@@ -419,10 +418,8 @@ public:
 
 private:
     static const std::string base_url;
-    CoverArtArchive::CCoverArt CAA;
-
     std::vector<CDbMusicBrainzElem> Releases;
-    std::vector<CoverArtArchive::CReleaseInfo> CoverArts;
+    std::vector<CDbMusicBrainzElemCAA> CoverArts;
 
     int CoverArtSize; // 0-full, 1-large thumbnail (500px), 2-small thumbnail (250px)
 
@@ -443,4 +440,18 @@ private:
      * @return disc number
      */
     int DiscID_(const xmlNode *release_node, const int trackcount, const size_t totaltime);
+
+    /** Retrieve the front cover data.
+     *
+     *  @param[out] image data buffer.
+     *  @param[in]  record index (default=0)
+     */
+    bool GetCAA_(const int recnum, CDbMusicBrainzElemCAA &coverart) const;
+
+    /** Retrieve the front cover data.
+     *
+     *  @param[out] image data buffer.
+     *  @param[in]  record index (default=0)
+     */
+    UByteVector ImageData_(const std::string &url) const;
 };
