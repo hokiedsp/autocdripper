@@ -1,4 +1,4 @@
-#include "CDbHttpBase.h"
+#include "CUtilUrl.h"
 
 #include <stdexcept>
 #include <iostream>
@@ -8,16 +8,16 @@ using std::mutex;
 using std::runtime_error;
 
 // initialize static member variables
-int CDbHttpBase::Nobjs = 0;
-std::atomic_bool CDbHttpBase::AutoCleanUp(true);
-std::mutex CDbHttpBase::globalmutex;
+int CUtilUrl::Nobjs = 0;
+std::atomic_bool CUtilUrl::AutoCleanUp(true);
+std::mutex CUtilUrl::globalmutex;
 
 /** Constructor.
  *
  *  @param[in] Client program name. If omitted or empty, uses "autorip"
  *  @param[in] Client program version. If omitted or empty, uses "alpha"
  */
-CDbHttpBase::CDbHttpBase(const std::string &cname,const std::string &cversion)
+CUtilUrl::CUtilUrl(const std::string &cname,const std::string &cversion)
 {
     // initialize curl object
     globalmutex.lock();
@@ -31,7 +31,7 @@ CDbHttpBase::CDbHttpBase(const std::string &cname,const std::string &cversion)
     rawdata.reserve(CURL_MAX_WRITE_SIZE);    // reserve memory for receive buffer
 
     // use static write_callback as the default write callback function
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, CDbHttpBase::write_callback);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, CUtilUrl::write_callback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &rawdata);
 
     // set user agent
@@ -40,7 +40,7 @@ CDbHttpBase::CDbHttpBase(const std::string &cname,const std::string &cversion)
 
 /** Destructor
  */
-CDbHttpBase::~CDbHttpBase()
+CUtilUrl::~CUtilUrl()
 {
     curl_easy_cleanup(curl);
 
@@ -58,7 +58,7 @@ CDbHttpBase::~CDbHttpBase()
  *  @brief Perform a blocking file transfer
  *  @param url
  */
-void CDbHttpBase::PerformHttpTransfer_(const std::string &url)
+void CUtilUrl::PerformHttpTransfer_(const std::string &url)
 {
     // empty the buffer
     rawdata.clear();
@@ -75,7 +75,7 @@ void CDbHttpBase::PerformHttpTransfer_(const std::string &url)
  * @param[in] URL of the remote content
  * @return Length in bytes; if unknown, returns 0
  */
-size_t CDbHttpBase::GetHttpContentLength_(const std::string &url) const
+size_t CUtilUrl::GetHttpContentLength_(const std::string &url) const
 {
     double size;
 
@@ -101,14 +101,14 @@ size_t CDbHttpBase::GetHttpContentLength_(const std::string &url) const
  * @param[in]   See above
  * @return      The number of bytes actually taken care of
  */
-size_t CDbHttpBase::write_callback(char *ptr, size_t size, size_t nmemb, void *userdata)
+size_t CUtilUrl::write_callback(char *ptr, size_t size, size_t nmemb, void *userdata)
 {
     size *= nmemb;
     ((string*)userdata)->append(ptr,size);
     return size;
 }
 
-size_t CDbHttpBase::write_uchar_vector_callback(char *ptr, size_t size, size_t nmemb, void *userdata)
+size_t CUtilUrl::write_uchar_vector_callback(char *ptr, size_t size, size_t nmemb, void *userdata)
 {
     size *= nmemb;
     std::vector<unsigned char>* bindata = (std::vector<unsigned char>*)userdata;

@@ -33,7 +33,7 @@ const std::string CDbLastFm::base_url("http://ws.audioscrobbler.com/2.0/");
  *  @param[in] Client program version. If omitted or empty, uses "alpha"
  */
 CDbLastFm::CDbLastFm(const std::string &key, const std::string &cname,const std::string &cversion)
-    : CDbHttpBase(cname,cversion), apikey(key), CoverArtSize(3)
+    : CUtilUrl(cname,cversion), apikey(key), CoverArtSize(3)
 {}
 
 CDbLastFm::~CDbLastFm() {}
@@ -193,7 +193,7 @@ UByteVector CDbLastFm::FrontData(const int recnum)
     if (size>0) imdata.reserve(size);
 
     // set imdata as the download buffer
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, CDbHttpBase::write_uchar_vector_callback);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, CUtilUrl::write_uchar_vector_callback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &imdata);
 
     // perform the HTTP transaction
@@ -204,7 +204,7 @@ UByteVector CDbLastFm::FrontData(const int recnum)
     cout << "IMAGE SIZE: " << imdata.size() << " bytes" << endl;
 
     // reset the download buffer
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, CDbHttpBase::write_callback);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, CUtilUrl::write_callback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &rawdata);
 
     return imdata;

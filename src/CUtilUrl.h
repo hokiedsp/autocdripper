@@ -10,7 +10,7 @@
 
 /** Abstract base Database class with libcurl object
  */
-class CDbHttpBase
+class CUtilUrl
 {
 public:
     /** Constructor.
@@ -18,11 +18,11 @@ public:
      *  @param[in] Client program name. If omitted or empty, uses "autorip"
      *  @param[in] Client program version. If omitted or empty, uses "alpha"
      */
-    CDbHttpBase(const std::string &cname="autorip",const std::string &cversion="alpha");
+    CUtilUrl(const std::string &cname="autorip",const std::string &cversion="alpha");
 
     /** Destructor
      */
-    virtual ~CDbHttpBase();
+    virtual ~CUtilUrl();
 
     /** Get current value of static AutoCleanUpMode parameter
      *
@@ -77,7 +77,7 @@ protected:
 
 private:
     static std::mutex globalmutex; /// mutex to make curl_global_init and curl_global_cleanup thread safe
-    static int Nobjs; /// number of instantiated CDbHttpBase objects
+    static int Nobjs; /// number of instantiated CUtilUrl objects
     static std::atomic_bool AutoCleanUp;    /// if true (default)
 
 };

@@ -7,7 +7,7 @@
 #include "IDatabase.h"
 #include "IReleaseDatabase.h"
 #include "IImageDatabase.h"
-#include "CDbHttpBase.h"
+#include "CUtilUrl.h"
 #include "SDbrBase.h"
 #include "CUtilJson.h"
 
@@ -48,7 +48,7 @@ class CDbMusicBrainz;
  */
 class CDbDiscogs :
         public IDatabase, public IReleaseDatabase, public IImageDatabase,
-        public CDbHttpBase
+        public CUtilUrl
 {
 public:
     /** Constructor.

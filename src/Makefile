@@ -5,7 +5,7 @@ MAIN = autocdripper
 SRCS = autocdripper.cpp CCdRipper.cpp CSourceCdda.cpp CSinkBase.cpp CSinkWav.cpp\
        CSinkWavPack.cpp CTagsGeneric.cpp CTagsAPEv2.cpp SCueSheet.cpp CDbFreeDb.cpp\
        CDbMusicBrainz.cpp CCueSheetBuilder.cpp enums.cpp CDbDiscogs.cpp CUtilJson.cpp\
-       CDbDiscogsElem.cpp CDbHttpBase.cpp utils.cpp CDbLastFm.cpp CDbLastFmElem.cpp\
+       CDbDiscogsElem.cpp CUtilUrl.cpp utils.cpp CDbLastFm.cpp CDbLastFmElem.cpp\
        CDbMusicBrainzElemBase.cpp CUtilXml.cpp CDbMusicBrainzElem.cpp\
        CDbMusicBrainzElemCAA.cpp
 LIBS = -lwavpack -lcdio -lcdio_cdda -lcdio_paranoia -lcddb -lmusicbrainz5 -lcoverart\
@@ -23,9 +23,9 @@ LDFLAGS = -Wall -pthread
 #LDFLAGS =
 
 #MAIN = discogsdemo
-#SRCS = discogsdemo.cpp SCueSheet.cpp CDbDiscogs.cpp CDbHttpBase.cpp CDbJsonBase.cpp
+#SRCS = discogsdemo.cpp SCueSheet.cpp CDbDiscogs.cpp CUtilUrl.cpp CDbJsonBase.cpp
 #MAIN = lastfmdemo
-#SRCS = lastfmdemo.cpp SCueSheet.cpp CDbLastFm.cpp CDbHttpBase.cpp CDbJsonBase.cpp
+#SRCS = lastfmdemo.cpp SCueSheet.cpp CDbLastFm.cpp CUtilUrl.cpp CDbJsonBase.cpp
 #LIBS = -lcurl -ljansson
 #LDFLAGS =
 

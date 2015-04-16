@@ -35,7 +35,7 @@ const std::string CDbDiscogs::base_url("https://api.discogs.com/");
  *  @param[in] Client program version. If omitted or empty, uses "alpha"
  */
 CDbDiscogs::CDbDiscogs(const std::string &cname,const std::string &cversion)
-    : CDbHttpBase(cname,cversion)
+    : CUtilUrl(cname,cversion)
 {
     Authorize_();
 }

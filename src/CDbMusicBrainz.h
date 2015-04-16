@@ -10,7 +10,7 @@
 #include "IDatabase.h"
 #include "IReleaseDatabase.h"
 #include "IImageDatabase.h"
-#include "CDbHttpBase.h"
+#include "CUtilUrl.h"
 
 #include "SDbrBase.h"
 
@@ -45,7 +45,7 @@ inline std::ostream& operator<<(std::ostream& os, const SDbrMusicBrainz& o)
 
 /** Class to access MusicBrainz online CD and coverart databases service.
  */
-class CDbMusicBrainz : public IDatabase, public IReleaseDatabase, public IImageDatabase, public CDbHttpBase
+class CDbMusicBrainz : public IDatabase, public IReleaseDatabase, public IImageDatabase, public CUtilUrl
 {
 public:
     /** Constructor.

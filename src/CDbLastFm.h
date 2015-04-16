@@ -6,7 +6,7 @@
 #include "IDatabase.h"
 #include "IReleaseDatabase.h"
 #include "IImageDatabase.h"
-#include "CDbHttpBase.h"
+#include "CUtilUrl.h"
 
 struct SCueSheet;
 class CDbMusicBrainz;
@@ -21,7 +21,7 @@ typedef std::vector<CDbLastFmElem> CDbLastFmElemVector;
  *  to be a single result or none.
  */
 class CDbLastFm :
-        public IDatabase, public IImageDatabase, public CDbHttpBase
+        public IDatabase, public IImageDatabase, public CUtilUrl
 {
 public:
     /** Constructor.
