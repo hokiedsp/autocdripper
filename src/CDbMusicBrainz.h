@@ -3,8 +3,6 @@
 #include <vector>
 #include <string>
 
-#include <coverart/CoverArt.h>
-
 #include <libxml/tree.h>
 
 #include "IDatabase.h"
@@ -12,36 +10,9 @@
 #include "IImageDatabase.h"
 #include "CUtilUrl.h"
 
-#include "SDbrBase.h"
-
 class CDbMusicBrainzElem;
 class CDbMusicBrainzElemCAA;
-class CDbMusicBrainzElemBase;
-
-/** MusicBrainz CD Database Record structure - SCueSheet with DbType()
- */
-struct SDbrMusicBrainz : SDbrBase
-{
-    /** Name of the database the record was retrieved from
-   *
-   *  @return Name of the database
-   */
-    virtual std::string SourceDatabase() const { return "MusicBrainz"; }
-
-    friend std::ostream& operator<<(std::ostream& stdout, const SDbrMusicBrainz& obj);
-};
-
-/** Overloaded stream insertion operator to output the content of SDbrMusicBrainz
- *  object. The output is in accordance with the CDRWIN's Cue-Sheet syntax
- *
- *  @param[in]  Reference to an std::ostream object
- *  @return     Copy of the stream object
- */
-inline std::ostream& operator<<(std::ostream& os, const SDbrMusicBrainz& o)
-{
-    os << dynamic_cast<const SCueSheet&>(o);
-    return os;
-}
+class CUtilXmlTree;
 
 /** Class to access MusicBrainz online CD and coverart databases service.
  */
@@ -50,13 +21,6 @@ class CDbMusicBrainz : public IDatabase, public IReleaseDatabase, public IImageD
 public:
     /** Constructor.
      *
-     *  @param[in] Server name. If omitted or empty, default server
-     *             "musicbrainz.org" is used.
-     *  @param[in] Server port. If omitted, default value is 80.
-     *  @param[in] MusicBrainz account name for tagging. If omitted or empty, no
-     *             action is taken.
-     *  @param[in] MusicBrainz account password for tagging. If omitted or empty
-     *             no action is taken.
      *  @param[in] Client program name. If omitted or empty, uses "autorip"
      *  @param[in] Client program version. If omitted or empty, uses "alpha"
      */
@@ -281,6 +245,14 @@ public:
      *  @return    Composer/songwriter string (empty if artist not available)
      */
 
+    /** Get Amazon Standard Identification Number
+     *
+     *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+     *             is returned.
+     *  @return    ASIN string (empty if ASIN not available)
+     */
+    std::string AlbumASIN(const int recnum=0) const;
+
     /** Get number of tracks
      *
      *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
@@ -431,7 +403,7 @@ private:
      *
      *  @param[in] cuesheet representing the disc
      */
-    CDbMusicBrainzElemBase GetNewDiscData_(const SCueSheet &cuesheet);
+    CUtilXmlTree GetNewDiscData_(const SCueSheet &cuesheet);
 
     /**
      * @brief Check medium-list in a discid release to identify the disc if multi-disc set
@@ -447,11 +419,4 @@ private:
      *  @param[in]  record index (default=0)
      */
     bool GetCAA_(const int recnum, CDbMusicBrainzElemCAA &coverart) const;
-
-    /** Retrieve the front cover data.
-     *
-     *  @param[out] image data buffer.
-     *  @param[in]  record index (default=0)
-     */
-    UByteVector ImageData_(const std::string &url) const;
 };

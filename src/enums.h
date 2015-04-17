@@ -14,7 +14,7 @@ enum class OutputFileFormat {WAVPACK};
 /**
  * @brief The DatabaseType enum
  */
-enum class DatabaseType {DISCOGS,MUSICBRAINZ,FREEDB,LASTFM};
+enum class DatabaseType {DISCOGS,MUSICBRAINZ,FREEDB,LASTFM,AMAZON};
 
 /**
  * @brief The AlbumRemFieldType enum

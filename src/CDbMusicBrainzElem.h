@@ -4,12 +4,12 @@
 #include <map>
 #include <string>
 
-#include "CDbMusicBrainzElemBase.h"
+#include "CUtilXmlTree.h"
 //#include "utils.h"
 
 class CDbMusicBrainz;
 
-class CDbMusicBrainzElem : protected CDbMusicBrainzElemBase
+class CDbMusicBrainzElem : protected CUtilXmlTree
 {
     friend class CDbMusicBrainz;
 public:
@@ -106,6 +106,12 @@ public:
      */
     std::string AlbumUPC() const;
 
+    /** Get Amazon Standard Identification Number
+     *
+     *  @return    ASIN string (empty if ASIN not available)
+     */
+    std::string AlbumASIN() const;
+
     /** Get number of tracks
      *
      *  @return    number of tracks
@@ -193,6 +199,11 @@ public:
      */
     bool Back() const;
 
+protected:
+    bool FindObject(const std::string &key, const xmlNode *&node, std::string *id=NULL) const { return FindObject(root, key, node, id); }
+    bool FindArray(const std::string &key, const xmlNode *&firstchild, int *count=NULL, int *offset=NULL) const { return FindArray(root, key, firstchild, count, offset); }
+    static bool FindObject(const xmlNode *parent, const std::string &key, const xmlNode *&node, std::string *id=NULL);
+    static bool FindArray(const xmlNode *parent, const std::string &key, const xmlNode *&firstchild, int *count=NULL, int *offset=NULL);
 private:
     int disc; // in the case of multi-disc set, indicate the disc # (zero-based)
     std::map<std::string,bool> artists; // <MBID, false-artist/performer, true-composer>
@@ -217,4 +228,5 @@ private:
     const xmlNode* GetTrack_(const size_t tracknum) const;
 
     std::string Artists_(const xmlNode *node, const bool reqcomposer) const; // maybe release or track json_t
+
 };

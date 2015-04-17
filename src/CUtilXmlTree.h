@@ -8,25 +8,25 @@
 
 /** Abstract base Database class with CD info stored in JSON format
  */
-class CDbMusicBrainzElemBase : public CUtilXml
+class CUtilXmlTree : public CUtilXml
 {
 public:
-    xmlNodePtr root;
+    const xmlNode *root;
 
     /** Constructor.
      */
-    CDbMusicBrainzElemBase(const std::string &data="");
-    CDbMusicBrainzElemBase(const CDbMusicBrainzElemBase &src);
+    CUtilXmlTree(const std::string &data="");
+    CUtilXmlTree(const CUtilXmlTree &src);
 
     /** Destructor
      */
-    virtual ~CDbMusicBrainzElemBase();
+    virtual ~CUtilXmlTree();
 
     /**
      * @brief Exchanges the content with another CDbMusicBrainzElem object
      * @param Another CDbMusicBrainzElem object
      */
-    virtual void Swap(CDbMusicBrainzElemBase &other);
+    virtual void Swap(CUtilXmlTree &other);
 
     /**
      * @brief Load New Data. Clears existing data first. If empty, no action.
@@ -42,15 +42,15 @@ public:
 
     /** Debug function. Prints full-struct of XML tree for a release
      *
-     * @param[in] Depth to traverse the JSON object tree (negative to go all the way)
+     * @param[in] Depth to traverse the XML object tree (negative to go all the way)
      * @param[in] Record index to print'
      * @param[in] Output stream to print the object (default: cout)
      */
-    virtual void PrintXML(const int depth=-1, std::ostream &os=std::cout) const { PrintXML(root, depth, os); }
+    virtual void PrintXMLTree(const int depth=-1, std::ostream &os=std::cout) const { PrintXmlTree(root, depth, os); }
 
     // functions to get value of a requested key off the root
-    bool FindObject(const std::string &key, xmlNode *&node, std::string *id=NULL) const { return FindObject(root, key, node, id); }
-    bool FindArray(const std::string &key, xmlNode *&firstchild, int *count=NULL, int *offset=NULL) const { return FindArray(root, key, firstchild, count, offset); }
+    bool FindElement(const std::string &key, const xmlNode *&node) const { return FindElement(root, key, node); }
+    bool FindArray(const std::string &key, const xmlNode *&firstchild, int *count=NULL) const { return FindArray(root, key, firstchild, count); }
     bool FindString(const std::string &key, std::string &val) const { return FindString(root, key, val); }
     bool FindInt(const std::string &key, int &val) const { return FindInt(root, key, val); }
 
@@ -71,14 +71,19 @@ public:
      * @param[in] traversal depth (<0 to go all the way)
      *  @param[in] Output stream to print the object (default: cout)
      */
-    static void PrintXML(const xmlNode *node, const int depth=-1, std::ostream &os=std::cout);
-    void PrintXML(const int depth=-1, std::ostream &os=std::cout) { PrintXML(root,depth,os); }
+    static void PrintXmlTree(const xmlNode *node, const int depth=-1, std::ostream &os=std::cout);
+    void PrintXmlTree(const int depth=-1, std::ostream &os=std::cout) { PrintXmlTree(root,depth,os); }
 
     // generic static functions to get value of a requested key
-    static bool FindObject(const xmlNode *parent, const std::string &key, xmlNode *&node, std::string *id=NULL);
-    static bool FindArray(const xmlNode *parent, const std::string &key, xmlNode *&firstchild, int *count=NULL, int *offset=NULL);
+
+    static bool FindElement(const xmlNode *parent, const std::string &key, const xmlNode *&node);
+    static bool FindNextElement(const xmlNode *curr, const std::string &key, const xmlNode *&node);
+    static bool FindArray(const xmlNode *parent, const std::string &key, const xmlNode *&firstchild, int *count=NULL);
     static bool FindString(const xmlNode *parent, const std::string &key, std::string &val);
     static bool FindInt(const xmlNode *parent, const std::string &key, int &val);
+
+    static bool FindElementAttribute(const xmlNode *node, const std::string &name, std::string &value);
+    static int CompareElementAttribute(const xmlNode *node, const std::string &name, const std::string &value);
 
     /**
      * @brief CompareString_ compare string key value to the given string
@@ -94,5 +99,5 @@ public:
 private:
     xmlDocPtr data;
 
-    static void PrintXML_(std::ostream &os, int depth, const xmlNode *obj, std::string indent);
+    static void PrintXmlTree_(std::ostream &os, int depth, const xmlNode *obj, std::string indent);
 };

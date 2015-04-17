@@ -1,4 +1,4 @@
-#include "CDbMusicBrainzElemBase.h"
+#include "CUtilXmlTree.h"
 
 #include <iostream>
 
@@ -10,7 +10,7 @@ using std::runtime_error;
 
 /** Constructor.
  */
-CDbMusicBrainzElemBase::CDbMusicBrainzElemBase(const std::string &rawdata) : root(NULL), data(NULL)
+CUtilXmlTree::CUtilXmlTree(const std::string &rawdata) : root(NULL), data(NULL)
 {
     if (rawdata.size())
     {
@@ -28,7 +28,7 @@ CDbMusicBrainzElemBase::CDbMusicBrainzElemBase(const std::string &rawdata) : roo
  * @brief copy constructor
  * @param source object
  */
-CDbMusicBrainzElemBase::CDbMusicBrainzElemBase(const CDbMusicBrainzElemBase &src) : root(NULL), data(NULL)
+CUtilXmlTree::CUtilXmlTree(const CUtilXmlTree &src) : root(NULL), data(NULL)
 {
     data = xmlCopyDoc(src.data,1);
     if (!data) throw(std::runtime_error("Failed to copy XML document."));
@@ -36,7 +36,7 @@ CDbMusicBrainzElemBase::CDbMusicBrainzElemBase(const CDbMusicBrainzElemBase &src
 
 /** Destructor
  */
-CDbMusicBrainzElemBase::~CDbMusicBrainzElemBase()
+CUtilXmlTree::~CUtilXmlTree()
 {
     if (data) xmlFreeDoc(data);
 }
@@ -45,13 +45,13 @@ CDbMusicBrainzElemBase::~CDbMusicBrainzElemBase()
  * @brief Exchanges the content with another CDbMusicBrainzElem object
  * @param Another CDbMusicBrainzElem object
  */
-void CDbMusicBrainzElemBase::Swap(CDbMusicBrainzElemBase &other)
+void CUtilXmlTree::Swap(CUtilXmlTree &other)
 {
     std::swap(data,other.data);
     std::swap(root,other.root);
 }
 
-void CDbMusicBrainzElemBase::LoadData(const std::string &rawdata)
+void CUtilXmlTree::LoadData(const std::string &rawdata)
 {
     if (rawdata.size())
     {
@@ -72,7 +72,7 @@ void CDbMusicBrainzElemBase::LoadData(const std::string &rawdata)
 /**
  * @brief Clear existing JSON data
  */
-void CDbMusicBrainzElemBase::ClearData()
+void CUtilXmlTree::ClearData()
 {
     if (data)
     {
@@ -82,51 +82,59 @@ void CDbMusicBrainzElemBase::ClearData()
     }
 }
 
-bool CDbMusicBrainzElemBase::FindObject(const xmlNode *parent, const std::string &name, xmlNode *&node, std::string *id)
+bool CUtilXmlTree::FindElement(const xmlNode *parent, const std::string &key, const xmlNode *&node)
 {
-    // find a node with requested name
-    bool rval = FindElement(parent, name, node);
+    for (node = parent->children;
+         node && node->type==XML_ELEMENT_NODE && (key.compare((char*)node->name)!=0);
+         node = node->next);
+    return node!=NULL;
+}
 
-    // if found and its ID URI is requested, try retrieving it (returns "" if does not exist)
-    if (rval && id) FindElementAttribute(node, "id", *id);
+bool CUtilXmlTree::FindNextElement(const xmlNode *curr, const std::string &key, const xmlNode *&node)
+{
+    for (node = curr->next;
+         node && node->type==XML_ELEMENT_NODE && (key.compare((char*)node->name)!=0);
+         node = node->next);
+    return node!=NULL;
+}
+
+bool CUtilXmlTree::FindElementAttribute(const xmlNode *node, const std::string &name, std::string &value)
+{
+    bool rval;
+    xmlAttrPtr attr;
+
+    // look for the attribute
+    for (attr = node->properties; attr && (name.compare((char*)attr->name)!=0); attr = attr->next);
+
+    // attribute found, grab the value (expects only 1 child (a text node)
+    if ((rval = attr && attr->children)) value = (char*)(attr->children->content);
 
     return rval;
 }
 
-bool CDbMusicBrainzElemBase::FindArray(const xmlNode *parent, const std::string &name, xmlNode *&node, int *count, int *offset)
+int CUtilXmlTree::CompareElementAttribute(const xmlNode *node, const std::string &name, const std::string &value)
+{
+    int rval = -1;
+    xmlAttrPtr attr;
+
+    // look for the attribute
+    for (attr = node->properties; attr && (name.compare((char*)attr->name)!=0); attr = attr->next);
+
+    // attribute found, grab the value (expects only 1 child (a text node)
+    if (attr && attr->children) value.compare((char*)(attr->children->content));
+
+    return rval;
+}
+
+bool CUtilXmlTree::FindArray(const xmlNode *parent, const std::string &name, const xmlNode *&node, int *count)
 {
     // find a node with requested name
     bool rval = FindElement(parent, name, node);
 
     if (rval)   // found
     {
-        std::string attr_val;
-
-        if (count)
-        {
-            FindElementAttribute(node, "count", attr_val);
-            try
-            {
-                *count = std::stoi(attr_val);
-            }
-            catch(...)  // if attribute does not exist or not integer, count the # of children
-            {
-                *count = xmlChildElementCount(node);
-            }
-        }
-
-        if (offset)
-        {
-            FindElementAttribute(node, "offset", attr_val);
-            try
-            {
-                *offset = std::stoi(attr_val);
-            }
-            catch(...)  // if attribute does not exist or not integer, count the # of children
-            {
-                *offset = -1; // unknown
-            }
-        }
+        // if count requested, return the number of children
+        if (count) *count = xmlChildElementCount(const_cast<xmlNode*>(node));
 
         // return its first child
         node =  node->children;
@@ -135,9 +143,9 @@ bool CDbMusicBrainzElemBase::FindArray(const xmlNode *parent, const std::string 
     return rval;
 }
 
-bool CDbMusicBrainzElemBase::FindString(const xmlNode *parent, const std::string &key, std::string &val)
+bool CUtilXmlTree::FindString(const xmlNode *parent, const std::string &key, std::string &val)
 {
-    xmlNodePtr node;
+    const xmlNode *node;
     bool rval = FindElement(parent, key, node);
 
     if (rval) // a node with key as its name found
@@ -150,7 +158,7 @@ bool CDbMusicBrainzElemBase::FindString(const xmlNode *parent, const std::string
     return rval;
 }
 
-bool CDbMusicBrainzElemBase::FindInt(const xmlNode *node, const std::string &key, int &val)
+bool CUtilXmlTree::FindInt(const xmlNode *node, const std::string &key, int &val)
 {
     std::string str;
     bool rval = FindString(node, key, str);
@@ -180,9 +188,9 @@ bool CDbMusicBrainzElemBase::FindInt(const xmlNode *node, const std::string &key
  *             the compared string, or >0 if first key string is shorter than the
  *             compared string
  */
-int CDbMusicBrainzElemBase::CompareString(const xmlNode *parent, const std::string &key, const std::string &str)
+int CUtilXmlTree::CompareString(const xmlNode *parent, const std::string &key, const std::string &str)
 {
-    xmlNodePtr node;
+    const xmlNode *node;
     int rval = -1; // if remained, key doesn't exist or its value is not a string
 
     if (FindElement(parent, key, node))
@@ -193,12 +201,12 @@ int CDbMusicBrainzElemBase::CompareString(const xmlNode *parent, const std::stri
     return rval;
 }
 
-void CDbMusicBrainzElemBase::PrintXML(const xmlNode *obj, const int depth, std::ostream &os)
+void CUtilXmlTree::PrintXmlTree(const xmlNode *obj, const int depth, std::ostream &os)
 {
-    PrintXML_(os, depth, obj, "");
+    PrintXmlTree_(os, depth, obj, "");
 }
 
-void CDbMusicBrainzElemBase::PrintXML_(std::ostream &os, int depth, const xmlNode *obj, std::string indent)
+void CUtilXmlTree::PrintXmlTree_(std::ostream &os, int depth, const xmlNode *obj, std::string indent)
 {
     if (obj->type==XML_ELEMENT_NODE)
     {
@@ -254,13 +262,13 @@ void CDbMusicBrainzElemBase::PrintXML_(std::ostream &os, int depth, const xmlNod
                 depth--;
                 indent += " ";
                 for (obj = obj->children; obj; obj = obj->next)
-                    PrintXML_(os, depth, obj, indent);
+                    PrintXmlTree_(os, depth, obj, indent);
             }
         }
     }
     else    // just in case unknown node is present
     {
-        xmlBufPtr buf=NULL;
+        xmlBuf *buf=NULL;
         xmlBufNodeDump(buf, obj->doc, const_cast<xmlNode*>(obj), indent.size(), 0);
         if (buf) os << (char*)buf << std::endl;
     }

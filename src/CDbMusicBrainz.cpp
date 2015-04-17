@@ -12,12 +12,7 @@
 
 #include "SCueSheet.h"
 
-#include <coverart/HTTPFetch.h>
-#include <coverart/ImageList.h>
-#include <coverart/Image.h>
-#include <coverart/Thumbnails.h>
-
-#include "CDbMusicBrainzElemBase.h"
+#include "CUtilXmlTree.h"
 #include "CDbMusicBrainzElem.h"
 #include "CDbMusicBrainzElemCAA.h"
 
@@ -31,24 +26,15 @@ using std::string;
 using std::runtime_error;
 using std::to_string;
 
-using namespace CoverArtArchive;
-
 const std::string CDbMusicBrainz::base_url = "http://musicbrainz.org/ws/2/";
 
 /** Constructor->l785
  *
- *  @param[in] CDDB server name. If omitted or empty, default server
- *             "musicbrainz.org" is used.
- *  @param[in] CDDB server port. If omitted, default value is 80.
- *  @param[in] MusicBrainz account name for tagging. If omitted or empty, no
- *             action is taken.
- *  @param[in] MusicBrainz account password for tagging. If omitted or empty
- *             no action is taken.
  *  @param[in] Client program name. If omitted or empty, uses "autorip"
  *  @param[in] Client program version. If omitted or empty, uses "alpha"
  */
 CDbMusicBrainz::CDbMusicBrainz(const std::string &cname,const std::string &cversion)
-    : CUtilUrl(cname,cversion), CoverArtSize(0)
+    : CUtilUrl(cname,cversion), CoverArtSize(2)
 {}
 
 CDbMusicBrainz::~CDbMusicBrainz()
@@ -77,9 +63,9 @@ int CDbMusicBrainz::Query(const std::string &dev, const SCueSheet &cuesheet, con
     cout << "[CDbMusicBrainz::Query] 1. Querying with disc TOC...";
 
     // must build disc based on cuesheet (throws error if fails to compute discid)
-    CDbMusicBrainzElemBase discdata = GetNewDiscData_(cuesheet);
+    CUtilXmlTree discdata = GetNewDiscData_(cuesheet);
 
-    xmlNodePtr release_node;
+    const xmlNode *release_node;
     std::string url;
     if (discdata.FindArray("release-list",release_node))
     {
@@ -171,7 +157,7 @@ int CDbMusicBrainz::Query(const std::string &dev, const SCueSheet &cuesheet, con
  *  @param[in] Cuesheet with its basic data populated
  *  @param[in] Length of the CD in sectors
  */
-CDbMusicBrainzElemBase CDbMusicBrainz::GetNewDiscData_(const SCueSheet &cuesheet)
+CUtilXmlTree CDbMusicBrainz::GetNewDiscData_(const SCueSheet &cuesheet)
 {
     // Build discid lookup URL
     std::ostringstream url;
@@ -194,7 +180,7 @@ CDbMusicBrainzElemBase CDbMusicBrainz::GetNewDiscData_(const SCueSheet &cuesheet
     PerformHttpTransfer_(url.str()); // received data is stored in rawdata
 
     // Parse the downloaded XML data
-    CDbMusicBrainzElemBase discdata(rawdata);
+    CUtilXmlTree discdata(rawdata);
 
     return discdata;
 }
@@ -211,30 +197,30 @@ int CDbMusicBrainz::DiscID_(const xmlNode *release_node, const int trackcount, c
     int discno=1;
     int curr_disc;
     int count;
-    xmlNode *medium_node;
+    const xmlNode *medium_node;
 
-    if (!CDbMusicBrainzElemBase::FindArray(release_node, "medium-list", medium_node, &count))
+    if (!CUtilXmlTree::FindArray(release_node, "medium-list", medium_node, &count))
         throw(std::runtime_error("Multi-CD Release Data is missing medium/position element."));
 
     if (count>1)
     {
-        xmlNode *node;
+        const xmlNode *node;
         int metric = INT_MAX;
 
         while (medium_node && metric>0) // for each medium
         {
-            if (!CDbMusicBrainzElemBase::FindInt(medium_node, "position", curr_disc))
+            if (!CUtilXmlTree::FindInt(medium_node, "position", curr_disc))
                 throw(std::runtime_error("Multi-CD Release Data is missing medium/position element."));
 
-            CDbMusicBrainzElemBase::FindArray(medium_node, "track-list", node, &count);
+            CUtilXmlTree::FindArray(medium_node, "track-list", node, &count);
             if (count==trackcount)
             {
-                if (!CDbMusicBrainzElemBase::FindArray(medium_node, "disc-list",node))
+                if (!CUtilXmlTree::FindArray(medium_node, "disc-list",node))
                     throw(std::runtime_error("Multi-CD Release Data is missing medium/disc-list element."));
 
                 while (node && metric>0) // for each disc
                 {
-                    if (!CDbMusicBrainzElemBase::FindInt(node, "sectors", count))
+                    if (!CUtilXmlTree::FindInt(node, "sectors", count))
                         throw(std::runtime_error("Multi-CD Release Data is missing medium/disc/sectors element."));
 
                     count -= (int)totaltime;
@@ -451,6 +437,23 @@ std::string CDbMusicBrainz::AlbumUPC(const int recnum) const
     return Releases[recnum].AlbumUPC();
 }
 
+/** Get Amazon Standard Identification Number
+ *
+ *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+ *             is returned.
+ *  @return    ASIN string (empty if ASIN not available)
+ */
+std::string CDbMusicBrainz::AlbumASIN(const int recnum) const
+{
+    {
+        // set disc
+        if (recnum<0 || recnum>=(int)Releases.size()) // all discs
+            throw(runtime_error("Invalid CD record ID."));
+
+        return Releases[recnum].AlbumASIN();
+    }
+}
+
 /** Get number of tracks
  *
  *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
@@ -596,44 +599,9 @@ bool CDbMusicBrainz::Back(const int recnum) const
  *  @param[out] image data buffer.
  *  @param[in]  record index (default=0)
  */
-UByteVector CDbMusicBrainz::ImageData_(const std::string &url) const
-{
-    UByteVector imdata;
-    size_t size;
-
-    if (url.size())
-    {
-        // get the image file size
-        size = GetHttpContentLength_(url);
-        if (size>0) imdata.reserve(size);
-
-        // set imdata as the download buffer
-        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, CUtilUrl::write_uchar_vector_callback);
-        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &imdata);
-
-        // perform the HTTP transaction
-        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-        CURLcode res = curl_easy_perform(curl);
-        if(res != CURLE_OK) throw(std::runtime_error(curl_easy_strerror(res)));
-
-        cout << "IMAGE SIZE: " << imdata.size() << " bytes" << endl;
-
-        // reset the download buffer
-        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, CUtilUrl::write_callback);
-        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &rawdata);
-    }
-
-    return imdata;
-}
-
-/** Retrieve the front cover data.
- *
- *  @param[out] image data buffer.
- *  @param[in]  record index (default=0)
- */
 UByteVector CDbMusicBrainz::FrontData(const int recnum)
 {
-    return ImageData_(FrontURL(recnum));
+    return DataToMemory(FrontURL(recnum));
 }
 
 /** Check if the query returned a front cover
@@ -643,7 +611,7 @@ UByteVector CDbMusicBrainz::FrontData(const int recnum)
  */
 UByteVector CDbMusicBrainz::BackData(const int recnum)
 {
-    return ImageData_(BackURL(recnum));
+    return DataToMemory(BackURL(recnum));
 }
 
 /** Get the URL of the front cover image
@@ -729,15 +697,15 @@ std::string CDbMusicBrainz::RelationUrl(const std::string &type, const int recnu
         PerformHttpTransfer_(url); // received data is stored in rawdata
 
         // Parse the downloaded XML data
-        CDbMusicBrainzElemBase rgroupdata(rawdata);
+        CUtilXmlTree rgroupdata(rawdata);
 
         // look through all relation
         string rval;
         bool relation_notfound=true, target_notfound = true;
-        xmlNode *list, *relation;
+        const xmlNode *list, *relation;
         string target;
 
-        if (rgroupdata.FindObject("relation-list", list))
+        if (rgroupdata.FindElement("relation-list", list))
         {
             do
             {

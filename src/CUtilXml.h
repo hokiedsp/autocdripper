@@ -33,12 +33,6 @@ public:
      */
     static void SetAutoCleanUpMode(const bool mode) { AutoCleanUp = mode; }
 
-
-    static bool FindElement(const xmlNode *parent, const std::string &key, xmlNode *&node);
-    static bool FindNextElement(const xmlNode *curr, const std::string &key, xmlNode *&node);
-    static bool FindElementAttribute(const xmlNode *node, const std::string &name, std::string &value);
-    static int CompareElementAttribute(const xmlNode *node, const std::string &name, const std::string &value);
-
 protected:
 
 private:

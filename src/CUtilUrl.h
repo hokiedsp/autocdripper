@@ -6,7 +6,7 @@
 #include <vector>
 #include <curl/curl.h>
 
-#include "IDatabase.h"
+typedef std::vector<unsigned char> UByteVector;
 
 /** Abstract base Database class with libcurl object
  */
@@ -19,6 +19,12 @@ public:
      *  @param[in] Client program version. If omitted or empty, uses "alpha"
      */
     CUtilUrl(const std::string &cname="autorip",const std::string &cversion="alpha");
+
+    /**
+     * @brief Copy Constructor (creates duplicate curl session)
+     * @param[in] source
+     */
+    CUtilUrl(const CUtilUrl &src);
 
     /** Destructor
      */
@@ -56,7 +62,16 @@ protected:
      */
     virtual size_t GetHttpContentLength_(const std::string &url) const;
 
-    /* Default callback for writing received HTTP data
+    /**
+     * @brief Download the (binary) data from URL and store it in a memory block
+     * @param[in] URL
+     * @return unsigned char vector containing the downloaded data
+     * @throw runtime_error if curl fails to retrieve the data
+     * @throw length_error if requested data is too large
+     */
+    virtual UByteVector DataToMemory(const std::string &url);
+
+    /** Default callback for writing received HTTP data
      *
      * @param[in]   Points to the delivered data
      * @param[in]   The actual size of that data in byte is size multiplied with nmemb
@@ -66,7 +81,7 @@ protected:
      */
     static size_t write_callback(char *ptr, size_t size, size_t nmemb, void *userdata);
 
-    /* Callback for writing received HTTP data to std::vector<unsigned char> buffer
+    /** Callback for writing received HTTP data to std::vector<unsigned char> buffer
      *
      * @param[in]   Points to the delivered data
      * @param[in]   The actual size of that data in byte is size multiplied with nmemb

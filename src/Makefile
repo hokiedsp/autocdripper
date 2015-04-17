@@ -6,10 +6,9 @@ SRCS = autocdripper.cpp CCdRipper.cpp CSourceCdda.cpp CSinkBase.cpp CSinkWav.cpp
        CSinkWavPack.cpp CTagsGeneric.cpp CTagsAPEv2.cpp SCueSheet.cpp CDbFreeDb.cpp\
        CDbMusicBrainz.cpp CCueSheetBuilder.cpp enums.cpp CDbDiscogs.cpp CUtilJson.cpp\
        CDbDiscogsElem.cpp CUtilUrl.cpp utils.cpp CDbLastFm.cpp CDbLastFmElem.cpp\
-       CDbMusicBrainzElemBase.cpp CUtilXml.cpp CDbMusicBrainzElem.cpp\
-       CDbMusicBrainzElemCAA.cpp
-LIBS = -lwavpack -lcdio -lcdio_cdda -lcdio_paranoia -lcddb -lmusicbrainz5 -lcoverart\
-       -lcurl -ljansson -lxml2
+       CUtilXmlTree.cpp CUtilXml.cpp CDbMusicBrainzElem.cpp\
+       CDbMusicBrainzElemCAA.cpp CDbAmazon.cpp CDbAmazonElem.cpp
+LIBS = -lwavpack -lcdio -lcdio_cdda -lcdio_paranoia -lcddb -lcurl -ljansson -lxml2
 LDFLAGS = -Wall -pthread
 
 #MAIN = cdinfodemo

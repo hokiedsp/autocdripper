@@ -35,6 +35,7 @@ std::string to_string(const DatabaseType db)
     case DatabaseType::MUSICBRAINZ: return "musicbrainz";
     case DatabaseType::FREEDB: return "freedb";
     case DatabaseType::LASTFM: return "lastfm";
+    case DatabaseType::AMAZON: return "amazon";
     default: throw(runtime_error("Unsupported database. Update std::string to_string(const DatabaseType db)"));
     }
 

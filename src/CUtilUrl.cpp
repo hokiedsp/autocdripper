@@ -38,6 +38,28 @@ CUtilUrl::CUtilUrl(const std::string &cname,const std::string &cversion)
     curl_easy_setopt(curl, CURLOPT_USERAGENT, (cname+"/"+cversion).c_str());
 }
 
+/**
+ * @brief Copy Constructor (creates duplicate curl session)
+ * @param[in] source
+ */
+CUtilUrl::CUtilUrl(const CUtilUrl &src)
+{
+    // initialize curl object
+    globalmutex.lock();
+    curl = curl_easy_duphandle(src.curl);
+    if (curl) Nobjs++;
+    globalmutex.unlock();
+
+    if (!curl) throw(runtime_error("Failed to start a libcurl session."));
+
+    // reserve large enough data buffer
+    rawdata.reserve(CURL_MAX_WRITE_SIZE);    // reserve memory for receive buffer
+
+    // use static write_callback as the default write callback function
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, CUtilUrl::write_callback);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &rawdata);
+}
+
 /** Destructor
  */
 CUtilUrl::~CUtilUrl()
@@ -111,8 +133,43 @@ size_t CUtilUrl::write_callback(char *ptr, size_t size, size_t nmemb, void *user
 size_t CUtilUrl::write_uchar_vector_callback(char *ptr, size_t size, size_t nmemb, void *userdata)
 {
     size *= nmemb;
-    std::vector<unsigned char>* bindata = (std::vector<unsigned char>*)userdata;
-    std::vector<unsigned char>::iterator it = bindata->end();
+    UByteVector* bindata = (std::vector<unsigned char>*)userdata;
+    UByteVector::iterator it = bindata->end();
     bindata->insert(it, (unsigned char*)ptr,(unsigned char*)ptr+size);
     return size;
+}
+
+/**
+ * @brief Download the (binary) data from URL and store it in a memory block
+ * @param[in] URL
+ * @return unsigned char vector containing the downloaded data
+ * @throw runtime_error if curl fails to retrieve the data
+ * @throw length_error if requested data is too large
+ */
+UByteVector CUtilUrl::DataToMemory(const std::string &url)
+{
+    UByteVector data;
+    size_t size;
+
+    if (url.size()) // if URL is an empty string, return empty vector
+    {
+        // get the image file size
+        size = GetHttpContentLength_(url);
+        if (size>0) data.reserve(size);
+
+        // set imdata as the download buffer
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, CUtilUrl::write_uchar_vector_callback);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &data);
+
+        // perform the HTTP transaction
+        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+        CURLcode res = curl_easy_perform(curl);
+        if(res != CURLE_OK) throw(std::runtime_error(curl_easy_strerror(res)));
+
+        // reset the download buffer
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, CUtilUrl::write_callback);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &rawdata);
+    }
+
+    return data;
 }

@@ -11,7 +11,6 @@
 #include <cstdint>
 
 #include "SCueSheet.h"
-#include "credirect.h" // to redirect std::cerr stream
 #include "CDbMusicBrainz.h"
 #include "CDbLastFmElem.h"
 
@@ -182,30 +181,6 @@ std::string CDbLastFm::FrontURL(const int recnum) const
  */
 UByteVector CDbLastFm::FrontData(const int recnum)
 {
-    UByteVector imdata;
-    size_t size;
-
     // get the URL of the image file
-    string url = FrontURL(recnum);
-
-    // get the image file size
-    size = GetHttpContentLength_(url);
-    if (size>0) imdata.reserve(size);
-
-    // set imdata as the download buffer
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, CUtilUrl::write_uchar_vector_callback);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &imdata);
-
-    // perform the HTTP transaction
-    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-    CURLcode res = curl_easy_perform(curl);
-    if(res != CURLE_OK) throw(std::runtime_error(curl_easy_strerror(res)));
-
-    cout << "IMAGE SIZE: " << imdata.size() << " bytes" << endl;
-
-    // reset the download buffer
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, CUtilUrl::write_callback);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &rawdata);
-
-    return imdata;
+    return DataToMemory(FrontURL(recnum));
 }

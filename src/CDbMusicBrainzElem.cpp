@@ -17,7 +17,7 @@ using std::endl;
 #include "utils.h"
 
 CDbMusicBrainzElem::CDbMusicBrainzElem(const std::string &rawdata, const int d)
-    : CDbMusicBrainzElemBase(rawdata), disc(d)
+    : CUtilXmlTree(rawdata), disc(d)
 {
     // change the root to release element
     if (root)
@@ -35,7 +35,7 @@ CDbMusicBrainzElem::CDbMusicBrainzElem(const std::string &rawdata, const int d)
  */
 void CDbMusicBrainzElem::Swap(CDbMusicBrainzElem &other)
 {
-    CDbMusicBrainzElemBase::Swap(other);
+    CUtilXmlTree::Swap(other);
     std::swap(disc,other.disc);
     artists.swap(other.artists);
 }
@@ -48,7 +48,7 @@ void CDbMusicBrainzElem::Swap(CDbMusicBrainzElem &other)
 void CDbMusicBrainzElem::LoadData(const std::string &rawdata)
 {
     // call the base class function first
-    CDbMusicBrainzElemBase::LoadData(rawdata);
+    CUtilXmlTree::LoadData(rawdata);
 
     // change the root to release element
     if (root)
@@ -149,7 +149,7 @@ int CDbMusicBrainzElem::DiscNumber() const
 int CDbMusicBrainzElem::TotalDiscs() const
 {
     int rval = 1;
-    xmlNode *medium;
+    const xmlNode *medium;
     FindArray("medium-list", medium, &rval);
 
     return rval;
@@ -163,7 +163,7 @@ std::string CDbMusicBrainzElem::AlbumLabel() const
 {
     std::string rval;
 
-    xmlNode *labelinfo, *label;
+    const xmlNode *labelinfo, *label;
     if (FindArray("label-info-list",labelinfo) && labelinfo
             && FindObject(labelinfo,"label",label) && label)
         FindString(label, "name",rval);
@@ -179,7 +179,7 @@ std::string CDbMusicBrainzElem::AlbumCatNo() const
 {
     std::string rval;
 
-    xmlNode *labelinfo;
+    const xmlNode *labelinfo;
     if (FindArray("label-info-list",labelinfo) && labelinfo)
         FindString(labelinfo, "catalog-number",rval);
 
@@ -197,6 +197,17 @@ std::string CDbMusicBrainzElem::AlbumUPC() const
     return str;
 }
 
+/** Get Amazon Standard Identification Number
+ *
+ *  @return    ASIN string (empty if ASIN not available)
+ */
+std::string CDbMusicBrainzElem::AlbumASIN() const
+{
+    std::string str;
+    FindString("asin",str);
+    return str;
+}
+
 /**
  * @brief Find XML object for the medium associated with the CD
  * @return pointer to a medium XML object
@@ -204,7 +215,7 @@ std::string CDbMusicBrainzElem::AlbumUPC() const
 const xmlNode* CDbMusicBrainzElem::GetMedium_() const
 {
     int pos;
-    xmlNode* medium = NULL;
+    const xmlNode *medium = NULL;
     for(FindArray("medium-list",medium);
         medium && FindInt(medium,"position",pos) && pos!=disc;
         medium = medium->next);
@@ -220,7 +231,7 @@ const xmlNode* CDbMusicBrainzElem::GetMedium_() const
 const xmlNode* CDbMusicBrainzElem::GetTrack_(const size_t tracknum) const
 {
     const xmlNode *medium = GetMedium_();
-    xmlNode *track = NULL;
+    const xmlNode *track = NULL;
     if (medium && FindArray(medium,"track-list",track))
     {
         int pos;
@@ -240,7 +251,7 @@ int CDbMusicBrainzElem::NumberOfTracks() const
 {
     int rval;
     const xmlNode* medium = GetMedium_();
-    xmlNode *track;
+    const xmlNode *track;
     if (medium) FindArray(medium,"track-list",track,&rval);
     return rval;
 }
@@ -267,7 +278,7 @@ std::string CDbMusicBrainzElem::TrackTitle(int tracknum) const
 {
     std::string rval;
     const xmlNode *track = GetTrack_(tracknum);
-    xmlNode *recording;
+    const xmlNode *recording;
 
     // look on the track first, if not found, check in its recording
     if (track && !FindString(track,"title",rval) && FindObject(track,"recording",recording))
@@ -286,7 +297,7 @@ std::string CDbMusicBrainzElem::TrackArtist(int tracknum) const
 {
     std::string rval;
     const xmlNode *track = GetTrack_(tracknum);
-    xmlNode *recording;
+    const xmlNode *recording;
 
     if (FindObject(track,"recording",recording))
     {
@@ -321,7 +332,7 @@ std::string CDbMusicBrainzElem::TrackComposer(int tracknum) const
 std::string CDbMusicBrainzElem::TrackISRC(int tracknum) const
 {
     std::string rval;
-    xmlNode *recording, *isrc;
+    const xmlNode *recording, *isrc;
     const xmlNode *track = GetTrack_(tracknum);
 
     if (track && FindObject(track,"recording",recording) &&
@@ -343,7 +354,7 @@ std::vector<int> CDbMusicBrainzElem::TrackLengths() const
     std::vector<int> tracklengths;
 
     const xmlNode *medium;
-    xmlNode *track = NULL;
+    const xmlNode *track = NULL;
     int len, pos, count;
 
     medium = GetMedium_();
@@ -374,7 +385,7 @@ std::string CDbMusicBrainzElem::RelationUrl(const std::string &type) const
 {
     std::string rval;
     bool relation_notfound=true, target_notfound = true;
-    xmlNode *list, *relation;
+    const xmlNode *list, *relation;
     std::string target;
 
     // look through all relation
@@ -404,7 +415,7 @@ std::string CDbMusicBrainzElem::RelationUrl(const std::string &type) const
 std::string CDbMusicBrainzElem::ReleaseGroupId() const
 {
     std::string rval;
-    xmlNode *rgroup;
+    const xmlNode *rgroup;
     FindObject("release-group", rgroup, &rval);
     return rval;
 }
@@ -418,7 +429,7 @@ std::string CDbMusicBrainzElem::ReleaseGroupId() const
 bool CDbMusicBrainzElem::Front() const
 {
     bool rval = false;
-    xmlNode *node;
+    const xmlNode *node;
     int val;
     if (FindObject("cover-art-archive",node) && FindInt(node,"front",val))
         rval = val;
@@ -432,7 +443,7 @@ bool CDbMusicBrainzElem::Front() const
 bool CDbMusicBrainzElem::Back() const
 {
     bool rval = false;
-    xmlNode *node;
+    const xmlNode *node;
     int val;
 
     if (FindObject("cover-art-archive",node) && FindInt(node,"back",val))
@@ -449,7 +460,7 @@ void CDbMusicBrainzElem::AnalyzeArtists_()
 {
     std::string id;
     const xmlNode *medium;
-    xmlNode *track, *recording, *credit, *dummy;
+    const xmlNode *track, *recording, *credit, *dummy;
     std::vector<std::string> track_artists;
     std::vector<std::string>::iterator it;
     typedef std::pair<std::string,bool> ArtistData;
@@ -521,7 +532,7 @@ std::string CDbMusicBrainzElem::Artists_(const xmlNode *node, const bool reqcomp
     std::string rval;
     std::string name, joinstr, id;
 
-    xmlNode *credit, *artist;
+    const xmlNode *credit, *artist;
     bool iscomposer;
 
     // first look in album's artist-credit
@@ -541,6 +552,58 @@ std::string CDbMusicBrainzElem::Artists_(const xmlNode *node, const bool reqcomp
 
                 // save its joining string for the next artist
                 FindElementAttribute(credit,"joinphrase",joinstr);
+            }
+        }
+    }
+
+    return rval;
+}
+
+bool CDbMusicBrainzElem::FindObject(const xmlNode *parent, const std::string &name, const xmlNode *&node, std::string *id)
+{
+    // find a node with requested name
+    bool rval = FindElement(parent, name, node);
+
+    // if found and its ID URI is requested, try retrieving it (returns "" if does not exist)
+    if (rval && id) FindElementAttribute(node, "id", *id);
+
+    return rval;
+}
+
+bool CDbMusicBrainzElem::FindArray(const xmlNode *parent, const std::string &name, const xmlNode *&node, int *count, int *offset)
+{
+    // find a node with requested name
+    bool rval = FindArray(parent, name, node, NULL);
+
+    if (rval && (count||offset))   // found && array size requested
+    {
+
+        const xmlNode *parent = node->parent;
+        std::string attr_val;
+
+        if (count)
+        {
+            FindElementAttribute(parent, "count", attr_val);
+            try
+            {
+                *count = std::stoi(attr_val);
+            }
+            catch(...)  // if attribute does not exist or not integer, count the # of children
+            {
+                *count = xmlChildElementCount(const_cast<xmlNode*>(parent));
+            }
+        }
+
+        if (offset)
+        {
+            FindElementAttribute(parent, "offset", attr_val);
+            try
+            {
+                *offset = std::stoi(attr_val);
+            }
+            catch(...)  // if attribute does not exist or not integer, count the # of children
+            {
+                *offset = -1; // unknown
             }
         }
     }
