@@ -10,7 +10,7 @@ using std::runtime_error;
 
 /** Constructor.
  */
-CUtilXmlTree::CUtilXmlTree(const std::string &rawdata) : root(NULL), data(NULL)
+CUtilXmlTree::CUtilXmlTree(const std::string &rawdata) : root(nullptr), data(nullptr)
 {
     if (rawdata.size())
     {
@@ -18,7 +18,7 @@ CUtilXmlTree::CUtilXmlTree(const std::string &rawdata) : root(NULL), data(NULL)
     * The document being in memory, it have no base per RFC 2396,
     * and the "noname.xml" argument will serve as its base.
     */
-        data = xmlReadMemory(rawdata.c_str(), rawdata.size(), "", NULL, 0);
+        data = xmlReadMemory(rawdata.c_str(), rawdata.size(), "", nullptr, 0);
         if (data) root = xmlDocGetRootElement(data);
         else throw(std::runtime_error("Failed to parse document\n"));
     }
@@ -28,7 +28,7 @@ CUtilXmlTree::CUtilXmlTree(const std::string &rawdata) : root(NULL), data(NULL)
  * @brief copy constructor
  * @param source object
  */
-CUtilXmlTree::CUtilXmlTree(const CUtilXmlTree &src) : root(NULL), data(NULL)
+CUtilXmlTree::CUtilXmlTree(const CUtilXmlTree &src) : root(nullptr), data(nullptr)
 {
     data = xmlCopyDoc(src.data,1);
     if (!data) throw(std::runtime_error("Failed to copy XML document."));
@@ -62,7 +62,7 @@ void CUtilXmlTree::LoadData(const std::string &rawdata)
         * The document being in memory, it have no base per RFC 2396,
         * and the "noname.xml" argument will serve as its base.
         */
-        data = xmlReadMemory(rawdata.c_str(), rawdata.size(), "", NULL, 0);
+        data = xmlReadMemory(rawdata.c_str(), rawdata.size(), "", nullptr, 0);
 
         if (data) root = xmlDocGetRootElement(data);
         else throw(std::runtime_error("Failed to parse document\n"));
@@ -77,8 +77,8 @@ void CUtilXmlTree::ClearData()
     if (data)
     {
         xmlFreeDoc(data);
-        data = NULL;
-        root = NULL;
+        data = nullptr;
+        root = nullptr;
     }
 }
 
@@ -87,7 +87,7 @@ bool CUtilXmlTree::FindElement(const xmlNode *parent, const std::string &key, co
     for (node = parent->children;
          node && node->type==XML_ELEMENT_NODE && (key.compare((char*)node->name)!=0);
          node = node->next);
-    return node!=NULL;
+    return node!=nullptr;
 }
 
 bool CUtilXmlTree::FindNextElement(const xmlNode *curr, const std::string &key, const xmlNode *&node)
@@ -95,7 +95,7 @@ bool CUtilXmlTree::FindNextElement(const xmlNode *curr, const std::string &key, 
     for (node = curr->next;
          node && node->type==XML_ELEMENT_NODE && (key.compare((char*)node->name)!=0);
          node = node->next);
-    return node!=NULL;
+    return node!=nullptr;
 }
 
 bool CUtilXmlTree::FindElementAttribute(const xmlNode *node, const std::string &name, std::string &value)
@@ -268,7 +268,7 @@ void CUtilXmlTree::PrintXmlTree_(std::ostream &os, int depth, const xmlNode *obj
     }
     else    // just in case unknown node is present
     {
-        xmlBuf *buf=NULL;
+        xmlBuf *buf=nullptr;
         xmlBufNodeDump(buf, obj->doc, const_cast<xmlNode*>(obj), indent.size(), 0);
         if (buf) os << (char*)buf << std::endl;
     }

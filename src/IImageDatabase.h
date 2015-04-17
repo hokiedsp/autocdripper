@@ -108,12 +108,6 @@ public:
 
     /////////////////////////////////////////////////////////////////////////////////////
 
-    /** Return a unique disc ID if AllowQueryCD()=true
-     *
-     *  @return discid string
-     */
-    virtual std::string GetDiscId() const=0;
-
     /** Return the ID of the release
      *
      *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)

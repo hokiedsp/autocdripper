@@ -18,12 +18,19 @@ class CDbAmazon :
 {
 public:
     /**
-     * @brief CDbAmazon
-     * @param[in] (Optional) ASIN for a single item query
+     * @brief Constructor
      * @param[in] client name for CURL
      * @param[in] client version for CURL
+     * @param[in] (Optional) ASIN for a single item query
      */
-    CDbAmazon(const std::string &asin="", const std::string &cname="autorip", const std::string &cversion="alpha");
+    CDbAmazon(const std::string &cname="autorip", const std::string &cversion="alpha", const std::string &asin="");
+
+    /**
+     * @brief Constructor, duplicating the given CURL object
+     * @param[in] a reference to a CUtilUrl object
+     * @param[in] (Optional) ASIN for a single item query
+     */
+    CDbAmazon(const CUtilUrl &base, const std::string &asin="");
 
     /** Destructor
      */

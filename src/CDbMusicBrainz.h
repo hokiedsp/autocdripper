@@ -13,6 +13,7 @@
 class CDbMusicBrainzElem;
 class CDbMusicBrainzElemCAA;
 class CUtilXmlTree;
+class CDbAmazon;
 
 /** Class to access MusicBrainz online CD and coverart databases service.
  */
@@ -388,10 +389,14 @@ public:
      */
     void SetProtocol(const std::string &protocol);
 
+    void SetGrabCoverArtFromAmazon(const bool ena);
+
 private:
     static const std::string base_url;
     std::vector<CDbMusicBrainzElem> Releases;
     std::vector<CDbMusicBrainzElemCAA> CoverArts;
+
+    CDbAmazon *amazon;
 
     int CoverArtSize; // 0-full, 1-large thumbnail (500px), 2-small thumbnail (250px)
 

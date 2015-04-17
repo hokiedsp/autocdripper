@@ -111,12 +111,6 @@ public:
 
     ///////////////////////////////////////////////////////////////////////////
 
-    /** Return a unique disc ID if AllowQueryCD()=true
-     *
-     *  @return discid string
-     */
-    virtual std::string GetDiscId() const=0;
-
     /** Returns the number of matched records returned from the last Query() call.
      *
      *  @return    Number of matched records

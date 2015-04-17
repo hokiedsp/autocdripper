@@ -16,6 +16,9 @@
 #include "CDbMusicBrainzElem.h"
 #include "CDbMusicBrainzElemCAA.h"
 
+#include "CDbAmazonElem.h"
+#include "CDbAmazon.h"
+
 #include "utils.h"
 
 using std::cout;
@@ -34,14 +37,31 @@ const std::string CDbMusicBrainz::base_url = "http://musicbrainz.org/ws/2/";
  *  @param[in] Client program version. If omitted or empty, uses "alpha"
  */
 CDbMusicBrainz::CDbMusicBrainz(const std::string &cname,const std::string &cversion)
-    : CUtilUrl(cname,cversion), CoverArtSize(2)
+    : CUtilUrl(cname,cversion), amazon(nullptr), CoverArtSize(2)
 {}
 
 CDbMusicBrainz::~CDbMusicBrainz()
 {
     // Clear disc info collection
     Clear();
+
+    // delete amazon database object if created
+    if (amazon) delete(amazon);
 }
+
+void CDbMusicBrainz::SetGrabCoverArtFromAmazon(const bool ena)
+{
+    if (amazon && !ena) // disabled
+    {
+        delete(amazon);
+        amazon = nullptr;
+    }
+    else if (!amazon && ena) // enabled
+    {
+        amazon = new CDbAmazon(dynamic_cast<const CUtilUrl&>(*this));
+    }
+}
+
 
 /** If AllowQueryCD() returns true, Query() performs a new query for the CD info
  *  in the specified drive with its *  tracks specified in the supplied cuesheet
@@ -115,8 +135,10 @@ int CDbMusicBrainz::Query(const std::string &dev, const SCueSheet &cuesheet, con
             // Parse the downloaded XML data
             Releases.emplace_back(rawdata,disc);
 
-            //Releases.back().PrintXML();
+            Releases.back().PrintXmlTree();
         }
+
+        cout << "[CDbMusicBrainz::Query] Searching for cover arts]" << endl;
 
         // Populate CoverArts vector
         CoverArts.reserve(Releases.size());
@@ -126,8 +148,6 @@ int CDbMusicBrainz::Query(const std::string &dev, const SCueSheet &cuesheet, con
         {
             // Build coverart lookup URL
             std::string url = "http://coverartarchive.org//release/" + it->ReleaseId();
-
-            url = "http://coverartarchive.org/release/76df3287-6cda-33eb-8e9a-044b5e15ffdd";
 
             // Get release data & create new entry
             curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
@@ -143,6 +163,8 @@ int CDbMusicBrainz::Query(const std::string &dev, const SCueSheet &cuesheet, con
             {}
         }
     }
+
+    cout << "[CDbMusicBrainz::Query] Complete. Found " << Releases.size() << endl;
 
     // return the number of matches
     return Releases.size();
@@ -578,7 +600,16 @@ bool CDbMusicBrainz::Front(const int recnum) const
     if (recnum<0 || recnum>=(int)Releases.size()) // all discs
         throw(runtime_error("Invalid CD record ID."));
 
-    return Releases[recnum].Front();
+    bool rval = Releases[recnum].Front();
+
+    // if coverart not available on CAA, check if Amazon link is given
+    if (!rval && amazon)
+    {
+        amazon->Query(Releases[recnum].AlbumASIN());
+        if (amazon->NumberOfMatches()>0) rval = amazon->Front();
+    }
+
+    return rval;
 }
 
 /** Check if the query returned a back cover
@@ -636,6 +667,13 @@ std::string CDbMusicBrainz::FrontURL(const int recnum) const
          it++)
     {
         if (id.compare((*it).ReleaseId())==0) rval = (*it).FrontURL(CoverArtSize);
+    }
+
+    // if coverart not available on CAA, check if Amazon link is given
+    if (rval.empty() && amazon)
+    {
+        amazon->Query(Releases[recnum].AlbumASIN());
+        if (amazon->NumberOfMatches()>0) rval = amazon->FrontURL();
     }
 
     return rval;

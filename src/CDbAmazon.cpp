@@ -12,12 +12,25 @@ const std::string CDbAmazon::base_url = "http://lon.gr/ata/";
  * @param cname
  * @param cversion
  */
-CDbAmazon::CDbAmazon(const std::string &asin, const std::string &cname,const std::string &cversion)
+CDbAmazon::CDbAmazon(const std::string &cname,const std::string &cversion, const std::string &asin)
     : CUtilUrl(cname,cversion), CoverArtSize(2)
 {
     // if ASIN is given, immediately perform a single item query
     if (asin.size()) Query(asin);
 }
+
+/**
+ * @brief Constructor, duplicating the given CURL object
+ * @param[in] pointer to a valid curl handle
+ * @param[in] (Optional) ASIN for a single item query
+ */
+CDbAmazon::CDbAmazon(const CUtilUrl &base, const std::string &asin)
+    : CUtilUrl(base), CoverArtSize(2)
+{
+    // if ASIN is given, immediately perform a single item query
+    if (asin.size()) Query(asin);
+}
+
 
 /**
  * @brief Clear all the matches from previous search
@@ -26,7 +39,6 @@ void CDbAmazon::Clear()
 {
     Releases.clear();
 }
-
 
 /** Single item query with ASIN
  *

@@ -459,8 +459,7 @@ bool CDbMusicBrainzElem::Back() const
 void CDbMusicBrainzElem::AnalyzeArtists_()
 {
     std::string id;
-    const xmlNode *medium;
-    const xmlNode *track, *recording, *credit, *dummy;
+    const xmlNode *medium, *track, *recording, *credit, *dummy;
     std::vector<std::string> track_artists;
     std::vector<std::string>::iterator it;
     typedef std::pair<std::string,bool> ArtistData;
@@ -573,30 +572,30 @@ bool CDbMusicBrainzElem::FindObject(const xmlNode *parent, const std::string &na
 bool CDbMusicBrainzElem::FindArray(const xmlNode *parent, const std::string &name, const xmlNode *&node, int *count, int *offset)
 {
     // find a node with requested name
-    bool rval = FindArray(parent, name, node, NULL);
+    bool rval = CUtilXmlTree::FindArray(parent, name, node, NULL);
 
     if (rval && (count||offset))   // found && array size requested
     {
 
-        const xmlNode *parent = node->parent;
+        const xmlNode *array = node->parent;
         std::string attr_val;
 
         if (count)
         {
-            FindElementAttribute(parent, "count", attr_val);
+            FindElementAttribute(array, "count", attr_val);
             try
             {
                 *count = std::stoi(attr_val);
             }
             catch(...)  // if attribute does not exist or not integer, count the # of children
             {
-                *count = xmlChildElementCount(const_cast<xmlNode*>(parent));
+                *count = xmlChildElementCount(const_cast<xmlNode*>(array));
             }
         }
 
         if (offset)
         {
-            FindElementAttribute(parent, "offset", attr_val);
+            FindElementAttribute(array, "offset", attr_val);
             try
             {
                 *offset = std::stoi(attr_val);

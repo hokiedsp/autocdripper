@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <exception>
 
+#include <fstream>
 #include <iostream>
 #include <iomanip>
 using std::cout;
@@ -32,6 +33,7 @@ int main(int argc, const char *argv[])
         CCueSheetBuilder csbuilder;
 
         freedb.SetCacheSettings("off");
+        mbdb.SetGrabCoverArtFromAmazon(true);
         discogs.SetCountryPreference("US");
 
         CSourceCdda cdrom; // auto-detect CD-ROM drive with a audio CD
@@ -68,6 +70,16 @@ int main(int argc, const char *argv[])
             cout << "[MAIN] Retrieving the populated cuesheet...\n";
             SCueSheet cs = csbuilder.GetCueSheet();
             cout << cs << endl;
+
+//            if (csbuilder.FoundFrontCover())
+//            {
+//                cout << "[MAIN] Front Cover found!!!\n";
+
+//                const UByteVector data = csbuilder.GetFrontCover();
+//                std::ofstream FILE("front.jpg");
+//                FILE.write((char*)data.data(),data.size());
+//            }
+
         }
         else
             cout << "[MAIN] CD info was not found online\n";
