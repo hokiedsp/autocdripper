@@ -133,9 +133,11 @@ int CDbMusicBrainz::Query(const std::string &dev, const SCueSheet &cuesheet, con
             PerformHttpTransfer_(url); // received data is stored in rawdata
 
             // Parse the downloaded XML data
-            Releases.emplace_back(rawdata,disc);
+            Releases.emplace_back(rawdata, disc);
 
-            Releases.back().PrintXmlTree();
+            // Get the locale-specific names
+            GetLocalArtistNames(Releases.back());
+
         }
 
         cout << "[CDbMusicBrainz::Query] Searching for cover arts]" << endl;
@@ -778,4 +780,75 @@ std::vector<int> CDbMusicBrainz::TrackLengths(const int recnum) const
         throw(runtime_error("Invalid CD record ID."));
 
     return Releases[recnum].TrackLengths();
+}
+
+/**
+ * @brief SetPreferredLocale
+ * @param[in] 2-character ISO 639-1 Language Code (must be lower case)
+ */
+void CDbMusicBrainz::SetPreferredLocale(const std::string &code)
+{
+    PreferredLocale = code;
+
+    // Update the locale-specific names
+    std::vector<CDbMusicBrainzElem>::iterator it;
+    for (it=Releases.begin(); it!=Releases.end(); it++)
+        GetLocalArtistNames(*it);
+}
+
+/**
+ * @brief Populate locale-specific artist names. If already done, immediately returns
+ * @param[in] release data
+ */
+void CDbMusicBrainz::GetLocalArtistNames(CDbMusicBrainzElem &release)
+{
+    std::map<std::string,std::string> *aliases;
+
+    // if Preferred Locale code is set, and names have not been retrieved, do so now
+    if (PreferredLocale.size() && !release.AliasMap(aliases))
+    {
+        std::string url, name;
+        std::map<std::string,std::string>::iterator it;
+        for (it = aliases->begin(); it !=aliases->end(); it++) // for each artist
+        {
+            bool primary = false;
+            const xmlNode *artist, *alias;
+
+            url = base_url + "artist/" + it->first + "?inc=aliases";
+            name.clear();
+
+            // Get release data & create new entry
+            PerformHttpTransfer_(url); // received data is stored in rawdata
+
+            // Parse the downloaded XML data
+            CUtilXmlTree artistdata(rawdata);
+
+            // get down to "alias-list"
+            for(artistdata.FindElement("artist", artist) && artistdata.FindArray(artist,"alias-list",alias);
+                !primary && alias; alias = alias->next)
+            {
+                // look for the matched-locale Artist name alias
+                if (artistdata.CompareElementAttribute(alias,"type","Artist name")==0
+                        && artistdata.CompareElementAttribute(alias,"locale",PreferredLocale)==0)
+                {
+                    // check if it is the primary alias
+                    primary = artistdata.CompareElementAttribute(alias,"primary","primary")==0;
+
+                    // grab its first child node, assuming it to be text node
+                    if (primary || name.empty())
+                        name = (char*)alias->children->content;
+                }
+            }
+
+            // if locale-specific name found, update the AliasMap
+            if (name.size()) it->second = name;
+        }
+
+        // set release's internal flag
+        release.AliasMapped();
+    }
+    else if (PreferredLocale.empty())
+    {
+        release.ClearAliasMap();
+    }
 }

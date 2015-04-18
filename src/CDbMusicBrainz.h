@@ -389,13 +389,23 @@ public:
      */
     void SetProtocol(const std::string &protocol);
 
+    /**
+     * @brief Set whether to allow downloading coverarts from Amazon
+     * @param[in] true to enable Amazon access
+     */
     void SetGrabCoverArtFromAmazon(const bool ena);
+
+    /**
+     * @brief SetPreferredLocale
+     * @param[in] 2-character ISO 639-1 Language Code (must be lower case)
+     */
+    void SetPreferredLocale(const std::string &code);
 
 private:
     static const std::string base_url;
     std::vector<CDbMusicBrainzElem> Releases;
     std::vector<CDbMusicBrainzElemCAA> CoverArts;
-
+    std::string PreferredLocale;    // for artist names
     CDbAmazon *amazon;
 
     int CoverArtSize; // 0-full, 1-large thumbnail (500px), 2-small thumbnail (250px)
@@ -424,4 +434,10 @@ private:
      *  @param[in]  record index (default=0)
      */
     bool GetCAA_(const int recnum, CDbMusicBrainzElemCAA &coverart) const;
+
+    /**
+     * @brief Populate locale-specific artist names. If already done, immediately returns
+     * @param[in] release data
+     */
+    void GetLocalArtistNames(CDbMusicBrainzElem &release);
 };

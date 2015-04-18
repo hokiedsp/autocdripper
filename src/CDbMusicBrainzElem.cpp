@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <climits>
 #include <cctype>
+#include <algorithm>
 //#include <ctime>
 //#include <sstream>
 //#include <iomanip>
@@ -17,7 +18,7 @@ using std::endl;
 #include "utils.h"
 
 CDbMusicBrainzElem::CDbMusicBrainzElem(const std::string &rawdata, const int d)
-    : CUtilXmlTree(rawdata), disc(d)
+    : CUtilXmlTree(rawdata), disc(d), alias_resolved(false)
 {
     // change the root to release element
     if (root)
@@ -57,6 +58,7 @@ void CDbMusicBrainzElem::LoadData(const std::string &rawdata)
         throw(std::runtime_error("MusicBrainz release lookup resulted in an invalid result."));
 
         AnalyzeArtists_();
+        alias_resolved = false;
     }
 }
 
@@ -542,12 +544,32 @@ std::string CDbMusicBrainzElem::Artists_(const xmlNode *node, const bool reqcomp
         {
             // check for composer/non-composer condition
             iscomposer = artists.at(id); // composer
-            if (((iscomposer && reqcomposer) || (!(iscomposer || reqcomposer)))
-                    && FindString(artist, "name", name)) // get the name
+            if (((iscomposer && reqcomposer) || (!(iscomposer || reqcomposer)))) // get the name
             {
                 // if there is a joining string carried over from the previous artist, add now
                 if (joinstr.size()) rval += joinstr;
-                rval += name;
+
+                // if locale-specific name has been aquired, use it
+                if (alias_resolved)
+                {
+                    try
+                    {
+                        name = artistaliases.at(id); // locale-specific name
+                    }
+                    catch (std::out_of_range &e)
+                    {
+                        name.clear();
+                    }
+                }
+                else
+                {
+                    name.clear();
+                }
+
+                if (name.size() || FindString(artist, "name", name))
+                {
+                    rval += name;
+                }
 
                 // save its joining string for the next artist
                 FindElementAttribute(credit,"joinphrase",joinstr);
@@ -608,4 +630,48 @@ bool CDbMusicBrainzElem::FindArray(const xmlNode *parent, const std::string &nam
     }
 
     return rval;
+}
+
+/**
+ * @brief Populates keys of artistaliases if needed and return reference to it
+ * @param[inout] artistaliases map with its MBID keys, its values filled by the caller
+ * @return true if alias has already been resolved
+ */
+bool CDbMusicBrainzElem::AliasMap(std::map<std::string,std::string> *&aliases)
+{
+    if (artistaliases.empty())
+    {
+        for (std::map<std::string,bool>::iterator it = artists.begin();
+             it != artists.end(); it++)
+            artistaliases.insert(std::pair<std::string,std::string>(it->first,""));
+    }
+
+    aliases = &artistaliases;
+
+    return alias_resolved;
+}
+
+/**
+ * @brief Call this function after AliasMap call and finished filling the aliases.
+ */
+void CDbMusicBrainzElem::AliasMapped()
+{
+    alias_resolved = true;
+
+    // remove artists without alias
+    std::map<std::string,std::string>::iterator it;
+    for (it=artistaliases.begin(); it!=artistaliases.end(); )
+    {
+        if (it->second.empty()) it = artistaliases.erase(it);
+        else it++;
+    }
+}
+
+/**
+ * @brief clear artist names' aliases
+ */
+void CDbMusicBrainzElem::ClearAliasMap()
+{
+    alias_resolved = false;
+    artistaliases.clear();
 }

@@ -199,14 +199,38 @@ public:
      */
     bool Back() const;
 
+    //---------------------------------------------------------
+
+    /**
+     * @brief Populates keys of artistaliases if needed and return reference to it
+     * @param[inout] artistaliases map with its MBID keys, its values filled by the caller
+     * @return true if alias has already been resolved
+     */
+    bool AliasMap(std::map<std::string,std::string> *&aliases);
+
+    /**
+     * @brief Call this function after AliasMap call and finished filling the aliases.
+     */
+    void AliasMapped();
+
+    /**
+     * @brief clear artist names' aliases
+     */
+    void ClearAliasMap();
+
 protected:
+
     bool FindObject(const std::string &key, const xmlNode *&node, std::string *id=NULL) const { return FindObject(root, key, node, id); }
     bool FindArray(const std::string &key, const xmlNode *&firstchild, int *count=NULL, int *offset=NULL) const { return FindArray(root, key, firstchild, count, offset); }
     static bool FindObject(const xmlNode *parent, const std::string &key, const xmlNode *&node, std::string *id=NULL);
     static bool FindArray(const xmlNode *parent, const std::string &key, const xmlNode *&firstchild, int *count=NULL, int *offset=NULL);
+
 private:
     int disc; // in the case of multi-disc set, indicate the disc # (zero-based)
     std::map<std::string,bool> artists; // <MBID, false-artist/performer, true-composer>
+
+    bool alias_resolved;    // true if artist_aliases filled
+    std::map<std::string,std::string> artistaliases; // <MBID, locale-specific name>
 
     /**
      * @brief Collect all the artists appear in the album and identify if they are a composer
@@ -227,6 +251,5 @@ private:
      */
     const xmlNode* GetTrack_(const size_t tracknum) const;
 
-    std::string Artists_(const xmlNode *node, const bool reqcomposer) const; // maybe release or track json_t
-
+    std::string Artists_(const xmlNode *node, const bool reqcomposer) const; // maybe release or track or recording
 };

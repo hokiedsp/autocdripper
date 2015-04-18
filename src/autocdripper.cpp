@@ -34,6 +34,7 @@ int main(int argc, const char *argv[])
 
         freedb.SetCacheSettings("off");
         mbdb.SetGrabCoverArtFromAmazon(true);
+        mbdb.SetPreferredLocale("en");
         discogs.SetCountryPreference("US");
 
         CSourceCdda cdrom; // auto-detect CD-ROM drive with a audio CD

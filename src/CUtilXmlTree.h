@@ -65,14 +65,7 @@ public:
      */
     int CompareString(const std::string &key, const std::string &str) const { return CompareString(root, key, str); }
 
-    /** Debug function. Prints full-struct of JSON object for a release
-     *
-     *  @param[in] pointer to a JSON object to print
-     * @param[in] traversal depth (<0 to go all the way)
-     *  @param[in] Output stream to print the object (default: cout)
-     */
     static void PrintXmlTree(const xmlNode *node, const int depth=-1, std::ostream &os=std::cout);
-    void PrintXmlTree(const int depth=-1, std::ostream &os=std::cout) { PrintXmlTree(root,depth,os); }
 
     // generic static functions to get value of a requested key
 

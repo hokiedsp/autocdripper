@@ -121,7 +121,7 @@ int CUtilXmlTree::CompareElementAttribute(const xmlNode *node, const std::string
     for (attr = node->properties; attr && (name.compare((char*)attr->name)!=0); attr = attr->next);
 
     // attribute found, grab the value (expects only 1 child (a text node)
-    if (attr && attr->children) value.compare((char*)(attr->children->content));
+    if (attr && attr->children) rval = value.compare((char*)(attr->children->content));
 
     return rval;
 }
