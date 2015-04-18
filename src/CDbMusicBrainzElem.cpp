@@ -321,8 +321,16 @@ std::string CDbMusicBrainzElem::TrackArtist(int tracknum) const
  */
 std::string CDbMusicBrainzElem::TrackComposer(int tracknum) const
 {
+    std::string rval;
+
     const xmlNode *track = GetTrack_(tracknum);
-    return Artists_(track,true);
+    const xmlNode *recording;
+
+    rval = Artists_(track,true);
+    if (rval.empty() && FindObject(track,"recording",recording))
+        rval = Artists_(recording, true);
+
+    return rval;
 }
 
 /** Get track ISRC
@@ -464,15 +472,14 @@ void CDbMusicBrainzElem::AnalyzeArtists_()
     const xmlNode *medium, *track, *recording, *credit, *dummy;
     std::vector<std::string> track_artists;
     std::vector<std::string>::iterator it;
-    typedef std::pair<std::string,bool> ArtistData;
-    std::pair<std::map<std::string,bool>::iterator,bool> ret;
+    std::pair<ArtistMap::iterator,bool> ret;
 
     // first look in album's artist-credit
     for (FindArray("artist-credit",credit); credit; credit = credit->next)
     {
         // Add ID to the artist map as non-composer
         if (FindObject(credit, "artist", dummy, &id))
-            artists.insert(std::pair<std::string,bool>(id,false));
+            artists.insert(ArtistPair(id,{false,""}));
     }
 
     // now look in track & recording's artist-credits
@@ -496,7 +503,7 @@ void CDbMusicBrainzElem::AnalyzeArtists_()
                 if (FindObject(credit, "artist", dummy, &id))
                 {
                     // add the recording artist as non-composer
-                    artists.insert(ArtistData(id,false));
+                    artists.insert(ArtistPair(id,{false,""}));
 
                     // check if track artist is also a recording artist
                     bool iscomposer = true;
@@ -515,15 +522,15 @@ void CDbMusicBrainzElem::AnalyzeArtists_()
             // remaining track artists are treated as composer
             for (it=track_artists.begin(); it!=track_artists.end(); it++)
             {
-                ret = artists.insert(ArtistData(*it,true));
+                ret = artists.insert(ArtistPair(*it,{true,""}));
                 if (!ret.second) // data aready exists, mark it composer
-                    (*(ret.first)).second = true;
+                    ret.first->second.iscomposer = true;
             }
         }
         else // if no recording given, assume non-composer
         {
             for (it=track_artists.begin(); it!=track_artists.end(); it++)
-                artists.insert(ArtistData(id,false));
+                artists.insert(ArtistPair(id,{false,""}));
         }
     }
 }
@@ -543,33 +550,18 @@ std::string CDbMusicBrainzElem::Artists_(const xmlNode *node, const bool reqcomp
         if (FindObject(credit, "artist", artist, &id))
         {
             // check for composer/non-composer condition
-            iscomposer = artists.at(id); // composer
+            ArtistInfo info = artists.at(id);
+            iscomposer = info.iscomposer; // composer
             if (((iscomposer && reqcomposer) || (!(iscomposer || reqcomposer)))) // get the name
             {
                 // if there is a joining string carried over from the previous artist, add now
                 if (joinstr.size()) rval += joinstr;
 
                 // if locale-specific name has been aquired, use it
-                if (alias_resolved)
-                {
-                    try
-                    {
-                        name = artistaliases.at(id); // locale-specific name
-                    }
-                    catch (std::out_of_range &e)
-                    {
-                        name.clear();
-                    }
-                }
-                else
-                {
-                    name.clear();
-                }
+                if (alias_resolved) name = info.name; // locale-specific name given
+                else name.clear(); // use the artist's native name
 
-                if (name.size() || FindString(artist, "name", name))
-                {
-                    rval += name;
-                }
+                if (name.size() || FindString(artist, "name", name)) rval += name;
 
                 // save its joining string for the next artist
                 FindElementAttribute(credit,"joinphrase",joinstr);
@@ -633,45 +625,44 @@ bool CDbMusicBrainzElem::FindArray(const xmlNode *parent, const std::string &nam
 }
 
 /**
- * @brief Populates keys of artistaliases if needed and return reference to it
- * @param[inout] artistaliases map with its MBID keys, its values filled by the caller
- * @return true if alias has already been resolved
+ * @brief Returns a pre-populated unordered map<id string, name string> with IDs filled
+ * @return the map to be filled
  */
-bool CDbMusicBrainzElem::AliasMap(std::map<std::string,std::string> *&aliases)
+CDbMusicBrainzElem::ArtistIdNameVector CDbMusicBrainzElem::GetArtistIdNameLut()
 {
-    if (artistaliases.empty())
+    CDbMusicBrainzElem::ArtistIdNameVector rval;
+
+    rval.reserve(artists.size());
+    for (ArtistMap::iterator it = artists.begin(); it != artists.end(); it++)
     {
-        for (std::map<std::string,bool>::iterator it = artists.begin();
-             it != artists.end(); it++)
-            artistaliases.insert(std::pair<std::string,std::string>(it->first,""));
+        rval.emplace_back();
+        rval.back().id = it->first;
     }
 
-    aliases = &artistaliases;
-
-    return alias_resolved;
+    return rval;
 }
 
 /**
- * @brief Call this function after AliasMap call and finished filling the aliases.
+ * @brief Returns a pre-populated map<id string, name string> with IDs filled
+ * @param[in] a completed GetArtistIdNameMap-returned map
  */
-void CDbMusicBrainzElem::AliasMapped()
+void CDbMusicBrainzElem::SetArtistIdNameLut(const CDbMusicBrainzElem::ArtistIdNameVector &lut)
 {
     alias_resolved = true;
 
-    // remove artists without alias
-    std::map<std::string,std::string>::iterator it;
-    for (it=artistaliases.begin(); it!=artistaliases.end(); )
+    ArtistMap::iterator dst;
+    for (ArtistIdNameVector::const_iterator it = lut.begin(); it != lut.end(); it++)
     {
-        if (it->second.empty()) it = artistaliases.erase(it);
-        else it++;
+        dst = artists.find(it->id);
+        if (dst!=artists.end()) dst->second.name = it->name;
     }
 }
 
 /**
- * @brief clear artist names' aliases
+ * @brief to disregard previously set localized names
  */
-void CDbMusicBrainzElem::ClearAliasMap()
+void CDbMusicBrainzElem::ClearArtistIdNameLut()
 {
     alias_resolved = false;
-    artistaliases.clear();
+    // leaves artists map alone
 }

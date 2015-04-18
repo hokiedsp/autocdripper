@@ -11,6 +11,10 @@ class CDbMusicBrainz;
 
 class CDbMusicBrainzElem : protected CUtilXmlTree
 {
+    typedef struct {bool iscomposer; std::string name; } ArtistInfo;
+    typedef std::map<std::string,CDbMusicBrainzElem::ArtistInfo> ArtistMap; // <MBID, false-artist/performer, true-composer>
+    typedef std::pair<std::string,CDbMusicBrainzElem::ArtistInfo> ArtistPair; // <MBID, false-artist/performer, true-composer>
+
     friend class CDbMusicBrainz;
 public:
     CDbMusicBrainzElem(const std::string &data, const int disc=1);
@@ -201,22 +205,24 @@ public:
 
     //---------------------------------------------------------
 
+    struct ArtistIdName {std::string id; std::string name; };
+    typedef std::vector<ArtistIdName> ArtistIdNameVector;
     /**
-     * @brief Populates keys of artistaliases if needed and return reference to it
-     * @param[inout] artistaliases map with its MBID keys, its values filled by the caller
-     * @return true if alias has already been resolved
+     * @brief Returns a pre-populated unordered map<id string, name string> with IDs filled
+     * @return the map to be filled
      */
-    bool AliasMap(std::map<std::string,std::string> *&aliases);
+    CDbMusicBrainzElem::ArtistIdNameVector GetArtistIdNameLut();
 
     /**
-     * @brief Call this function after AliasMap call and finished filling the aliases.
+     * @brief Populates artists name field
+     * @param[in] a completed GetArtistIdNameMap-returned map
      */
-    void AliasMapped();
+    void SetArtistIdNameLut(const CDbMusicBrainzElem::ArtistIdNameVector &map);
 
     /**
-     * @brief clear artist names' aliases
+     * @brief to disregard previously set localized names
      */
-    void ClearAliasMap();
+    void ClearArtistIdNameLut();
 
 protected:
 
@@ -227,10 +233,8 @@ protected:
 
 private:
     int disc; // in the case of multi-disc set, indicate the disc # (zero-based)
-    std::map<std::string,bool> artists; // <MBID, false-artist/performer, true-composer>
-
+    ArtistMap artists; // <MBID, false-artist/performer, true-composer>
     bool alias_resolved;    // true if artist_aliases filled
-    std::map<std::string,std::string> artistaliases; // <MBID, locale-specific name>
 
     /**
      * @brief Collect all the artists appear in the album and identify if they are a composer

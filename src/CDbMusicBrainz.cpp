@@ -802,19 +802,19 @@ void CDbMusicBrainz::SetPreferredLocale(const std::string &code)
  */
 void CDbMusicBrainz::GetLocalArtistNames(CDbMusicBrainzElem &release)
 {
-    std::map<std::string,std::string> *aliases;
-
-    // if Preferred Locale code is set, and names have not been retrieved, do so now
-    if (PreferredLocale.size() && !release.AliasMap(aliases))
+    if (PreferredLocale.size())
     {
+        CDbMusicBrainzElem::ArtistIdNameVector aliases = release.GetArtistIdNameLut();
+
+        // if Preferred Locale code is set, and names have not been retrieved, do so now
         std::string url, name;
-        std::map<std::string,std::string>::iterator it;
-        for (it = aliases->begin(); it !=aliases->end(); it++) // for each artist
+        CDbMusicBrainzElem::ArtistIdNameVector::iterator it;
+        for (it = aliases.begin(); it !=aliases.end(); it++) // for each artist
         {
             bool primary = false;
             const xmlNode *artist, *alias;
 
-            url = base_url + "artist/" + it->first + "?inc=aliases";
+            url = base_url + "artist/" + it->id + "?inc=aliases";
             name.clear();
 
             // Get release data & create new entry
@@ -841,14 +841,14 @@ void CDbMusicBrainz::GetLocalArtistNames(CDbMusicBrainzElem &release)
             }
 
             // if locale-specific name found, update the AliasMap
-            if (name.size()) it->second = name;
+            if (name.size()) it->name = name;
         }
 
         // set release's internal flag
-        release.AliasMapped();
+        release.SetArtistIdNameLut(aliases);
     }
     else if (PreferredLocale.empty())
     {
-        release.ClearAliasMap();
+        release.ClearArtistIdNameLut();
     }
 }
