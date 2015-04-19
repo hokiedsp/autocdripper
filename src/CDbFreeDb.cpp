@@ -3,6 +3,8 @@
 #include <stdexcept>
 #include <stdlib.h> // for http_proxy environmental variable access
 
+#include "SCueSheet.h"
+
 #include <sstream>
 #include <iostream>
 #include <iomanip>
@@ -219,12 +221,12 @@ void CDbFreeDb::SetCacheSettings(const std::string &cachemode, const std::string
  *  @param[in] (Optional) UPC barcode
  *  @return    Number of matched records
  */
-int CDbFreeDb::Query(const std::string &dev, const SCueSheet &cuesheet, const size_t len, const std::string upc)
+int CDbFreeDb::Query(const SCueSheet &cuesheet, const std::string upc)
 {
     cddb_disc_t *disc;
 
 	// must build disc based on cuesheet (throws error if fails to compute discid)
-	InitDisc_(cuesheet, len);
+    InitDisc_(cuesheet);
 
 	// Run the query
     int matches = cddb_query(conn, disc);
@@ -317,13 +319,34 @@ std::string CDbFreeDb::AlbumTitle(const int recnum) const
  *             is returned.
  *  @return    Artist string (empty if artist not available)
  */
-std::string CDbFreeDb::AlbumArtist(const int recnum) const
+SCueArtists CDbFreeDb::AlbumArtist(const int recnum) const
 {
     // set disc
     if (recnum<0 || recnum>=(int)discs.size()) // all discs
         throw(runtime_error("Invalid CD record ID."));
 
-    return cddb_disc_get_artist(discs[recnum]);	// performer (80-char long max)
+    SCueArtists rval;
+
+    std::string name = cddb_disc_get_artist(discs[recnum]);
+    if (name.size())
+    {
+        rval.emplace_back();
+        rval.back().name = name;
+    }
+
+    return rval;
+}
+
+/** Get album composer
+ *
+ *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
+ *             is returned.
+ *  @return    Composer/songwriter string (empty if artist not available)
+ */
+SCueArtists CDbFreeDb::AlbumComposer(const int recnum) const
+{
+    SCueArtists rval;
+    return rval;
 }
 
 /** Get genre
@@ -409,7 +432,7 @@ std::string CDbFreeDb::TrackTitle(int tracknum, const int recnum) const
  *  @return    Artist string (empty if artist not available)
  *  @throw     runtime_error if track number is invalid
  */
-std::string CDbFreeDb::TrackArtist(int tracknum, const int recnum) const
+SCueArtists CDbFreeDb::TrackArtist(int tracknum, const int recnum) const
 {
     // check disc
     if (recnum<0 || recnum>=(int)discs.size()) // all discs
@@ -426,77 +449,29 @@ std::string CDbFreeDb::TrackArtist(int tracknum, const int recnum) const
     for (int i = 1; i != tracknum ; i++)
         track = cddb_disc_get_track_next (discs[recnum]);
 
-    return cddb_track_get_artist(track);
+    SCueArtists rval;
+    std::string name = cddb_track_get_artist(track);
+    if (name.size())
+    {
+        rval.emplace_back();
+        rval.back().name = name;
+    }
+
+    return rval;
 }
 
-
-/** Retrieve the disc info from specified database record
+/** Get track composer
  *
+ *  @param[in] Track number (1-99)
  *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
  *             is returned.
- *  @return    SDbrBase Pointer to newly created database record object. Caller is
- *             responsible for deleting the object.
+ *  @return    Composer string (empty if artist not available)
+ *  @throw     runtime_error if track number is invalid
  */
-SDbrBase* CDbFreeDb::Retrieve(const int recnum) const
+SCueArtists CDbFreeDb::TrackComposer(int tracknum, const int recnum) const
 {
-	const char *str;	// temp
-
-	// set disc
-	if (recnum<0 || recnum>=(int)discs.size()) // all discs
-		throw(runtime_error("Invalid CD record ID."));
-
-	// grab the disc info
-	cddb_disc_t *disc = discs[recnum];
-
-	// instantiate new DBR object
-    SDbrFreeDb * rec = new SDbrFreeDb;
-
-	// populate the disc info (use REM for non-essential data)
-	rec->Performer = cddb_disc_get_artist(disc);	// performer (80-char long max)
-	rec->Title = cddb_disc_get_title(disc);
-	
-	rec->Rems.emplace_back("SRCDB FreeDB");	// source database
-	rec->Rems.emplace_back("DISCID ");	// comments on the disc 
-	rec->Rems[1].append(GetDiscId()); 
-
-	rec->Rems.emplace_back("GENRE ");
-	str = cddb_disc_get_genre(disc);
-	if (str) rec->Rems[3].append(cddb_disc_get_genre(disc));
-	else rec->Rems[3].append(cddb_disc_get_category_str(disc));
-
-	rec->Rems.emplace_back("DATE ");
-	rec->Rems[4].append(to_string(cddb_disc_get_year(disc)));
-
-	str = cddb_disc_get_ext_data(disc);
-	if (str) rec->Rems.emplace_back(str);
-
-	// initialize tracks
-	int num_tracks = cddb_disc_get_track_count(disc);
-	rec->AddTracks(num_tracks); // adds Tracks 1 to num_tracks
-	
-	// for each track
-	cddb_track_t * track = cddb_disc_get_track_first (disc);
-	for (int i = 1; i <= num_tracks ; i++)
-	{
-		if (track==NULL)
-			throw(runtime_error(cddb_error_str(cddb_errno(conn))));
-	
-		// get the track object
-		SCueTrack &rectrack = rec->Tracks[i-1];
-
-		// add Index 1 with the start time
-        rectrack.AddIndex(1,cddb_track_get_frame_offset(track)-PREGAP_OFFSET);
-		
-		rectrack.Title = cddb_track_get_title(track);
-		rectrack.Performer = cddb_track_get_artist(track);
-
-		str = cddb_track_get_ext_data(track);
-		if (str) rectrack.Rems.emplace_back(str);
-
-		if (i!= num_tracks) track = cddb_disc_get_track_next (disc);
-	}
-	
-	return rec;
+    SCueArtists rval;
+    return rval;
 }
 
 /** Clear all the disc entries
@@ -520,7 +495,7 @@ void CDbFreeDb::Clear()
  *  @param[in] Cuesheet with its basic data populated
  *  @param[in] Length of the CD in sectors
  */
-void CDbFreeDb::InitDisc_(const SCueSheet &cuesheet, const size_t len)
+void CDbFreeDb::InitDisc_(const SCueSheet &cuesheet)
 {
 	// Clear the discs
     Clear();
@@ -530,7 +505,7 @@ void CDbFreeDb::InitDisc_(const SCueSheet &cuesheet, const size_t len)
     discs.push_back(disc);	// store the new disc
 	
 	// Set the disc length in seconds
-	cddb_disc_set_length(disc, len/FRAMES_PER_SECOND);
+    cddb_disc_set_length(disc, (cuesheet.TotalTime+150)/FRAMES_PER_SECOND);
 
 	// Create its tracks
     SCueTrackDeque::const_iterator it;
@@ -550,35 +525,4 @@ void CDbFreeDb::InitDisc_(const SCueSheet &cuesheet, const size_t len)
 	if (!cddb_disc_calc_discid(disc)) 
 		throw(runtime_error("Failed to compute CDDB disc ID."));
 
-}
-
-void CDbFreeDb::Print(const int recnum) const
-{
-	if (discs.empty()) cout << "No match found" << endl;
-
-	if (recnum<0) // all discs
-	{
-		cout << "Found " << discs.size() << " matches:" << endl;
-        vector<cddb_disc_t*>::const_iterator it;
-		for (it=discs.begin(); it!=discs.end(); it++)
-		{
-			cddb_disc_t* disc = *it;
-
-			// Retrieve and print the category and disc ID.
-			cout << endl << "  category: "<< cddb_disc_get_category(disc) << " ("
-				  << GetDiscId() << ") " 
-				  << cddb_disc_get_category_str(disc) << endl;
-
-			// Retrieve and print the disc title and artist name.
-			cout << "  '" << cddb_disc_get_title(disc) << "' by " << cddb_disc_get_artist(disc) << endl;
-		}
-	}
-	else if (recnum<(int)discs.size())	// single disc
-	{
-		cddb_disc_print(discs[recnum]);
-	}
-	else
-	{
-		throw(runtime_error("Invalid CD record ID."));
-	}
 }

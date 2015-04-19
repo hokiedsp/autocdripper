@@ -295,7 +295,7 @@ std::string CDbDiscogsElem::AlbumTitle() const
  *
  *  @return    Artist string (empty if artist not available)
  */
-std::string CDbDiscogsElem::AlbumArtist() const
+SCueArtists CDbDiscogsElem::AlbumArtist() const
 {
     return Performer_(data);
 }
@@ -304,7 +304,7 @@ std::string CDbDiscogsElem::AlbumArtist() const
  *
  *  @return    Composer/songwriter string (empty if artist not available)
  */
-std::string CDbDiscogsElem::AlbumComposer() const
+SCueArtists CDbDiscogsElem::AlbumComposer() const
 {
     return Composer_(data);
 }
@@ -506,7 +506,7 @@ std::string CDbDiscogsElem::TrackTitle(int tracknum) const
  *  @return    Artist string (empty if artist not available)
  *  @throw     runtime_error if track number is invalid
  */
-std::string CDbDiscogsElem::TrackArtist(int tracknum) const
+SCueArtists CDbDiscogsElem::TrackArtist(int tracknum) const
 {
     std::string rval;
 
@@ -523,10 +523,8 @@ std::string CDbDiscogsElem::TrackArtist(int tracknum) const
  *  @return    Composer string (empty if artist not available)
  *  @throw     runtime_error if track number is invalid
  */
-std::string CDbDiscogsElem::TrackComposer(int tracknum) const
+SCueArtists CDbDiscogsElem::TrackComposer(int tracknum) const
 {
-    std::string rval;
-
     // initialize tracks
     const json_t *parent;
     const json_t *track = FindTrack_(tracknum, &parent);
@@ -574,9 +572,10 @@ std::string CDbDiscogsElem::Title_(const json_t* data) // maybe release or track
     return titlestr;
 }
 
-std::string CDbDiscogsElem::Performer_(const json_t* data) // maybe release or track json_t
+SCueArtists CDbDiscogsElem::Performer_(const json_t* data) // maybe release or track json_t
 {
-    std::string astr, joinstr, str;
+    SCueArtists rval;
+    std::string joinstr, str;
     json_t *artists;
 
     // Get credits to check for composer
@@ -595,24 +594,24 @@ std::string CDbDiscogsElem::Performer_(const json_t* data) // maybe release or t
                     && ((FindString(artist,"anv",str) && str.size()) // get album specific alternate name first
                         || (FindString(artist,"name",str) && str.size()))) // if not given, use the Discogs' name
             {
-                if (astr.size()) astr += joinstr;
-                astr += str;
+                if (joinstr.size()) rval.back().joiner = joinstr;
+
+                rval.emplace_back();
+                rval.back().name = str;
 
                 // look for the next join string and append it to the artist string
-                FindString(artist,"join", joinstr);
+                FindString(artist, "join", joinstr);
             }
-//                    if (joinstr.substr(0,1).find_first_of(" ,;:./\\])>|")==std::string::npos) astr += ' ';
-//                    astr += joinstr;
-//                    if (joinstr.substr(joinstr.size()-1,1).find_first_of(" /\\[(<|")==std::string::npos) astr += ' ';
         }
     }
 
-    return astr;
+    return rval;
 }
 
-std::string CDbDiscogsElem::Composer_(const json_t* data) const// maybe release or track json_t
+SCueArtists CDbDiscogsElem::Composer_(const json_t* data) const// maybe release or track json_t
 {
-    std::string astr, joinstr, str;
+    SCueArtists rval;
+    std::string joinstr, str;
     json_t *artists;
     json_t *artist;
 
@@ -631,20 +630,19 @@ std::string CDbDiscogsElem::Composer_(const json_t* data) const// maybe release 
                     && ((FindString(artist,"anv",str) && str.size()) // get album specific alternate name first
                         || (FindString(artist,"name",str) && str.size()))) // if not given, use the Discogs' name
             {
-                if (astr.size()) astr += joinstr;
-                astr += str;
+                if (joinstr.size()) rval.back().joiner = joinstr;
+
+                rval.emplace_back();
+                rval.back().name = str;
 
                 // look for the next join string and append it to the artist string
                 FindString(artist,"join", joinstr);
             }
-//                    if (joinstr.substr(0,1).find_first_of(" ,;:./\\])>|")==std::string::npos) astr += ' ';
-//                    astr += joinstr;
-//                    if (joinstr.substr(joinstr.size()-1,1).find_first_of(" /\\[(<|")==std::string::npos) astr += ' ';
         }
     }
 
     // if composer not given in main artists list, look in the credits
-    if (astr.empty())
+    if (rval.empty())
     {
         std::cout << "Composer not found in artists, checking extraartists\n";
 
@@ -659,23 +657,21 @@ std::string CDbDiscogsElem::Composer_(const json_t* data) const// maybe release 
                     && ((FindString(artist,"anv",str) && str.size()) // get album specific alternate name first
                         || (FindString(artist,"name",str) && str.size()))) // if not given, use the Discogs' name
             {
-                notfound = true;
-                astr = str;
+                notfound = false;
+                rval.emplace_back();
+                rval.back().name = str;
                 // if album credits, make sure not depending on position
             }
-//                    if (joinstr.substr(0,1).find_first_of(" ,;:./\\])>|")==std::string::npos) astr += ' ';
-//                    astr += joinstr;
-//                    if (joinstr.substr(joinstr.size()-1,1).find_first_of(" /\\[(<|")==std::string::npos) astr += ' ';
         }
     }
 
     // if track composer still not found, look in the album credits
-    if (astr.empty() && credits!=album_credits)
+    if (rval.empty() && credits!=album_credits)
     {
-
+        // TODO
     }
 
-    return astr;
+    return rval;
 }
 
 bool CDbDiscogsElem::IsComposer_(const json_t* artist, const json_t* extraartists, const std::vector<std::string> &keywords)

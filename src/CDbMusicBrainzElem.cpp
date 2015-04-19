@@ -11,6 +11,8 @@
 //#include <iomanip>
 //#include <numeric> // for std::accumulate
 
+#include "SCueSheet.h"
+
 #include <iostream>
 using std::cout;
 using std::endl;
@@ -99,7 +101,7 @@ std::string CDbMusicBrainzElem::AlbumTitle() const
  *
  *  @return    Artist string (empty if artist not available)
  */
-std::string CDbMusicBrainzElem::AlbumArtist() const
+SCueArtists CDbMusicBrainzElem::AlbumArtist() const
 {
     return Artists_(root,false);
 }
@@ -108,7 +110,7 @@ std::string CDbMusicBrainzElem::AlbumArtist() const
  *
  *  @return    Composer/songwriter string (empty if artist not available)
  */
-std::string CDbMusicBrainzElem::AlbumComposer() const
+SCueArtists CDbMusicBrainzElem::AlbumComposer() const
 {
     return Artists_(root,true);
 }
@@ -295,20 +297,16 @@ std::string CDbMusicBrainzElem::TrackTitle(int tracknum) const
  *  @return    Artist string (empty if artist not available)
  *  @throw     runtime_error if track number is invalid
  */
-std::string CDbMusicBrainzElem::TrackArtist(int tracknum) const
+SCueArtists CDbMusicBrainzElem::TrackArtist(int tracknum) const
 {
-    std::string rval;
+    SCueArtists rval;
     const xmlNode *track = GetTrack_(tracknum);
     const xmlNode *recording;
 
     if (FindObject(track,"recording",recording))
-    {
         rval = Artists_(recording, false);
-    }
     else    // only if Recording artists are not available, look up track artists
-    {
         rval = Artists_(track,false);
-    }
 
     return rval;
 }
@@ -319,9 +317,9 @@ std::string CDbMusicBrainzElem::TrackArtist(int tracknum) const
  *  @return    Composer string (empty if artist not available)
  *  @throw     runtime_error if track number is invalid
  */
-std::string CDbMusicBrainzElem::TrackComposer(int tracknum) const
+SCueArtists CDbMusicBrainzElem::TrackComposer(int tracknum) const
 {
-    std::string rval;
+    SCueArtists rval;
 
     const xmlNode *track = GetTrack_(tracknum);
     const xmlNode *recording;
@@ -535,9 +533,9 @@ void CDbMusicBrainzElem::AnalyzeArtists_()
     }
 }
 
-std::string CDbMusicBrainzElem::Artists_(const xmlNode *node, const bool reqcomposer) const // maybe release or track json_t
+SCueArtists CDbMusicBrainzElem::Artists_(const xmlNode *node, const bool reqcomposer) const // maybe release or track json_t
 {
-    std::string rval;
+    SCueArtists rval;
     std::string name, joinstr, id;
 
     const xmlNode *credit, *artist;
@@ -555,13 +553,17 @@ std::string CDbMusicBrainzElem::Artists_(const xmlNode *node, const bool reqcomp
             if (((iscomposer && reqcomposer) || (!(iscomposer || reqcomposer)))) // get the name
             {
                 // if there is a joining string carried over from the previous artist, add now
-                if (joinstr.size()) rval += joinstr;
+                if (joinstr.size()) rval.back().joiner = joinstr;
 
                 // if locale-specific name has been aquired, use it
                 if (alias_resolved) name = info.name; // locale-specific name given
                 else name.clear(); // use the artist's native name
 
-                if (name.size() || FindString(artist, "name", name)) rval += name;
+                if (name.size() || FindString(artist, "name", name))
+                {
+                    rval.emplace_back();
+                    rval.back().name = name;
+                }
 
                 // save its joining string for the next artist
                 FindElementAttribute(credit,"joinphrase",joinstr);

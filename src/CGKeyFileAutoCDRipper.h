@@ -126,12 +126,6 @@ public:
      */
     bool RemsUPC();
 
-    /**
-     * @brief Get Rems::ASIN option
-     * @return true to embed Amazon product code
-     */
-    bool RemsASIN();
-
 protected:
     /**
      * @brief Generate list of supported output file formats

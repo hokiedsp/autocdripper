@@ -3,13 +3,13 @@
 #include <string>
 #include <vector>
 
-#define NumberOfOutputFileFormats 1
+#define NumberOfOutputFileFormats 2
 #define NumberOfDatabases 4
 
 /**
  * @brief The OutputFileFormat enum
  */
-enum class OutputFileFormat {WAVPACK};
+enum class OutputFileFormat {WAVPACK,CUE};
 
 /**
  * @brief The DatabaseType enum
@@ -33,6 +33,14 @@ enum class AlbumRemFieldType
 };
 
 typedef std::vector<AlbumRemFieldType> AlbumRemFieldVector;
+
+/**
+ * @brief Convert OutputFileFormat value to file extension (incl. preceeding '.')
+ * @param[in] OutputFileFormat value
+ * @return a string with the representation of fmt
+ * @throw std::runtime_error if associated string is not given for fmt
+ */
+std::string to_ext(const OutputFileFormat fmt);
 
 /**
  * @brief Convert OutputFileFormat value to string

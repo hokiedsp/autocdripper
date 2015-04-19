@@ -211,7 +211,7 @@ void CCueSheetBuilder::ThreadMain()
         if (db.AllowQueryCD())  // if queryable, query
         {
             // run query
-            db.Query(cdrom_path, cuesheet, cdrom_len, cdrom_upc);
+            db.Query(cuesheet, cdrom_upc);
             if (matched) matched = db.NumberOfMatches();
 
             cout << "[CCueSheetBuilder thread] Found " << db.NumberOfMatches()

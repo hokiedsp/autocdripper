@@ -6,6 +6,7 @@
 #include <ostream>
 
 #include "enums.h"
+#include "SCueArtist.h"
 
 #define CUE_FILETYPE_BINARY   0
 #define CUE_FILETYPE_MOTOROLA 1
@@ -35,27 +36,29 @@ enum cdtimeunit_t {CDTIMEUNIT_SECONDS, CDTIMEUNIT_SECTORS, CDTIMEUNIT_WORDS, CDT
 
 struct SCueTrackIndex
 {
-	int number;  // - Index number (0-99), 0=pregap, 1=track start time
+    friend std::ostream& operator<<(std::ostream& stdout, const SCueTrackIndex& obj);
+
+    int number;  // - Index number (0-99), 0=pregap, 1=track start time
 	size_t time; // - Starting time of the track in sectors
 	
 	SCueTrackIndex(const int n, const size_t t);
 	SCueTrackIndex(const size_t t);
 	~SCueTrackIndex();
-	
-	friend std::ostream& operator<<(std::ostream& stdout, const SCueTrackIndex& obj);
 };
 
-typedef std::deque<SCueTrackIndex>SCueTrackIndexDeque;
+typedef std::deque<SCueTrackIndex> SCueTrackIndexDeque;
 
 struct SCueTrack
 {
-	int number;   // - Track number (1-99)
+    friend std::ostream& operator<<(std::ostream& stdout, const SCueTrack& obj);
+
+    int number;   // - Track number (1-99)
 	int datatype; // – Track datatype, one of CUE_TRACKTYPE_XXX
 
 	int Flags;              // bit-OR combination of CUE_TRACKFLAG_XXX
 	std::string Title;		// album title (80-char max)
-	std::string Performer;	// performer (80-char long max)
-	std::string Songwriter;	// name of songwriter (80-char max)
+    SCueArtists Performer;	// performer (80-char long max)
+    SCueArtists Songwriter;	// name of songwriter (80-char max)
 	std::string ISRC;	// “International Standard Recording Code” 12 character long
     std::vector<std::string> Rems;	// comments on track
 
@@ -99,24 +102,22 @@ struct SCueTrack
 	 *  @return     true if ISRC empty or meets the rule.
 	 */
 	bool CheckISRC() const;
-	
-	friend std::ostream& operator<<(std::ostream& stdout, const SCueTrack& obj);
-
 };
 
 typedef std::deque<SCueTrack> SCueTrackDeque;
 
 struct SCueSheet
 {
-public:
-	std::string Catalog;		// 13-digit Media Catalog Number
+    friend std::ostream& operator<<(std::ostream& stdout, const SCueSheet& obj);
+
+    std::string Catalog;		// 13-digit Media Catalog Number
 	std::string CdTextFile;	// path to CD Text File
 	std::string FileName;	// path to CD Data File
 	int FileType;           // one of CUE_FILETYPE_XXX
-	std::string Performer;	// performer (80-char long max)
-    std::vector<std::string> Rems;	// comments on the disc
-	std::string Songwriter;	// name of songwriter (80-char max)
+    SCueArtists Performer;	// performer (80-char long max)
+    SCueArtists Songwriter;	// name of songwriter (80-char max)
 	std::string Title;		// album title (80-char max)
+    std::vector<std::string> Rems;	// comments on the disc
 
     size_t TotalTime;  // total CD length in sectors
 
@@ -156,8 +157,6 @@ public:
 	 *  @return     true if Catalog is empty or meets the rule.
 	 */
 	bool CheckCatalog() const;
-
-	friend std::ostream& operator<<(std::ostream& stdout, const SCueSheet& obj);
 };
 
 /** Overloaded stream insertion operator to output the content of SCueSheet
@@ -175,6 +174,14 @@ std::ostream& operator<<(std::ostream& stdout, const SCueSheet& obj);
  *  @return     Copy of the stream object
  */
 std::ostream& operator<<(std::ostream& stdout, const SCueTrack& obj);
+
+/** Overloaded stream insertion operator to output the content of SCueArtists
+ *  vector.
+ *
+ *  @param[in]  Reference to an std::ostream object
+ *  @return     Copy of the stream object
+ */
+std::ostream& operator<<(std::ostream& stdout, const SCueArtists& obj);
 
 /** Overloaded stream insertion operator to output the content of SCueTrackIndex
  *  object. The output is in accordance with the CDRWIN's Cue-Sheet syntax

@@ -5,6 +5,7 @@
 #include <string>
 
 #include "CUtilJson.h"
+#include "SCueSheet.h"
 
 class CDbDiscogsElem : protected CUtilJson
 {
@@ -36,13 +37,13 @@ public:
      *
      *  @return    Artist string (empty if artist not available)
      */
-    std::string AlbumArtist() const;
+    SCueArtists AlbumArtist() const;
 
     /** Get album composer
      *
      *  @return    Composer/songwriter string (empty if artist not available)
      */
-    std::string AlbumComposer() const;
+    SCueArtists AlbumComposer() const;
 
     /** Get genre
      *
@@ -125,7 +126,7 @@ public:
      *  @return    Artist string (empty if artist not available)
      *  @throw     runtime_error if track number is invalid
      */
-    std::string TrackArtist(int tracknum) const;
+    SCueArtists TrackArtist(int tracknum) const;
 
     /** Get track composer
      *
@@ -133,7 +134,7 @@ public:
      *  @return    Composer string (empty if artist not available)
      *  @throw     runtime_error if track number is invalid
      */
-    std::string TrackComposer(int tracknum) const;
+    SCueArtists TrackComposer(int tracknum) const;
 
     /** Get track ISRC
      *
@@ -217,7 +218,7 @@ private:
      * @param[in] pointer to album or track JSON object
      * @return string of performers
      */
-    static std::string Performer_(const json_t* data); // maybe release or track json_t
+    static SCueArtists Performer_(const json_t* data); // maybe release or track json_t
 
     /**
      * @brief Get a string of performer names associated with album or track. It excludes
@@ -225,7 +226,7 @@ private:
      * @param[in] pointer to album or track JSON object
      * @return composer
      */
-    std::string Composer_(const json_t* data) const; // maybe release or track json_t
+    SCueArtists Composer_(const json_t* data) const; // maybe release or track json_t
 
     /**
      * @brief Analyze Artists lists to fill various_performers, various_composers, and album_credits

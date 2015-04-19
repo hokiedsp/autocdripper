@@ -5,7 +5,7 @@
 #include <string>
 
 #include "CUtilXmlTree.h"
-//#include "utils.h"
+#include "SCueArtist.h"
 
 class CDbMusicBrainz;
 
@@ -54,13 +54,13 @@ public:
      *
      *  @return    Artist string (empty if artist not available)
      */
-    std::string AlbumArtist() const;
+    SCueArtists AlbumArtist() const;
 
     /** Get album composer
      *
      *  @return    Composer/songwriter string (empty if artist not available)
      */
-    std::string AlbumComposer() const;
+    SCueArtists AlbumComposer() const;
 
     /** Get genre
      *
@@ -149,7 +149,7 @@ public:
      *  @return    Artist string (empty if artist not available)
      *  @throw     runtime_error if track number is invalid
      */
-    std::string TrackArtist(int tracknum) const;
+    SCueArtists TrackArtist(int tracknum) const;
 
     /** Get track composer
      *
@@ -157,7 +157,7 @@ public:
      *  @return    Composer string (empty if artist not available)
      *  @throw     runtime_error if track number is invalid
      */
-    std::string TrackComposer(int tracknum) const;
+    SCueArtists TrackComposer(int tracknum) const;
 
     /** Get track ISRC
      *
@@ -255,5 +255,5 @@ private:
      */
     const xmlNode* GetTrack_(const size_t tracknum) const;
 
-    std::string Artists_(const xmlNode *node, const bool reqcomposer) const; // maybe release or track or recording
+    SCueArtists Artists_(const xmlNode *node, const bool reqcomposer) const; // maybe release or track or recording
 };

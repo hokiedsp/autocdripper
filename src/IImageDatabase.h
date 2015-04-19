@@ -57,13 +57,11 @@ public:
      *  are initialized, CDDB disc ID is computed. If the computation fails, function
      *  throws an runtime_error.
      *
-     *  @param[in] CD-ROM device path
      *  @param[in] Cuesheet with its basic data populated
-     *  @param[in] Length of the CD in sectors
      *  @param[in] (Optional) UPC barcode
      *  @return    Number of matched records
      */
-    virtual int Query(const std::string &dev, const SCueSheet &cuesheet, const size_t len, const std::string cdrom_upc="")=0;
+    virtual int Query(const SCueSheet &cuesheet, const std::string cdrom_upc="")=0;
 
     /** If MayBeLinkedFromMusicBrainz() returns true, Query() performs a new
      *  query based on the MusicBrainz query results.

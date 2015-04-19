@@ -361,7 +361,7 @@ std::string CDbDiscogs::AlbumTitle(const int recnum) const
  *             is returned.
  *  @return    Artist string (empty if artist not available)
  */
-std::string CDbDiscogs::AlbumArtist(const int recnum) const
+SCueArtists CDbDiscogs::AlbumArtist(const int recnum) const
 {
     // set disc
     if (recnum<0 || recnum>=(int)Releases.size()) // all discs
@@ -376,7 +376,7 @@ std::string CDbDiscogs::AlbumArtist(const int recnum) const
  *             is returned.
  *  @return    Composer/songwriter string (empty if artist not available)
  */
-std::string CDbDiscogs::AlbumComposer(const int recnum) const
+SCueArtists CDbDiscogs::AlbumComposer(const int recnum) const
 {
     // set disc
     if (recnum<0 || recnum>=(int)Releases.size()) // all discs
@@ -548,7 +548,7 @@ std::string CDbDiscogs::TrackTitle(int tracknum, const int recnum) const
  *  @return    Artist string (empty if artist not available)
  *  @throw     runtime_error if track number is invalid
  */
-std::string CDbDiscogs::TrackArtist(int tracknum, const int recnum) const
+SCueArtists CDbDiscogs::TrackArtist(int tracknum, const int recnum) const
 {
     // set disc
     if (recnum<0 || recnum>=(int)Releases.size()) // all discs
@@ -565,7 +565,7 @@ std::string CDbDiscogs::TrackArtist(int tracknum, const int recnum) const
  *  @return    Composer string (empty if artist not available)
  *  @throw     runtime_error if track number is invalid
  */
-std::string CDbDiscogs::TrackComposer(int tracknum, const int recnum) const
+SCueArtists CDbDiscogs::TrackComposer(int tracknum, const int recnum) const
 {
     // set disc
     if (recnum<0 || recnum>=(int)Releases.size()) // all discs

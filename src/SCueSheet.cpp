@@ -30,7 +30,7 @@ using std::regex_match;
 
 SCueTrackIndex::SCueTrackIndex(const int n, const size_t t) : number(n), time(t) {}
 SCueTrackIndex::SCueTrackIndex(const size_t t) : number(1), time(t) {}
-SCueTrackIndex::~SCueTrackIndex() {};
+SCueTrackIndex::~SCueTrackIndex() {}
 
 //-----------------------------------------------------------------------------//
 
@@ -416,4 +416,18 @@ std::ostream& operator<<(std::ostream& os, const SCueTrackIndex& o)
 		<< setfill('0') << setw(2) << ff << endl;
 	
 	return os;
+}
+
+
+/** Overloaded stream insertion operator to output the content of SCueArtists
+ *  vector.
+ *
+ *  @param[in]  Reference to an std::ostream object
+ *  @return     Copy of the stream object
+ */
+std::ostream& operator<<(std::ostream& stdout, const SCueArtists& obj)
+{
+    for (SCueArtists::const_iterator it=obj.begin(); it!=obj.end(); it++)
+        stdout << it->name << it->joiner;
+    return stdout;
 }

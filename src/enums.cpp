@@ -4,6 +4,25 @@
 
 using std::runtime_error;
 
+
+/**
+ * @brief Convert OutputFileFormat value to file extension (incl. preceeding '.')
+ * @param[in] OutputFileFormat value
+ * @return a string with the representation of fmt
+ * @throw std::runtime_error if associated string is not given for fmt
+ */
+std::string to_ext(const OutputFileFormat fmt)
+{
+    switch (fmt)
+    {
+    case OutputFileFormat::WAVPACK: return ".wv";
+    case OutputFileFormat::CUE: return ".cue";
+    default: throw(runtime_error("Unsupported format. Update std::string to_string(const OutputFileFormat fmt)"));
+    }
+
+    return "";
+}
+
 /**
  * @brief Convert OutputFileFormat value to string
  * @param[in] OutputFileFormat value
@@ -15,6 +34,7 @@ std::string to_string(const OutputFileFormat fmt)
     switch (fmt)
     {
     case OutputFileFormat::WAVPACK: return "wavpack";
+    case OutputFileFormat::CUE: return "cue";
     default: throw(runtime_error("Unsupported format. Update std::string to_string(const OutputFileFormat fmt)"));
     }
 
@@ -55,6 +75,8 @@ OutputFileFormat sttooff(const std::string& str)
 {
     if (str.compare(0,7,"wavpack")==0)
         return OutputFileFormat::WAVPACK;
+    else if (str.compare(0,3,"cue")==0)
+        return OutputFileFormat::CUE;
 
     throw(runtime_error("Unsupported output file type name."));
 }
@@ -79,6 +101,8 @@ DatabaseType sttodb(const std::string& str)
         return DatabaseType::FREEDB;
     else if (str.compare(0,6,"lastfm")==0)
         return DatabaseType::LASTFM;
+    else if (str.compare(0,6,"amazon")==0)
+        return DatabaseType::AMAZON;
 
     throw(runtime_error("Unsupported database name."));
 }

@@ -8,7 +8,6 @@
 #include "IReleaseDatabase.h"
 #include "IImageDatabase.h"
 #include "CUtilUrl.h"
-#include "SDbrBase.h"
 #include "CUtilJson.h"
 
 class CDbMusicBrainz;
@@ -16,31 +15,6 @@ class CDbDiscogsElem;
 typedef std::vector<CDbDiscogsElem> CDiscogsElemVector;
 
 struct SCueSheet;
-
-/** Discogs CD Database Record structure - SCueSheet with DbType()
- */
-struct SDbrDiscogs : SDbrBase
-{
-    /** Name of the database the record was retrieved from
-   *
-   *  @return Name of the database
-   */
-    virtual std::string SourceDatabase() const { return "Discogs"; }
-
-    friend std::ostream& operator<<(std::ostream& stdout, const SDbrDiscogs& obj);
-};
-
-/** Overloaded stream insertion operator to output the content of SDbrDiscogs
- *  object. The output is in accordance with the CDRWIN's Cue-Sheet syntax
- *
- *  @param[in]  Reference to an std::ostream object
- *  @return     Copy of the stream object
- */
-inline std::ostream& operator<<(std::ostream& os, const SDbrDiscogs& o)
-{
-    os << dynamic_cast<const SCueSheet&>(o);
-    return os;
-}
 
 class CDbMusicBrainz;
 
@@ -117,8 +91,7 @@ public:
      *  @param[in] (Optional) UPC barcode
      *  @return    Number of matched records
      */
-    virtual int Query(const std::string &dev, const SCueSheet &cuesheet,
-                      const size_t len, const std::string cdrom_upc="")
+    virtual int Query(const SCueSheet &cuesheet, const std::string cdrom_upc="")
     { return 0; }
 
     /** If MayBeLinkedFromMusicBrainz() returns true, Query() performs a new
@@ -202,7 +175,7 @@ public:
          *             is returned.
          *  @return    Artist string (empty if artist not available)
          */
-    virtual std::string AlbumArtist(const int recnum=-1) const;
+    virtual SCueArtists AlbumArtist(const int recnum=-1) const;
 
     /** Get album composer
      *
@@ -210,7 +183,7 @@ public:
      *             is returned.
      *  @return    Composer/songwriter string (empty if artist not available)
      */
-    virtual std::string AlbumComposer(const int recnum=0) const;
+    virtual SCueArtists AlbumComposer(const int recnum=0) const;
 
     /** Get genre
      *
@@ -295,7 +268,7 @@ public:
      *  @return    Artist string (empty if artist not available)
      *  @throw     runtime_error if track number is invalid
      */
-    virtual std::string TrackArtist(int tracknum, const int recnum=0) const;
+    virtual SCueArtists TrackArtist(int tracknum, const int recnum=0) const;
 
     /** Get track composer
      *
@@ -305,7 +278,7 @@ public:
      *  @return    Composer string (empty if artist not available)
      *  @throw     runtime_error if track number is invalid
      */
-    virtual std::string TrackComposer(int tracknum, const int recnum=0) const;
+    virtual SCueArtists TrackComposer(int tracknum, const int recnum=0) const;
 
     /** Get track ISRC
      *

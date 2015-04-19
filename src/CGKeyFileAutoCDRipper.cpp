@@ -242,7 +242,6 @@ std::vector<std::string> CGKeyFileAutoCDRipper::GenerateOutputFileFormatList()
     return rval;
 }
 
-
 /**
  * @brief Generate list of supported databases
  * @return comma-separated list of databases
@@ -283,7 +282,8 @@ void CGKeyFileAutoCDRipper::Initialize_()
     CreateStringKey("General","FileFormat",
                     GenerateOutputFileFormatList(),
                     to_string(GeneralFileFormat()),
-                    "Output file format. For now, only wavpack is supported.");
+                    "Output file format. For now, only wavpack is supported. The other option, \n"
+                    """cue"", is a non-encoding option and creats a cue file instead.");
 
     CreateStringKey("General", "OutputDir",
                     GeneralOutputDir(),

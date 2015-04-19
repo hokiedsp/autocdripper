@@ -69,13 +69,11 @@ void CDbMusicBrainz::SetGrabCoverArtFromAmazon(const bool ena)
  *  are initialized, CDDB disc ID is computed. If the computation fails, function
  *  throws an runtime_error->l785l785
  *
- *  @param[in] CD-ROM device path
  *  @param[in] Cuesheet with its basic data populated
- *  @param[in] Length of the CD in sectors
  *  @param[in] (Optional) UPC barcode
  *  @return    Number of matched records
  */
-int CDbMusicBrainz::Query(const std::string &dev, const SCueSheet &cuesheet, const size_t len, const std::string cdrom_upc)
+int CDbMusicBrainz::Query(const SCueSheet &cuesheet, const std::string cdrom_upc)
 {
     // Clear the discs
     Clear();
@@ -332,7 +330,7 @@ std::string CDbMusicBrainz::AlbumTitle(const int recnum) const
  *             is returned.
  *  @return    Artist string (empty if artist not available)
  */
-std::string CDbMusicBrainz::AlbumArtist(const int recnum) const
+SCueArtists CDbMusicBrainz::AlbumArtist(const int recnum) const
 {
     // set disc
     if (recnum<0 || recnum>=(int)Releases.size()) // all discs
@@ -347,7 +345,7 @@ std::string CDbMusicBrainz::AlbumArtist(const int recnum) const
  *             is returned.
  *  @return    Composer/songwriter string (empty if artist not available)
  */
-std::string CDbMusicBrainz::AlbumComposer(const int recnum) const
+SCueArtists CDbMusicBrainz::AlbumComposer(const int recnum) const
 {
     // set disc
     if (recnum<0 || recnum>=(int)Releases.size()) // all discs
@@ -519,7 +517,7 @@ std::string CDbMusicBrainz::TrackTitle(int tracknum, const int recnum) const
  *  @return    Artist string (empty if artist not available)
  *  @throw     runtime_error if track number is invalid
  */
-std::string CDbMusicBrainz::TrackArtist(int tracknum, const int recnum) const
+SCueArtists CDbMusicBrainz::TrackArtist(int tracknum, const int recnum) const
 {
     string rval;
 
@@ -538,7 +536,7 @@ std::string CDbMusicBrainz::TrackArtist(int tracknum, const int recnum) const
  *  @return    Composer string (empty if artist not available)
  *  @throw     runtime_error if track number is invalid
  */
-std::string CDbMusicBrainz::TrackComposer(int tracknum, const int recnum) const
+SCueArtists CDbMusicBrainz::TrackComposer(int tracknum, const int recnum) const
 {
     string rval;
 

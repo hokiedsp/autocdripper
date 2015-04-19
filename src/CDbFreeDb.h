@@ -6,33 +6,6 @@
 
 #include "IDatabase.h"
 #include "IReleaseDatabase.h"
-#include "SCueSheet.h"
-#include "SDbrBase.h"
-
-/** CD Database Record structure - SCueSheet with DbType()
- */
-struct SDbrFreeDb : SDbrBase
-{
-    /** Name of the database the record was retrieved from
-     *
-     *  @return Name of the database
-     */
-    virtual std::string SourceDatabase() const { return "CDDB"; }
-
-    friend std::ostream& operator<<(std::ostream& stdout, const SDbrFreeDb& obj);
-};
-
-/** Overloaded stream insertion operator to output the content of SDbrFreeDb
- *  object. The output is in accordance with the CDRWIN's Cue-Sheet syntax
- *
- *  @param[in]  Reference to an std::ostream object
- *  @return     Copy of the stream object
- */
-inline std::ostream& operator<<(std::ostream& os, const SDbrFreeDb& o)
-{
-    os << dynamic_cast<const SCueSheet&>(o);
-    return os;
-}
 
 class CDbFreeDb: public IDatabase, public IReleaseDatabase
 {
@@ -137,13 +110,11 @@ public:
      *  are initialized, CDDB disc ID is computed. If the computation fails, function
      *  throws an runtime_error.
      *
-     *  @param[in] CD-ROM device path
      *  @param[in] Cuesheet with its basic data populated
-     *  @param[in] Length of the CD in sectors
      *  @param[in] (Optional) UPC barcode
      *  @return    Number of matched records
      */
-    virtual int Query(const std::string &dev, const SCueSheet &cuesheet, const size_t len, const std::string cdrom_upc="");
+    virtual int Query(const SCueSheet &cuesheet, const std::string cdrom_upc="");
 
     /** If MayBeLinkedFromMusicBrainz() returns true, Query() performs a new
      *  query based on the MusicBrainz query results.
@@ -212,15 +183,15 @@ public:
      *  @return    Artist string (empty if artist not available)
      *  @throw     runtime_error if CD record id is invalid
      */
-    virtual std::string AlbumArtist(const int recnum=0) const;
+    virtual SCueArtists AlbumArtist(const int recnum=0) const;
 
-    /** Get album artist
+    /** Get album composer
      *
      *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
      *             is returned.
      *  @return    Composer/songwriter string (empty if artist not available)
      */
-    virtual std::string AlbumComposer(const int recnum=0) const { return ""; }
+    virtual SCueArtists AlbumComposer(const int recnum=0) const;
 
     /** Get genre
      *
@@ -317,7 +288,7 @@ public:
      *  @throw     runtime_error if CD record id is invalid
      *  @throw     runtime_error if track number is invalid
      */
-    virtual std::string TrackArtist(int tracknum, const int recnum=0) const;
+    virtual SCueArtists TrackArtist(int tracknum, const int recnum=0) const;
 
     /** Get track composer
      *
@@ -327,7 +298,7 @@ public:
      *  @return    Composer string (empty if artist not available)
      *  @throw     runtime_error if track number is invalid
      */
-    virtual std::string TrackComposer(int tracknum, const int recnum=0) const { return ""; }
+    virtual SCueArtists TrackComposer(int tracknum, const int recnum=0) const;
 
     /** Get track ISRC
      *
@@ -339,24 +310,6 @@ public:
      */
     virtual std::string TrackISRC(const int tracknum, const int recnum=0) const { return ""; }
 
-    /** Retrieve the disc info from specified database record
-     *
-     *  @param[in] Disc record ID (0-based index). If omitted, the first record (0)
-     *             is returned.
-     *  @return    SDbrBase Pointer to newly created database record object. Caller is
-     *             responsible for deleting the object.
-     */
-    virtual SDbrBase* Retrieve(const int recnum=0) const;
-
-    /** Print the retrieved disc record. If discnum is specified (i.e., valid record ID),
-     *  it displays the disc info with tracks. If discnum is omitted or negative, it lists
-     *  records with their discid, genre, artist and title.
-     *
-     *  @param[in] Disc record ID (0-based index to discs). If negative, retrieves info
-     *             for all records.
-     */
-    void Print(const int discnum=-1) const;
-
 private:
     /** Initialize a new disc and fill it with disc info
      *  from the supplied cuesheet and length. Previously created disc
@@ -367,7 +320,7 @@ private:
      *  @param[in] Cuesheet with its basic data populated
      *  @param[in] Length of the CD in sectors
      */
-    void InitDisc_(const SCueSheet &cuesheet, const size_t len);
+    void InitDisc_(const SCueSheet &cuesheet);
 
     cddb_conn_t *conn;   /* libcddb connection structure */
     std::vector<cddb_disc_t*> discs;   /* collection of libcddb disc structure */
