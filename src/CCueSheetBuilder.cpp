@@ -413,61 +413,56 @@ void CCueSheetBuilder::ProcessDatabase_(IDatabase &db, const int recid)
                 track.Title = rdb.TrackTitle(i, recid);
         }
 
-        // get additional album data
+        // get album metadata
+        std::string remval;
+        remval.reserve(80);
         for (size_t i=0; i<remfields.size();i++)
         {
             std::string &rem = cuesheet.Rems[i];
-            if (rem.empty())
+            if (rem.empty()) // only if not previously filled
             {
+                // get metadata value as string
                 switch (remfields[i])
                 {
                 case AlbumRemFieldType::DBINFO:
-                    rem = "DBINFO " + to_string(rdb.GetDatabaseType()) + " " + rdb.ReleaseId(recid);
+                    remval = to_string(rdb.GetDatabaseType()) + " " + rdb.ReleaseId(recid);
                     break;
                 case AlbumRemFieldType::GENRE:
-                    rem = rdb.Genre(recid);
-                    if (rem.size()) rem.insert(0,"GENRE ");
+                    remval = rdb.Genre(recid);
                     break;
                 case AlbumRemFieldType::DATE:
-                    rem = rdb.Date(recid);
-                    if (rem.size()) rem.insert(0,"DATE ");
+                    remval = rdb.Date(recid);
                     break;
                 case AlbumRemFieldType::COUNTRY:
-                    rem = rdb.Country(recid);
-                    if (rem.size()) rem.insert(0,"COUNTRY ");
+                    remval = rdb.Country(recid);
                     break;
                 case AlbumRemFieldType::UPC:
-                    rem = rdb.AlbumUPC(recid);
-                    if (rem.size()) rem.insert(0,"UPC ");
+                    remval = rdb.AlbumUPC(recid);
                     break;
                 case AlbumRemFieldType::LABEL:
-                    rem = rdb.AlbumLabel(recid);
-                    if (rem.size()) rem.insert(0,"LABEL ");
+                    remval = rdb.AlbumLabel(recid);
                     break;
                 case AlbumRemFieldType::CATNO:
-                    rem = rdb.AlbumCatNo(recid);
-                    if (rem.size()) rem.insert(0,"CATNO ");
+                    remval = rdb.AlbumCatNo(recid);
                     break;
                 case AlbumRemFieldType::DISC:
+                    remval.clear();
                     if (rdb.TotalDiscs()>1)
                     {
                         int no = rdb.DiscNumber();
-                        if (no>0)
-                        {
-                            rem = std::to_string(no);
-                            if (rem.size()) rem.insert(0,"DISC ");
-                        }
+                        if (no>0) remval = std::to_string(no);
                     }
                     break;
                 case AlbumRemFieldType::DISCS:
+                    remval.clear();
                     int no = rdb.TotalDiscs();
-                    if (no>1)
-                    {
-                        rem = std::to_string(no);
-                        if (rem.size()) rem.insert(0,"DISCS ");
-                    }
+                    if (no>1) remval = std::to_string(no);
                     break;
                 }
+
+                // if metadata value is not empty, insert
+                if (remval.size())
+                    rem = to_string(remfields[i]) + " " + remval;
             }
         }
     }

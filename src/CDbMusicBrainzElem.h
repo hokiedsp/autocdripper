@@ -1,7 +1,7 @@
 #pragma once
 
 #include <vector>
-#include <map>
+#include <unordered_map>
 #include <string>
 
 #include "CUtilXmlTree.h"
@@ -11,8 +11,19 @@ class CDbMusicBrainz;
 
 class CDbMusicBrainzElem : protected CUtilXmlTree
 {
-    typedef struct {bool iscomposer; std::string name; } ArtistInfo;
-    typedef std::map<std::string,CDbMusicBrainzElem::ArtistInfo> ArtistMap; // <MBID, false-artist/performer, true-composer>
+    struct ArtistDbInfo : SCueArtistNoJoiner { std::string id; };
+    typedef std::vector<ArtistDbInfo> ArtistDbInfoVector;
+
+    struct ArtistInfo: SCueArtistNoJoiner
+    {
+        bool iscomposer;
+
+        ArtistInfo(bool iniscomposer=false,
+                   const std::string &inname="",
+                   const SCueArtistType intype=SCueArtistType::UNKNOWN) :
+            SCueArtistNoJoiner(inname,intype), iscomposer(iniscomposer) {}
+    };
+    typedef std::unordered_map<std::string,CDbMusicBrainzElem::ArtistInfo> ArtistMap; // <MBID, false-artist/performer, true-composer>
     typedef std::pair<std::string,CDbMusicBrainzElem::ArtistInfo> ArtistPair; // <MBID, false-artist/performer, true-composer>
 
     friend class CDbMusicBrainz;
@@ -205,24 +216,17 @@ public:
 
     //---------------------------------------------------------
 
-    struct ArtistIdName {std::string id; std::string name; };
-    typedef std::vector<ArtistIdName> ArtistIdNameVector;
     /**
      * @brief Returns a pre-populated unordered map<id string, name string> with IDs filled
      * @return the map to be filled
      */
-    CDbMusicBrainzElem::ArtistIdNameVector GetArtistIdNameLut();
+    CDbMusicBrainzElem::ArtistDbInfoVector GetArtistDbInfo();
 
     /**
      * @brief Populates artists name field
      * @param[in] a completed GetArtistIdNameMap-returned map
      */
-    void SetArtistIdNameLut(const CDbMusicBrainzElem::ArtistIdNameVector &map);
-
-    /**
-     * @brief to disregard previously set localized names
-     */
-    void ClearArtistIdNameLut();
+    void SetArtistDbInfo(const CDbMusicBrainzElem::ArtistDbInfoVector &info);
 
 protected:
 
@@ -233,8 +237,8 @@ protected:
 
 private:
     int disc; // in the case of multi-disc set, indicate the disc # (zero-based)
-    ArtistMap artists; // <MBID, false-artist/performer, true-composer>
-    bool alias_resolved;    // true if artist_aliases filled
+    ArtistMap artists; // <MBID Artist Info + iscomposer bool>
+    bool artists_info_set;    // true if artist_aliases filled
 
     /**
      * @brief Collect all the artists appear in the album and identify if they are a composer

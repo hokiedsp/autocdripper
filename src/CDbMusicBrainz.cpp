@@ -800,53 +800,62 @@ void CDbMusicBrainz::SetPreferredLocale(const std::string &code)
  */
 void CDbMusicBrainz::GetLocalArtistNames(CDbMusicBrainzElem &release)
 {
-    if (PreferredLocale.size())
+    CDbMusicBrainzElem::ArtistDbInfoVector infovec = release.GetArtistDbInfo();
+
+    // if Preferred Locale code is set, and names have not been retrieved, do so now
+    std::string url, name;
+    CDbMusicBrainzElem::ArtistDbInfoVector::iterator it;
+    for (it = infovec.begin(); it !=infovec.end(); it++) // for each artist
     {
-        CDbMusicBrainzElem::ArtistIdNameVector aliases = release.GetArtistIdNameLut();
+        bool primary = false;
+        const xmlNode *artist, *alias;
 
-        // if Preferred Locale code is set, and names have not been retrieved, do so now
-        std::string url, name;
-        CDbMusicBrainzElem::ArtistIdNameVector::iterator it;
-        for (it = aliases.begin(); it !=aliases.end(); it++) // for each artist
+        url = base_url + "artist/" + it->id + "?inc=aliases";
+        name.clear();
+
+        // Get release data & create new entry
+        PerformHttpTransfer_(url); // received data is stored in rawdata
+
+        // Parse the downloaded XML data
+        CUtilXmlTree artistdata(rawdata);
+
+        if (artistdata.FindElement("artist", artist))
         {
-            bool primary = false;
-            const xmlNode *artist, *alias;
-
-            url = base_url + "artist/" + it->id + "?inc=aliases";
-            name.clear();
-
-            // Get release data & create new entry
-            PerformHttpTransfer_(url); // received data is stored in rawdata
-
-            // Parse the downloaded XML data
-            CUtilXmlTree artistdata(rawdata);
-
-            // get down to "alias-list"
-            for(artistdata.FindElement("artist", artist) && artistdata.FindArray(artist,"alias-list",alias);
-                !primary && alias; alias = alias->next)
+            // Get the artist type
+            std::string type;
+            if (artistdata.FindElementAttribute(artist,"type",type))
             {
-                // look for the matched-locale Artist name alias
-                if (artistdata.CompareElementAttribute(alias,"type","Artist name")==0
-                        && artistdata.CompareElementAttribute(alias,"locale",PreferredLocale)==0)
-                {
-                    // check if it is the primary alias
-                    primary = artistdata.CompareElementAttribute(alias,"primary","primary")==0;
-
-                    // grab its first child node, assuming it to be text node
-                    if (primary || name.empty())
-                        name = (char*)alias->children->content;
-                }
+                if (type.compare("Person")==0) it->type = SCueArtistType::PERSON;
+                else if (type.compare("Group")==0 || type.compare("Orchestra")==0 || type.compare("Choir")==0)
+                    it->type = SCueArtistType::GROUP;
             }
 
-            // if locale-specific name found, update the AliasMap
-            if (name.size()) it->name = name;
-        }
+            // Get artist name in preferred locale if available
+            if (PreferredLocale.size())
+            {
+                // get down to "alias-list"
+                for(artistdata.FindArray(artist,"alias-list",alias);
+                    !primary && alias; alias = alias->next)
+                {
+                    // look for the matched-locale Artist name alias
+                    if (artistdata.CompareElementAttribute(alias,"type","Artist name")==0
+                            && artistdata.CompareElementAttribute(alias,"locale",PreferredLocale)==0)
+                    {
+                        // check if it is the primary alias
+                        primary = artistdata.CompareElementAttribute(alias,"primary","primary")==0;
 
-        // set release's internal flag
-        release.SetArtistIdNameLut(aliases);
+                        // grab its first child node, assuming it to be text node
+                        if (primary || name.empty())
+                            name = (char*)alias->children->content;
+                    }
+
+                    // if locale-specific name found, update the AliasMap
+                    if (name.size()) it->name = name;
+                }
+            }
+        }
     }
-    else if (PreferredLocale.empty())
-    {
-        release.ClearArtistIdNameLut();
-    }
+
+    // set release's internal flag
+    release.SetArtistDbInfo(infovec);
 }

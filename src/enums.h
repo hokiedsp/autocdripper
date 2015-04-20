@@ -34,6 +34,15 @@ enum class AlbumRemFieldType
 
 typedef std::vector<AlbumRemFieldType> AlbumRemFieldVector;
 
+
+/**
+ * @brief Convert AlbumRemFieldType value to string
+ * @param[in] AlbumRemFieldType value
+ * @return a string with the representation of type
+ * @throw std::runtime_error if associated string is not given for type
+ */
+std::string to_string(const AlbumRemFieldType type);
+
 /**
  * @brief Convert OutputFileFormat value to file extension (incl. preceeding '.')
  * @param[in] OutputFileFormat value

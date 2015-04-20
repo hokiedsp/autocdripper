@@ -4,6 +4,30 @@
 
 using std::runtime_error;
 
+/**
+ * @brief Convert AlbumRemFieldType value to string
+ * @param[in] AlbumRemFieldType value
+ * @return a string with the representation of type
+ * @throw std::runtime_error if associated string is not given for type
+ */
+std::string to_string(const AlbumRemFieldType type)
+{
+    switch (type) // MUST BE UPPER CASE
+    {
+    case AlbumRemFieldType::DBINFO: return "DBINFO";
+    case AlbumRemFieldType::GENRE: return "GENRE";
+    case AlbumRemFieldType::DATE: return "DATE";
+    case AlbumRemFieldType::COUNTRY: return "COUNTRY";
+    case AlbumRemFieldType::UPC: return "UPC";
+    case AlbumRemFieldType::LABEL: return "LABEL";
+    case AlbumRemFieldType::CATNO: return "CATNO";
+    case AlbumRemFieldType::DISC: return "DISC";
+    case AlbumRemFieldType::DISCS: return "DISCS";
+    default: throw(runtime_error("Unsupported type. Update std::string to_string(const AlbumRemFieldType type) in enums.cpp"));
+    }
+
+    return "";
+}
 
 /**
  * @brief Convert OutputFileFormat value to file extension (incl. preceeding '.')
