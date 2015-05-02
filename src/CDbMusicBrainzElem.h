@@ -230,10 +230,10 @@ public:
 
 protected:
 
-    bool FindObject(const std::string &key, const xmlNode *&node, std::string *id=NULL) const { return FindObject(root, key, node, id); }
-    bool FindArray(const std::string &key, const xmlNode *&firstchild, int *count=NULL, int *offset=NULL) const { return FindArray(root, key, firstchild, count, offset); }
-    static bool FindObject(const xmlNode *parent, const std::string &key, const xmlNode *&node, std::string *id=NULL);
-    static bool FindArray(const xmlNode *parent, const std::string &key, const xmlNode *&firstchild, int *count=NULL, int *offset=NULL);
+    bool FindObject(const std::string &key, const xmlNode *&node, std::string *id=nullptr) const { return FindObject(root, key, node, id); }
+    bool FindArray(const std::string &key, const xmlNode *&firstchild, int *count=nullptr, int *offset=nullptr) const { return FindArray(root, key, firstchild, count, offset); }
+    static bool FindObject(const xmlNode *parent, const std::string &key, const xmlNode *&node, std::string *id=nullptr);
+    static bool FindArray(const xmlNode *parent, const std::string &key, const xmlNode *&firstchild, int *count=nullptr, int *offset=nullptr);
 
 private:
     int disc; // in the case of multi-disc set, indicate the disc # (zero-based)
@@ -254,7 +254,7 @@ private:
     /**
      * @brief Find JSON object for the specified track
      * @param[in] track number counting over multiple discs
-     * @param[out] if not NULL and track is found in sub_tracks listing, returns its parent index track JSON object
+     * @param[out] if not nullptr and track is found in sub_tracks listing, returns its parent index track JSON object
      * @return pointer to a track JSON object
      */
     const xmlNode* GetTrack_(const size_t tracknum) const;

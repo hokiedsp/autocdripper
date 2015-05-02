@@ -1,5 +1,7 @@
 CC = g++
-CFLAGS = -Wall -std=c++11 -I/usr/include/glib-2.0 -I/usr/lib/x86_64-linux-gnu/glib-2.0/include -I/usr/include/libxml2
+CFLAGS = -Wall -std=c++11 -I/usr/include/glib-2.0 \
+         -I/usr/lib/x86_64-linux-gnu/glib-2.0/include -I/usr/include/libxml2 \
+         -I/usr/include/x86_64-linux-gnu
 
 MAIN = autocdripper
 SRCS = CSourceCdda.cpp CSinkBase.cpp CSinkWav.cpp\
@@ -8,8 +10,10 @@ SRCS = CSourceCdda.cpp CSinkBase.cpp CSinkWav.cpp\
        CDbDiscogsElem.cpp CUtilUrl.cpp utils.cpp CDbLastFm.cpp CDbLastFmElem.cpp\
        CUtilXmlTree.cpp CUtilXml.cpp CDbMusicBrainzElem.cpp\
        CDbMusicBrainzElemCAA.cpp CDbAmazon.cpp CDbAmazonElem.cpp\
-       CCdRipper.cpp CCueSheetBuilder.cpp autocdripper.cpp
-LIBS = -lwavpack -lcdio -lcdio_cdda -lcdio_paranoia -lcddb -lcurl -ljansson -lxml2
+       CCdRipper.cpp CCueSheetBuilder.cpp autocdripper.cpp\
+       CFileNameGenerator.cpp
+LIBS = -lwavpack -lcdio -lcdio_cdda -lcdio_paranoia -lcddb -lcurl -ljansson -lxml2\
+       -L/usr/lib/x86_64-linux-gnu -lboost_regex -licuuc -licudata
 LDFLAGS = -Wall -pthread
 
 #MAIN = cdinfodemo

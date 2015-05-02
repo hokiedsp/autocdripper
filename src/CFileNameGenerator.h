@@ -1,9 +1,9 @@
 #pragma once
 
 #include <string>
-#include "enums.h"
 
-class SCueSheet;
+#include "enums.h"
+#include "SCueSheet.h"
 
 /**
  * @brief A factor to generate a file name from populated cuesheet
@@ -15,7 +15,7 @@ class SCueSheet;
  * Its naming scheme follows the foobar2000/CUETools convension:
  *
  *    * http://www.cuetools.net/wiki/Cuetools_templates
- *    * http://wiki.hydrogenaudio.org/index.php?title=Foobar2000:Titleformat_Reference
+ *    * http://wiki.hydrogenaud.io/index.php?title=Foobar2000:Titleformat_Reference
  *
  * Scheme Variables:
  *
@@ -70,16 +70,35 @@ public:
      * @param[in] populated cuesheet
      * @return generated file name string
      */
-    std::string operator()(const SCueSheet &cuesheet);
+    std::string operator()(const SCueSheet &cuesheet) const;
 
 private:
+    typedef struct SParserOutput
+    {
+        std::string str;
+        bool tf;
+        size_t end;
+
+        SParserOutput() : tf(false), end(str.npos) { str.reserve(256); }
+    } ParserOutput;
+
+    /**
+     * @brief (recursive) working function for operator()
+     * @param[in] populated cuesheet
+     * @param[in] starting position of scheme string
+     * @param[in] a list of terminating characters
+     * @return generated file name string
+     */
+    ParserOutput parser(const SCueSheet &cuesheet, size_t pos0=0,
+                        const std::string &termch="") const;
+
     /**
      * @brief Find REM field value
      * @param[in] populated cuesheet
      * @param[in] REM field name (first word following REM)
      * @return REM field value
      */
-    std::string FindRem_(const SCueSheet &cuesheet, const std::string &rem_type);
+    std::string FindRem_(const SCueSheet &cuesheet, const std::string &rem_type) const;
 
     /**
      * @brief Generate name string according to the specified format option
@@ -88,5 +107,35 @@ private:
      * @param[in] 0-full name, 1 last name only, >=2-first initial + last name
      * @return formatted name string
      */
-    std::string FormName_(const SCueArtists &artists, const int numlist, const int option);
+    std::string FormName_(const SCueArtists &artists, const int numlist, const int option) const;
+
+    /**
+     * @brief Extract last name (i.e., the word(s) appear at the end of string)
+     * @param[in] fullname string
+     * @param[out] (Optional) iterator at the first non-word character preceeding
+     *             the last name (use this as the end point of the initial search)
+     * @return string containing just last name
+     */
+    static std::string LastName_(const std::string &fullname,
+                                 std::string::const_iterator *start=nullptr);
+//                                 std::string::const_iterator *&start);
+//    static std::string LastName_(std::string::const_iterator start,
+//                                 std::string::const_iterator end);
+
+    /**
+     * @brief Extract initials + last name
+     * @param[in] fullname string
+     * @return string containing initials (no space between) + lastname
+     */
+    static std::string InitialsPlusLastName_(const std::string &fullname);
+
+    /**
+     * @brief Analyze non-word characters for brackets and quotations
+     * @param[in] start of the non-word section
+     * @param[in] end of the non-word section
+     * @param[inout] first/end character is inside of this # of bracket pairs
+     */
+    static void CheckBrackets_(const std::string::const_iterator begin,
+                               const std::string::const_iterator end,
+                               int &inbracket);
 };

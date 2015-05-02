@@ -9,6 +9,7 @@ using std::endl;
 
 #include "CCdRipper.h"
 #include "CCueSheetBuilder.h"
+#include "CFileNameGenerator.h"
 
 #include "CSourceCdda.h"
 #include "CSinkWav.h"
@@ -71,6 +72,10 @@ int main(int argc, const char *argv[])
             cout << "[MAIN] Retrieving the populated cuesheet...\n";
             SCueSheet cs = csbuilder.GetCueSheet();
             cout << cs << endl;
+
+            CFileNameGenerator fng("%artist%-%title%",OutputFileFormat::WAVPACK);
+            std::string filename = fng(cs);
+            cout << "filename: " << filename << endl;
 
 //            if (csbuilder.FoundFrontCover())
 //            {

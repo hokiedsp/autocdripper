@@ -50,7 +50,7 @@ public:
 
     // functions to get value of a requested key off the root
     bool FindElement(const std::string &key, const xmlNode *&node) const { return FindElement(root, key, node); }
-    bool FindArray(const std::string &key, const xmlNode *&firstchild, int *count=NULL) const { return FindArray(root, key, firstchild, count); }
+    bool FindArray(const std::string &key, const xmlNode *&firstchild, int *count=nullptr) const { return FindArray(root, key, firstchild, count); }
     bool FindString(const std::string &key, std::string &val) const { return FindString(root, key, val); }
     bool FindInt(const std::string &key, int &val) const { return FindInt(root, key, val); }
 
@@ -71,7 +71,7 @@ public:
 
     static bool FindElement(const xmlNode *parent, const std::string &key, const xmlNode *&node);
     static bool FindNextElement(const xmlNode *curr, const std::string &key, const xmlNode *&node);
-    static bool FindArray(const xmlNode *parent, const std::string &key, const xmlNode *&firstchild, int *count=NULL);
+    static bool FindArray(const xmlNode *parent, const std::string &key, const xmlNode *&firstchild, int *count=nullptr);
     static bool FindString(const xmlNode *parent, const std::string &key, std::string &val);
     static bool FindInt(const xmlNode *parent, const std::string &key, int &val);
 
