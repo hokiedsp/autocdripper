@@ -11,8 +11,10 @@
  * @param[in] file naming scheme string
  * @param[in] file format
  */
-CFileNameGenerator::CFileNameGenerator(const std::string &schemein, const OutputFileFormat &fmtin)
-    : scheme(schemein), fmt(fmtin)
+CFileNameGenerator::CFileNameGenerator(const std::string &base,
+                                       const std::string &schemein,
+                                       const OutputFileFormat fmtin)
+    : basepath(base), scheme(schemein), fmt(fmtin)
 {}
 
 /**
@@ -22,35 +24,44 @@ CFileNameGenerator::CFileNameGenerator(const std::string &schemein, const Output
  */
 std::string CFileNameGenerator::operator()(const SCueSheet &cuesheet) const
 {
-    ParserOutput result = parser(cuesheet);
-    return result.str;
+    // add the extension
+    ParserOutput result = parser(cuesheet,0,"");
+
+    std::string rval(basepath);
+    rval += result.str + to_ext(fmt);
+
+    return rval;
 }
 
 /**
- * @brief (recursive) working function for operator()
+ * @brief (recursive) worker function for operator()
  * @param[in] populated cuesheet
  * @param[in] starting position on the scheme
- * @param[in] terminating character
- * @return generated file name string
+ * @param[in] string of terminating characters (empty for the main call)
+ * @return generated file name string (ParserOutput.str)
  */
-CFileNameGenerator::ParserOutput CFileNameGenerator::parser(const SCueSheet &cuesheet, size_t pos0,
-                                        const std::string &termch) const
+CFileNameGenerator::ParserOutput
+CFileNameGenerator::parser(const SCueSheet &cuesheet,
+                           size_t pos0,
+                           const std::string &termch) const
 {
-    ParserOutput rval;
+    const std::string keychars("[]%'$(,)");
+
+    ParserOutput rval; // returns accumulated string, true/false, ending position
 
     std::string word;
     ParserOutput subexpr;
     size_t len;
 
     // loop until end of scheme or come across the terminating character
-    for (size_t pos = scheme.find_first_of("[%'$",pos0);
-         pos!=scheme.npos && termch.npos==termch.find_first_not_of(scheme[pos]);
-         pos = scheme.find_first_of("[%'$",pos0))
+    for (size_t pos = scheme.find_first_of(keychars,pos0);
+         pos!=scheme.npos && termch.npos==termch.find_first_of(scheme[pos]);
+         pos = scheme.find_first_of(keychars,pos0))
     {
-        // add up-to the found character
+        // add all the characters up to the found character
         rval.str += scheme.substr(pos0, pos-pos0);
 
-        // update the reference position
+        // update the starting position to one character past found
         pos0 = pos + 1;
 
         switch (scheme[pos])
@@ -58,8 +69,8 @@ CFileNameGenerator::ParserOutput CFileNameGenerator::parser(const SCueSheet &cue
         case '[': // conditional section
             // parse the conditional section
             subexpr = parser(cuesheet,pos0,"]");
-            if (pos==scheme.npos)
-                throw(std::invalid_argument("Invalid Filename Scheme: Closing bracket of conditional section not found."));
+            if (subexpr.end==scheme.npos)
+                throw(std::invalid_argument("Invalid Filename Scheme: Closing bracket of a conditional section not found."));
 
             // if conditional section returned the truth value true, add its string
             if (subexpr.tf)
@@ -67,14 +78,15 @@ CFileNameGenerator::ParserOutput CFileNameGenerator::parser(const SCueSheet &cue
                 rval.str += subexpr.str;
                 rval.tf = true;
             }
-            pos = subexpr.end;
+            pos0 = subexpr.end+1;
             break;
         case '\'': // quoted text found
             pos = scheme.find_first_of('\'',pos0);
             if (pos==pos0) // two consecutive quotes
                 rval.str += '\'';
-            else // if not closed, assume lasts until the end of scheme string
+            else // (if not closed, assume lasts until the end of scheme string)
                 rval.str += scheme.substr(pos0,pos-pos0);
+            pos0 = pos + 1;
             break;
         case '%': // variable found
             // find the end of variable name
@@ -82,291 +94,330 @@ CFileNameGenerator::ParserOutput CFileNameGenerator::parser(const SCueSheet &cue
             if (pos==scheme.npos)
                 throw(std::invalid_argument("Invalid Filename Scheme: variable name not closed."));
 
-            // record the current string length
-            len = rval.str.size();
-
             // grab the variable name
             word = scheme.substr(pos0,pos-pos0);
 
-            // convert variable name to lower case (varaible names are all ascii)
-            std::transform(word.begin(), word.end(), word.begin(), ::toupper);
-
-            // convert metadata aliases to cuesheet field names
-            if (word.compare("DISCNUMBER")==0) word = "DISC";
-            else if (word.compare("TOTALDISC")==0) word = "DISCS";
-
-            // get the cuesheet field values
-            if (word.compare("ALBUM")==0)
+            if (word.empty()) // %%
             {
-                rval.str += cuesheet.Title;
+                rval.str += '%';
             }
             else
             {
-                // check for artist/performer/songwriter
-                bool isart=false, isperf=false, iscomp=false;
-                if ((isart=(word.compare(0,6,"ARTIST")==0))
-                        || (isperf=(word.compare(0,9,"PERFORMER")==0))
-                        || (iscomp=(word.compare(0,10,"SONGWRITER")==0)))
-                {
-                    // get the artist name vector
-                    SCueArtists names;
-                    if (isart||isperf) names = cuesheet.Performer;
-                    if (iscomp||(isart&&names.empty())) names = cuesheet.Songwriter;
+                // record the current string length
+                len = rval.str.size();
 
-                    // get the artist option(s)
-                    bool firstonly=false, lastname=false, firstinitial=false;
-                    size_t vpos = word.find_first_of(" ");
-                    while (vpos!=word.npos)
+                // convert variable name to upper case (varaible names are all ascii)
+                std::transform(word.begin(), word.end(), word.begin(), ::toupper);
+
+                // convert metadata aliases to cuesheet field names
+                if (word.compare("DISCNUMBER")==0) word = "DISC";
+                else if (word.compare("TOTALDISC")==0) word = "DISCS";
+                else if (word.compare("ALBUM")==0) word = "TITLE";
+
+                // get the cuesheet field values
+                if (word.compare("TITLE")==0)
+                {
+                    rval.str += cuesheet.Title;
+                }
+                else
+                {
+                    // check for artist/performer/songwriter
+                    bool isart=false, isperf=false, iscomp=false;
+                    if ((isart=(word.compare(0,6,"ARTIST")==0))
+                            || (isperf=(word.compare(0,9,"PERFORMER")==0))
+                            || (iscomp=(word.compare(0,10,"SONGWRITER")==0)))
                     {
-                        size_t vlen;
-                        size_t vpos0 = vpos+1;
-                        vpos = word.find_first_of(" ",vpos0);
+                        // get the artist name vector
+                        SCueArtists names;
+                        if (isart||isperf) names = cuesheet.Performer;
+                        if (iscomp||(isart&&names.empty())) names = cuesheet.Songwriter;
 
-                        if (vpos!=word.npos) vlen = (vpos++)-vpos0;
-                        else vlen = word.size()-vpos0;
+                        // get the artist option(s)
+                        bool firstonly=false, lastname=false, firstinitial=false;
+                        size_t vpos = word.find_first_of(" ");
+                        while (vpos!=word.npos)
+                        {
+                            size_t vlen;
+                            size_t vpos0 = vpos+1;
+                            vpos = word.find_first_of(" ",vpos0);
 
-                        if (word.compare(vpos0, vlen, "first")==0)
-                            firstonly = true;
-                        else if (word.compare(vpos0, vlen, "lastname")==0)
-                            lastname = true;
-                        else if (word.compare(vpos0, vlen, "firstinitial")==0)
-                            firstinitial = true;
+                            if (vpos!=word.npos) vlen = (vpos++)-vpos0;
+                            else vlen = word.size()-vpos0;
+
+                            if (word.compare(vpos0, vlen, "FIRST")==0)
+                                firstonly = true;
+                            else if (word.compare(vpos0, vlen, "LASTNAME")==0)
+                                lastname = true;
+                            else if (word.compare(vpos0, vlen, "FIRSTINITIAL")==0)
+                                firstinitial = true;
+                        }
+
+                        // form name
+                        rval.str += FormName_(names, firstonly, 2*firstinitial + lastname);
                     }
+                    else // if not artist, check metadata in REMs
+                    {
+                        rval.str = FindRem_(cuesheet,word);
+                    }
+                }
 
-                    // form name
-                    rval.str += FormName_(names, firstonly, 2*firstinitial + lastname);
-                }
-                else // if not artist, check metadata in REMs
-                {
-                    rval.str = FindRem_(cuesheet,word);
-                }
+                // if newly added variable value was non-empty, true
+                if (rval.str.size()!=len) rval.tf = true;
             }
-
-            // if newly added variable value was non-empty, return true
-            if (rval.str.size()!=len) rval.tf = true;
+            pos0 = pos + 1;
             break;
-        default : // case '$': // functions
+        case '$': // functions $(...,...) for its arguments "(,)" characters are added to the keywords
             // find the end of function name
             pos = scheme.find_first_of('(',pos0);
             if (pos==scheme.npos)
                 throw(std::invalid_argument("Invalid Filename Scheme: function name not closed."));
 
-            // grab the variable name
+            // grab the function name
             word = scheme.substr(pos0,pos-pos0);
 
-            // convert variable name to lower case (varaible names are all ascii)
-            std::transform(word.begin(), word.end(), word.begin(), ::toupper);
-
-            pos0 = pos + 1;
-            if (word.compare("IF")==0)  // $IF(COND,THEN) or $IF(COND,THEN,ELSE)
+            if (word.empty()) // $$
             {
-                bool iftf;
+                rval += '$';
+            }
+            else
+            {
+                // convert function name to all upper case (function names are all ascii)
+                std::transform(word.begin(), word.end(), word.begin(), ::toupper);
 
-                // parse the conditional section
-                subexpr = parser(cuesheet,pos0,",");
-                if (pos==scheme.npos)
-                    throw(std::invalid_argument("Invalid Filename Scheme: IF COND not closed."));
-                iftf = subexpr.tf;
-
-                // adjust pos0 to the beginining of the next clause
-                pos0 = subexpr.end + 1;
-
-                // get then clause
-                subexpr = parser(cuesheet,pos0,",)");
-                if (pos==scheme.npos)
-                    throw(std::invalid_argument("Invalid Filename Scheme: IF THEN not closed."));
-
-                // if COND is true, copy THEN clause
-                if (iftf)
+                if (word.compare("IF")==0)  // $IF(COND,THEN) or $IF(COND,THEN,ELSE)
                 {
-                    rval.str += subexpr.str;
-                    rval.tf = rval.tf || subexpr.tf;
-                }
+                    bool iftf;
 
-                // if ELSE clause is available, process it
-                if (scheme[subexpr.end]==',') // else clause exists
-                {
+                    // parse the conditional section
+                    subexpr = parser(cuesheet,pos+1,",");
+                    if (subexpr.end==scheme.npos)
+                        throw(std::invalid_argument("Invalid Filename Scheme: IF COND not closed."));
+                    iftf = subexpr.tf;
+
+                    // adjust pos0 to the beginining of the next clause
                     pos0 = subexpr.end + 1;
-                    subexpr = parser(cuesheet,pos0,")");
-                    if (pos==scheme.npos)
-                        throw(std::invalid_argument("Invalid Filename Scheme: IF ELSE not closed."));
 
-                    // if COND is false, copy ELSE clause
-                    if (!iftf)
+                    // get then clause
+                    subexpr = parser(cuesheet,pos0,",)");
+                    if (subexpr.end==scheme.npos)
+                        throw(std::invalid_argument("Invalid Filename Scheme: IF THEN not closed."));
+
+                    // if COND is true, copy THEN clause
+                    if (iftf)
                     {
                         rval.str += subexpr.str;
-                        rval.tf = rval.tf || subexpr.tf;
+                        if (subexpr.tf) rval.tf = true;
                     }
-                }
-            }
-            else if (word.compare("IF2")==0 ||  // $IF2(A,ELSE)
-                     word.compare("IF3")==0)    // $IF3(A1,A2,...,AN,ELSE)
-            {
-                bool iftf=false;
-                size_t counter = 0;
 
-                // loop until closing expression is found
-                while (scheme[pos0]!=')')
-                {
-                    // parse the conditional section
-                    subexpr = parser(cuesheet,pos0,",)");
-                    if (pos==scheme.npos)
-                        throw(std::invalid_argument("Invalid Filename Scheme: IF2/IF3 not closed."));
-
-                    // update iftf only if it has not been set true
-                    if (!iftf)
+                    // if ELSE clause is available, process it
+                    if (scheme[subexpr.end]==',') // else clause exists
                     {
-                        iftf = subexpr.tf;
-                        if (iftf) rval.str += subexpr.str;
+                        subexpr = parser(cuesheet,subexpr.end+1,")");
+                        if (subexpr.end==scheme.npos)
+                            throw(std::invalid_argument("Invalid Filename Scheme: IF ELSE not closed."));
+
+                        // if COND is false, copy ELSE clause
+                        if (!iftf)
+                        {
+                            rval.str += subexpr.str;
+                            if (subexpr.tf) rval.tf = true;
+                        }
+                    }
+
+                    // update pos0 for the next expression
+                    pos0 = subexpr.end + 1;
+                }
+                else if (word.compare("IF2")==0 ||  // $IF2(A,ELSE)
+                         word.compare("IF3")==0)    // $IF3(A1,A2,...,AN,ELSE)
+                {
+                    bool iftf = false;
+                    size_t counter = 0;
+
+                    // loop until closing expression is found
+                    subexpr.end = pos;
+                    while (scheme[subexpr.end]!=')')
+                    {
+                        // parse the conditional section
+                        subexpr = parser(cuesheet,subexpr.end+1,",)");
+                        if (subexpr.end==scheme.npos)
+                            throw(std::invalid_argument("Invalid Filename Scheme: IF2/IF3 not closed."));
+
+                        // update iftf only if it has not been set true
+                        if (!iftf && subexpr.tf)
+                        {
+                            iftf = true;
+                            rval.str += subexpr.str;
+                            rval.tf = true;
+                        }
+
+                        // count
+                        counter++;
+                    }
+
+                    if (counter<2)
+                        throw(std::invalid_argument("Invalid Filename Scheme: IF2/IF3 not enough arguments."));
+
+                    // if all (incl. ELSE clause) are false, get the last one (ELSE)
+                    if (!iftf) rval.str += subexpr.str;
+
+                    // update pos0 for the next expression clause
+                    pos0 = subexpr.end + 1;
+                }
+                else if (word.compare("AND")==0)    // $AND(...)
+                {
+                    bool andtf = true;
+                    rval.tf = true;
+
+                    if (scheme[pos+1]==')')
+                        throw(std::invalid_argument("Invalid Filename Scheme: AND must have at least one argument."));
+
+                    // loop until closing expression is found
+                    subexpr.end = pos;
+                    while (scheme[subexpr.end]!=')')
+                    {
+                        // parse the conditional section
+                        subexpr = parser(cuesheet,subexpr.end+1,",)");
+                        if (subexpr.end==scheme.npos)
+                            throw(std::invalid_argument("Invalid Filename Scheme: AND not closed."));
+
+                        // update iftf only if it has not been set true
+                        if (!subexpr.tf) andtf = false;
+                    }
+
+                    // update expression TF
+                    if (andtf) rval.tf = true;
+
+                    // update pos0 for the next expression clause
+                    pos0 = subexpr.end + 1;
+                }
+                else if (word.compare("OR")==0)    // $OR(...)
+                {
+                    if (scheme[pos0]==')')
+                        throw(std::invalid_argument("Invalid Filename Scheme: OR must have at least one argument."));
+
+                    // loop until closing expression is found
+                    subexpr.end = pos;
+                    while (scheme[subexpr.end]!=')')
+                    {
+                        // parse the conditional section
+                        subexpr = parser(cuesheet,subexpr.end+1,",)");
+                        if (subexpr.end==scheme.npos)
+                            throw(std::invalid_argument("Invalid Filename Scheme: OR not closed."));
+
+                        // update iftf only if it has not been set true
+                        if (subexpr.tf) rval.tf = true;
                     }
 
                     // adjust pos0 to the beginining of the next clause
                     pos0 = subexpr.end + 1;
-
-                    // count
-                    counter++;
                 }
-
-                if (counter<2)
-                    throw(std::invalid_argument("Invalid Filename Scheme: IF2/IF3 not enough arguments."));
-
-                // if all (incl. ELSE clause) are false, get the last one (ELSE)
-                if (!iftf) rval.str += subexpr.str;
-            }
-            else if (word.compare("AND")==0)    // $AND(...)
-            {
-                rval.tf = true;
-
-                if (scheme[pos0]==')')
-                    throw(std::invalid_argument("Invalid Filename Scheme: AND must have at least one argument."));
-
-                // loop until closing expression is found
-                while (scheme[pos0]!=')')
+                else if (word.compare("NOT")==0)    // $NOT(X)
                 {
-                    // parse the conditional section
-                    subexpr = parser(cuesheet,pos0,",)");
-                    if (pos==scheme.npos)
-                        throw(std::invalid_argument("Invalid Filename Scheme: AND not closed."));
+                    if (scheme[++pos]==')')
+                        throw(std::invalid_argument("Invalid Filename Scheme: OR must have at least one argument."));
 
-                    // update iftf only if it has not been set true
-                    if (!subexpr.tf) rval.tf = false;
+                    // parse the conditional section
+                    subexpr = parser(cuesheet,pos,")");
+                    if (subexpr.end==scheme.npos)
+                        throw(std::invalid_argument("Invalid Filename Scheme: NOT is not properly closed."));
+
+                    rval.tf = !subexpr.tf;
 
                     // adjust pos0 to the beginining of the next clause
                     pos0 = subexpr.end + 1;
                 }
-            }
-            else if (word.compare("OR")==0)    // $OR(...)
-            {
-                if (scheme[pos0]==')')
-                    throw(std::invalid_argument("Invalid Filename Scheme: OR must have at least one argument."));
-
-                // loop until closing expression is found
-                while (scheme[pos0]!=')')
+                else if (word.compare("XOR")==0)    // $XOR(...)
                 {
-                    // parse the conditional section
-                    subexpr = parser(cuesheet,pos0,",)");
-                    if (pos==scheme.npos)
-                        throw(std::invalid_argument("Invalid Filename Scheme: OR not closed."));
+                    bool xortf = false;
 
-                    // update iftf only if it has not been set true
-                    if (subexpr.tf) rval.tf = true;
+                    if (scheme[++pos]==')')
+                        throw(std::invalid_argument("Invalid Filename Scheme: OR must have at least one argument."));
+
+                    // loop until closing expression is found
+                    subexpr.end = pos;
+                    while (scheme[subexpr.end]!=')')
+                    {
+                        // parse the conditional section
+                        subexpr = parser(cuesheet,subexpr.end+1,",)");
+                        if (subexpr.end==scheme.npos)
+                            throw(std::invalid_argument("Invalid Filename Scheme: XOR not closed."));
+
+                        // update iftf only if it has not been set true
+                        if (subexpr.tf) xortf = !xortf;
+                    }
+
+                    // update the expression TF value
+                    if (xortf) rval.tf = true;
 
                     // adjust pos0 to the beginining of the next clause
                     pos0 = subexpr.end + 1;
                 }
-            }
-            else if (word.compare("NOT")==0)    // $NOT(X)
-            {
-                if (scheme[pos0]==')')
-                    throw(std::invalid_argument("Invalid Filename Scheme: OR must have at least one argument."));
-
-                // parse the conditional section
-                subexpr = parser(cuesheet,pos0,")");
-                if (pos==scheme.npos)
-                    throw(std::invalid_argument("Invalid Filename Scheme: NOT is not properly closed."));
-
-                rval.tf = !subexpr.tf;
-            }
-            else if (word.compare("XOR")==0)    // $XOR(...)
-            {
-                if (scheme[pos0]==')')
-                    throw(std::invalid_argument("Invalid Filename Scheme: OR must have at least one argument."));
-
-                // loop until closing expression is found
-                while (scheme[pos0]!=')')
+                else if (word.compare("STRCMP")==0 ||   // $STRCMP(S1,S2)
+                         word.compare("STRCMPI")==0)    // $STRCMPI(S1,S2)
                 {
-                    // parse the conditional section
-                    subexpr = parser(cuesheet,pos0,",)");
-                    if (pos==scheme.npos)
-                        throw(std::invalid_argument("Invalid Filename Scheme: XOR not closed."));
+                    ParserOutput subexpr2;
 
-                    // update iftf only if it has not been set true
-                    if (subexpr.tf) rval.tf = !rval.tf;
+                    if (scheme[++pos]==')')
+                        throw(std::invalid_argument("Invalid Filename Scheme: STRCMP must have two arguments."));
+
+                    // parse the first string
+                    subexpr = parser(cuesheet,pos,",");
+                    if (subexpr.end==scheme.npos)
+                        throw(std::invalid_argument("Invalid Filename Scheme: STRCMP must have two arguments."));
+
+                    // parse the second string
+                    subexpr2 = parser(cuesheet,subexpr.end+1,")");
+                    if (scheme[subexpr.end==scheme.npos]==')')
+                        throw(std::invalid_argument("Invalid Filename Scheme: STRCMP must have two arguments."));
+
+                    // if expression TF is false, compare the strings
+                    if (!rval.tf)
+                    {
+                        if (word.size()==6) // $STRCMP(S1,S2)
+                        {
+                            rval.tf = subexpr.str.compare(subexpr2.str)==0;
+                        }
+                        else // $STRCMPI(S1,S2)
+                        {
+                            icu::UnicodeString ustr = icu::UnicodeString::fromUTF8(subexpr.str);
+                            rval.tf = ustr.caseCompare(icu::UnicodeString::fromUTF8(subexpr2.str),
+                                                       U_FOLD_CASE_DEFAULT);
+                        }
+                    }
 
                     // adjust pos0 to the beginining of the next clause
                     pos0 = subexpr.end + 1;
                 }
-
-            }
-            else if (word.compare("STRCMP")==0 ||   // $STRCMP(S1,S2)
-                     word.compare("STRCMPI")==0)    // $STRCMPI(S1,S2)
-            {
-                ParserOutput subexpr2;
-
-                if (scheme[pos0]==')')
-                    throw(std::invalid_argument("Invalid Filename Scheme: STRCMP must have two arguments."));
-
-                // parse the conditional section
-                subexpr = parser(cuesheet,pos0,",");
-                if (pos==scheme.npos)
-                    throw(std::invalid_argument("Invalid Filename Scheme: STRCMP must have two arguments."));
-
-                // adjust pos0 to the beginining of the next clause
-                pos0 = subexpr.end + 1;
-
-                subexpr2 = parser(cuesheet,pos0,")");
-
-                if (scheme[pos0]==')')
-                    throw(std::invalid_argument("Invalid Filename Scheme: STRCMP must have two arguments."));
-
-                if (word.size()==6) // $STRCMP(S1,S2)
+                else if (word.compare("CAPS")==0) // $CAPS(X)
                 {
-                    rval.tf = subexpr.str.compare(subexpr2.str)==0;
-                }
-                else // $STRCMPI(S1,S2)
-                {
-                    icu::UnicodeString ustr = icu::UnicodeString::fromUTF8(subexpr.str);
-                    rval.tf = ustr.caseCompare(icu::UnicodeString::fromUTF8(subexpr2.str),
-                                               U_FOLD_CASE_DEFAULT);
-                }
-            }
-            else if (word.compare("CAPS")==0) // $CAPS(X)
-            {
-                if (scheme[pos0]==')')
-                    throw(std::invalid_argument("Invalid Filename Scheme: CAPS must have two arguments."));
+                    if (scheme[++pos]==')')
+                        throw(std::invalid_argument("Invalid Filename Scheme: CAPS must have two arguments."));
 
-                // parse the conditional section
-                subexpr = parser(cuesheet,pos0,")");
-                if (pos==scheme.npos)
-                    throw(std::invalid_argument("Invalid Filename Scheme: CAPS must have two arguments."));
+                    // parse the conditional section
+                    subexpr = parser(cuesheet,pos,")");
+                    if (subexpr.end==scheme.npos)
+                        throw(std::invalid_argument("Invalid Filename Scheme: CAPS must have two arguments."));
 
+
+
+                    // adjust pos0 to the beginining of the next clause
+                    pos0 = subexpr.end + 1;
+                }
             }
         }
-    }
+    } // end of for()
 
-    if (termch.empty()) // main call
+    if (pos==scheme.npos) // main expression
     {
         // add the remainder of the characters in the scheme
         rval.str += scheme.substr(pos0);
-
-        // add the extension
-        rval.str += to_ext(fmt);
-
-        rval.end = scheme.npos;
+        rval.end = pos;
     }
-    else // sub call
+    else // sub-expression (pos is pointing at its terminating character)
     {
-        rval.end = pos0;
+        // add the remainder of the characters in the scheme
+        rval.str += scheme.substr(pos0, pos-pos0);
+        rval.end = pos+1;
     }
 
     return rval;
@@ -535,4 +586,27 @@ void CFileNameGenerator::CheckBrackets_(const std::string::const_iterator begin,
         if ((*i)[1].matched) ++skip;
         else --skip;
     }
+}
+
+
+/**
+ * @brief Test the current configuration with a test cuesheet
+ * @return generated file name string
+ * @throw runtime_error/invalid_argument if scheme is invalid
+ */
+std::string CFileNameGenerator::Test() const
+{
+    SCueSheet cue;
+
+    cue.Title = "Moonbeams";
+    cue.Performer.emplace_back("The Bill Evans Trio","",SCueArtistType::GROUP);
+    cue.Rems.reserve(6);
+    cue.Rems.emplace_back("GENRE Jazz");
+    cue.Rems.emplace_back("DATE 1990");
+    cue.Rems.emplace_back("COUNTRY US");
+    cue.Rems.emplace_back("UPC 025218643429");
+    cue.Rems.emplace_back("LABEL Riverside");
+    cue.Rems.emplace_back("CATNO OJCCD-434-2");
+
+    return (*this)(cue);
 }

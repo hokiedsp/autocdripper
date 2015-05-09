@@ -48,22 +48,31 @@
  *    - In order to insert a quotation mark character, use '' (two single quotation marks).
  *
  * Scheme Functions
- *    -
- *
+ *    - $IF(COND,THEN)
+ *    - $IF(COND,THEN,ELSE)
+ *    - $IF2(A,ELSE)
+ *    - $IF3(A1,A2,...,ELSE)
+ *    - $AND(A,B)
+ *    - $OR(A,B)
+ *    - $NOT(A)
+ *    - $XOR(A,B)
+ *    - $STRCMP(S1,S2)
+ *    - $STRCMPI(S1,S2)
  */
 
 class CFileNameGenerator
 {
 public:
-    std::string scheme; /// path template
-    OutputFileFormat fmt;    /// file extension
+    std::string basepath; /// base path
+    std::string scheme;   /// file path template relative to basepath
+    OutputFileFormat fmt; /// file format to specify the file extension
 
     /**
      * @brief Constructor
      * @param[in] file naming scheme string
      * @param[in] file format
      */
-    CFileNameGenerator(const std::string &scheme, const OutputFileFormat &fmt);
+    CFileNameGenerator(const std::string &base, const std::string &scheme, const OutputFileFormat fmt);
 
     /**
      * @brief generate a file name from a cuesheet object
@@ -71,6 +80,13 @@ public:
      * @return generated file name string
      */
     std::string operator()(const SCueSheet &cuesheet) const;
+
+    /**
+     * @brief Test the current configuration with a test cuesheet
+     * @return generated file name string
+     * @throw runtime_error/invalid_argument if scheme is invalid
+     */
+    std::string Test() const;
 
 private:
     typedef struct SParserOutput
@@ -89,8 +105,8 @@ private:
      * @param[in] a list of terminating characters
      * @return generated file name string
      */
-    ParserOutput parser(const SCueSheet &cuesheet, size_t pos0=0,
-                        const std::string &termch="") const;
+    ParserOutput parser(const SCueSheet &cuesheet, size_t pos0,
+                        const std::string &termch) const;
 
     /**
      * @brief Find REM field value

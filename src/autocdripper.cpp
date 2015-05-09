@@ -26,6 +26,10 @@ int main(int argc, const char *argv[])
 {
     try
     {
+        CFileNameGenerator fng("","%artist%-%title%",OutputFileFormat::WAVPACK);
+        cout << fng.Test() << endl;
+        return 0;
+
         CDbFreeDb freedb;
         CDbMusicBrainz mbdb;
         CDbDiscogs discogs;
@@ -73,7 +77,6 @@ int main(int argc, const char *argv[])
             SCueSheet cs = csbuilder.GetCueSheet();
             cout << cs << endl;
 
-            CFileNameGenerator fng("%artist%-%title%",OutputFileFormat::WAVPACK);
             std::string filename = fng(cs);
             cout << "filename: " << filename << endl;
 
