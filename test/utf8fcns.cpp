@@ -5,20 +5,24 @@
 #include <unicode/unistr.h>
 #include <unicode/regex.h>
 
+#include <sstream>
+
+#include <iostream>
+
 // "private" utf8fcns namespace static variables
 namespace utf8fcns
 {
 
 static const std::string word_pattern("\\w+");
-static const boost::u32regex wordinit_exp = boost::make_u32regex(word_pattern);
+static const boost::u32regex word_exp = boost::make_u32regex(word_pattern);
 
 static const std::string wordinit_pattern("(\\w)(\\w*)");
 static const boost::u32regex wordinit_exp = boost::make_u32regex(wordinit_pattern);
 
 static const std::string space_pattern("\\s");
-static const boost::u32regex word_exp = boost::make_u32regex(space_pattern);
+static const boost::u32regex space_exp = boost::make_u32regex(space_pattern);
 
-static const std::string perl_pattern("[\.\[\{\}\(\)\\\*\+\?\|\^\$]");
+static const std::string perl_pattern("[\\.\\[\\{\\}\\(\\)\\\\\\*\\+\\?\\|\\^\\$]");
 static const boost::u32regex perl_exp = boost::make_u32regex(perl_pattern);
 
 std::string form_prefix_pattern(const std::vector<std::string> &prefixes)
@@ -29,13 +33,13 @@ std::string form_prefix_pattern(const std::vector<std::string> &prefixes)
     std::vector<std::string>::const_iterator it=prefixes.begin();
 
     prefix = *it;
-    boost::u32regex_replace(prefix.begin(),prefix.end(),utf8fcns::perl_exp,"\\$1");
+    boost::u32regex_replace(prefix,utf8fcns::perl_exp,"\\$1");
     prefix_pattern += prefix;
 
     for (++it; it!=prefixes.end(); ++it)
     {
         prefix = *it;
-        boost::u32regex_replace(prefix.begin(),prefix.end(),utf8fcns::perl_exp,"\\$1");
+        boost::u32regex_replace(prefix,utf8fcns::perl_exp,"\\$1");
         prefix_pattern += '|' + prefix;
     }
     prefix_pattern += ")\\s+";
@@ -50,16 +54,23 @@ std::string form_prefix_pattern(const std::vector<std::string> &prefixes)
  * @param (Optional) Only abbreviate if x is longer than len (default=0: abbreviate all)
  * @return abbreviated string
  */
-std::string utf8fcns::abbr(std::string x, const size_t len)
+std::string utf8fcns::abbr(const std::string &x, const size_t len)
 {
-    if (len > 0 && len < utf8fcns::len(x))
+    std::string rval;
+
+    if (len == 0 || utf8fcns::len(x) > len)
     {
         // keep only the first letter of words
-        boost::u32regex_replace(x.begin(),x.end(),utf8fcns::wordinit_exp,"$1");
+        rval = boost::u32regex_replace(x,utf8fcns::wordinit_exp,"$1");
         // eliminate all spaces
-        boost::u32regex_replace(x.begin(),x.end(),utf8fcns::space_pattern,"");
+        rval = boost::u32regex_replace(rval,utf8fcns::space_exp,"");
     }
-    return x;
+    else
+    {
+        rval = x;
+    }
+
+    return rval;
 }
 
 /**
@@ -67,24 +78,13 @@ std::string utf8fcns::abbr(std::string x, const size_t len)
  * @param input string
  * @return capitalized string
  */
-std::string utf8fcns::cap(std::string x)
+std::string utf8fcns::cap(const std::string &x)
 {
-    boost::match_results<std::string::const_iterator> what;
+    // lowercase all characters
+    std::string alllow = boost::u32regex_replace(x,utf8fcns::word_exp,"\\L$&\\E");
 
-    // Run a single search to look for the first word. If success, format the first
-    // letter of the word to be capitalized.
-    if (u32regex_search(x.begin(), x.end(), what, utf8fcns::wordinit_exp))
-    {
-        // format first word of x: first letter, upper-case, rest lower-case
-        what.format("\u$1\L$2\E");
-
-        // search again just in case (to account for multi-byte letters)
-        if (u32regex_search(x.begin(), x.end(), what, utf8fcns::word_exp))
-            // force lower-case letters on all subsequent words
-            boost::u32regex_replace(what[0].last,x.end(),utf8fcns::word_exp,"\L$&\E");
-    }
-
-    return x;
+    // capitalize first character
+    return boost::u32regex_replace(alllow,utf8fcns::wordinit_exp,"\\u$1\\L$2\\E",boost::format_first_only);
 }
 
 /**
@@ -94,14 +94,11 @@ std::string utf8fcns::cap(std::string x)
  */
 std::string utf8fcns::cap2(const std::string &x)
 {
-    boost::match_results<std::string::const_iterator> what;
+    std::string rval;
+    boost::match_results<std::string::iterator> what;
 
-    // Run a single search to look for the first word. If success, format the first
-    // letter of the word to be capitalized.
-    if (u32regex_search(x.begin(), x.end(), what, utf8fcns::wordinit_exp))
-        what.format("\u$1$2");
-
-    return x;
+    // capitalize first character
+    return boost::u32regex_replace(x,utf8fcns::wordinit_exp,"\\u$1$2",boost::format_first_only);
 }
 
 /**
@@ -109,10 +106,9 @@ std::string utf8fcns::cap2(const std::string &x)
  * @param input string
  * @return capitalized string
  */
-std::string utf8fcns::caps(std::string x)
+std::string utf8fcns::caps(const std::string &x)
 {
-    u32regex_replace(x.begin(), x.end(), utf8fcns::wordinit_exp, "\u$1\L$2\E");
-    return x;
+    return u32regex_replace(x, utf8fcns::wordinit_exp, "\\u$1\\L$2\\E");
 }
 
 /**
@@ -120,10 +116,9 @@ std::string utf8fcns::caps(std::string x)
  * @param input string
  * @return capitalized string
  */
-std::string utf8fcns::caps2(std::string x)
+std::string utf8fcns::caps2(const std::string &x)
 {
-    u32regex_replace(x.begin(), x.end(), utf8fcns::word_exp, "\u$&");
-    return x;
+    return u32regex_replace(x, utf8fcns::word_exp, "\\u$&");
 }
 
 /**
@@ -134,22 +129,15 @@ std::string utf8fcns::caps2(std::string x)
  */
 std::string utf8fcns::cut(const std::string &a, const size_t len)
 {
-    std::string rval;
-    if (len<0)
-    {
-        rval = a;
-    }
-    else if (len>0)
-    {
-        // perform the function in UnicodeString
-        icu::UnicodeString ustr = icu::UnicodeString::fromUTF8(a);
-        ustr.truncate(len);
+    std::string pattern = "^.{1," + std::to_string(len) + "}";
+    boost::u32regex exp = boost::make_u32regex(pattern);
+    boost::match_results<std::string::const_iterator> what;
 
-        // convert the result back in UTF-8
-        ustr.toUTF8String(rval);
-    }
-
-    return rval;
+    // format first word of x: first letter, upper-case, rest lower-case
+    if (u32regex_search(a.begin(), a.end(), what, exp))
+        return std::string(what[0].first,what[0].second);
+    else
+        return a;
 }
 
 /**
@@ -160,21 +148,15 @@ std::string utf8fcns::cut(const std::string &a, const size_t len)
  */
 std::string utf8fcns::cutwords(const std::string &a, const size_t len)
 {
-    std::string rval;
-    std::string pattern = "^.{1," + std::to_string(len) + "}\W";
+    std::string pattern = "^(.{1," + std::to_string(len) + "})\\W";
     boost::u32regex exp = boost::make_u32regex(pattern);
-    boost::match_results<std::string::iterator> what;
+    boost::match_results<std::string::const_iterator> what;
 
     // format first word of x: first letter, upper-case, rest lower-case
     if (u32regex_search(a.begin(), a.end(), what, exp))
-    {
-        rval = a.substr(what[0].first,what[0].second);
-    }
-    else // space-free
-    {
-
-    }
-
+        return std::string(what[0].first,what[1].second);
+    else // first word is longer than len, cut the word
+        return utf8fcns::cut(a,len);
 }
 
 /**

@@ -15,35 +15,35 @@ namespace utf8fcns
  * @param (Optional) Only abbreviate if x is longer than len (default=0: abbreviate all)
  * @return abbreviated string
  */
-std::string abbr(std::string x, const size_t len=0);
+std::string abbr(const std::string &x, const size_t len=0);
 
 /**
  * @brief Converts first letter of first word to a capital letter and all other letters to lower case
  * @param input string
  * @return capitalized string
  */
-std::string cap(std::string x);
+std::string cap(const std::string &x);
 
 /**
  * @brief Converts first letter of first word to a capital letter. All other letters are kept the same
  * @param Input string
  * @return Capitalized string
  */
-std::string cap2(std::string x);
+std::string cap2(const std::string &x);
 
 /**
  * @brief Converts first letter of every word to a capital letter and all other letters to lower case
  * @param input string
  * @return capitalized string
  */
-std::string caps(std::string x);
+std::string caps(const std::string &x);
 
 /**
  * @brief Converts first letter of every word to a capital letter. All other letters are kept the same
  * @param input string
  * @return capitalized string
  */
-std::string caps2(std::string x);
+std::string caps2(const std::string &x);
 
 /**
  * @brief Returns first len characters from the left of the string a.
